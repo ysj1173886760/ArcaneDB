@@ -70,3 +70,36 @@ ArcaneDB可以作为分布式图数据库的存储层，计算层可以构建在
 ![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221120163930.png)
 
 ServingEngine可以用流式计算引擎，消费binlog并产出物化视图。上层的计算节点可以利用ServingEngine的高性能的多跳查询能力完成自己的计算。
+
+## 关键设计
+
+### GlobalIndex
+
+图数据库中，对于边点的访问有一个关键的问题，就是如何定位到具体的边集和点集，对应到ArcaneDB中，就是如何根据请求定位一个EdgeStorage或者VertexStorage。
+
+一个常见的思路就是维护一个全局的索引，比如从用户的顶点ID到系统内部顶点ID的映射。这样我们可以从请求中获取系统内的ID，进而在PageStore中定位到具体的数据页。
+
+这种设计思路的好处就是系统内的ID是内部生成的，可以做成int64格式，这样可以利用很多高性能的内存索引，比如PageStore中维护PageID到Page Address的映射，就可以用ART来实现高效的查询。
+
+而缺点就是出现了一个全局的索引。需要有合理的分区方案，否则可能会影响scale out的能力。并且维护这个索引的开销也是不可忽视的，比如索引的落盘。
+
+在面向scale out的设计思路中，我们可以根据顶点ID划分tablet，每个Tablet的LogStore和PageStore是独立开的。
+
+另一个思路就是PageID为string类型。我们将点边的ID直接编码进PageID中，这样可以直接根据请求获得对应的PageID，并定位到具体的EdgeStorage/VertexStorage。
+
+优点就是避免一次索引，并且实现简单。而缺点则是string类型的PageID占用空间偏多，并且无法使用一些比较厉害的优化。(ART, varint等)
+
+### 数据组织形式
+
+为了支持高性能的写操作，以及RangeScan的能力，使用BTree来组织数据。
+
+在BTree上，通过COW来做并发控制。和常见的Latch Coupling不同，COW可以做到写者不阻塞读者，进而提供更强的读性能。
+
+COW的缺点是每次写入都会复制一份数据，热点写入的情况下会导致拷贝的开销无法忽视，这里的处理方法就是通过GroupCommit的方法来聚合一批的写入请求，进而均摊拷贝的开销。
+
+### 事务
+
+### 存储底座
+
+### PageStore
+
