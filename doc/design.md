@@ -71,35 +71,83 @@ ArcaneDB可以作为分布式图数据库的存储层，计算层可以构建在
 
 ServingEngine可以用流式计算引擎，消费binlog并产出物化视图。上层的计算节点可以利用ServingEngine的高性能的多跳查询能力完成自己的计算。
 
+## 数据模型
+
+有向属性图
+
+点通过ID + type标识。
+
+边通过起点，终点，边类型来定位，即(起点id，起点type，终点id，终点type，边type)
+
+ID为int64，type为int32
+
+相同type的点具有相同的schema
+
 ## 关键设计
 
-### GlobalIndex
+### Seek & Scan
 
-图数据库中，对于边点的访问有一个关键的问题，就是如何定位到具体的边集和点集，对应到ArcaneDB中，就是如何根据请求定位一个EdgeStorage或者VertexStorage。
+图数据的保存一般使用邻接表的方式。图访问对邻接表的操作分为两步，首先要定位到邻接表头。第二步是遍历邻接表，得到具体的点边。
 
-一个常见的思路就是维护一个全局的索引，比如从用户的顶点ID到系统内部顶点ID的映射。这样我们可以从请求中获取系统内的ID，进而在PageStore中定位到具体的数据页。
+我们称第一步为Seek，第二步为Scan。
 
-这种设计思路的好处就是系统内的ID是内部生成的，可以做成int64格式，这样可以利用很多高性能的内存索引，比如PageStore中维护PageID到Page Address的映射，就可以用ART来实现高效的查询。
+![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221121144711.png)
 
-而缺点就是出现了一个全局的索引。需要有合理的分区方案，否则可能会影响scale out的能力。并且维护这个索引的开销也是不可忽视的，比如索引的落盘。
+Seek邻接表的做法分为两大类：
 
-在面向scale out的设计思路中，我们可以根据顶点ID划分tablet，每个Tablet的LogStore和PageStore是独立开的。
+* 内部分配点边ID，然后返回给用户，通过数组可以直接索引到邻接表头
+* 不做编码，通过索引（ART，LSMT）等结构定位到邻接表头。
 
-另一个思路就是PageID为string类型。我们将点边的ID直接编码进PageID中，这样可以直接根据请求获得对应的PageID，并定位到具体的EdgeStorage/VertexStorage。
+第一种方式需要用户层，或者我们自己额外维护索引，通过属性定位到点边ID。相较于第二种方式并没有节省一次索引，并且还不灵活。所以决定选择第二种方案。
 
-优点就是避免一次索引，并且实现简单。而缺点则是string类型的PageID占用空间偏多，并且无法使用一些比较厉害的优化。(ART, varint等)
+Scan邻接表的数据结构有：链表，LSMT，BTree，数组等。这几种结构Scan的性能逐渐递增，带来的缺点就是写放大会越来越大。
 
-### 数据组织形式
+选择折中的BTree来提高Scan性能，并期望通过落盘BwTree的形式来优化写放大。
 
-为了支持高性能的写操作，以及RangeScan的能力，使用BTree来组织数据。
+现在考虑一个用户请求的全链路，以插入一条边举例子：
 
-在BTree上，通过COW来做并发控制。和常见的Latch Coupling不同，COW可以做到写者不阻塞读者，进而提供更强的读性能。
+1. 通过请求的起点ID定位到具体的边集。由于我们是disk-orient的系统，所以这里需要走一个PointID -> PageID的映射
+2. 根据PageID定位到磁盘中的数据。即PageID -> DiskOffset
 
-COW的缺点是每次写入都会复制一份数据，热点写入的情况下会导致拷贝的开销无法忽视，这里的处理方法就是通过GroupCommit的方法来聚合一批的写入请求，进而均摊拷贝的开销。
+一般在云上的环境中，我们基于BlobStore存储的话，需要维护的是PageID到(BlobID, Offset)的映射。
+
+传统的单机数据库中，PageID一般和DiskOffset相关，比如DiskOffset = PageID * PageSize。而定位PageID只需要查找一下对应Table的元数据即可。元数据可以全缓存所以没什么问题。
+
+但是在图数据库中，点非常多，所以PointID -> PageID的映射会变得非常大。同样的，由于每个Point至少对应两个Page，一个存储边，一个存储点，所以在PageID -> DiskOffset的映射中也会变得偏大。
+
+这里的解决思路有两个:
+
+#### 方案1
+
+我们可以通过特殊的编码，将PageID编码成PointID + xxx的形式，这样免除了PageID的分配，以及从PointID到PageID的索引。代价就是PageID为String类型。(hash)
+
+后面称PhysicalAddr为DiskOffset，或者(BlobID, Offset)对应云上环境。
+
+维护PageID -> PhysicalAddr是不可避免的，这个索引有以下的特点：
+
+1. 根据访问的特性，PageID都是点查，没有Scan的需求
+2. 不具有局部性，因为上层缓存不命中的时候才会访问这一层
+3. value较小
+4. 索引规模较大，全内存不可接受
+
+PageID是String类型，并且需要面向磁盘设计，所以选择的点主要就是成熟的LSMT以及BTree。其中value较小比较适合LSMT，因为整体的SST数量以及大小都会偏小，LSMT的写放大会得到缓解。
+
+综上所述，使用落盘的LSMT最适合这种workload。
+
+#### 方案2
+
+如果针对全内存设计的话，定位到一个点需要point id + type，定位到一个起点的所有出边需要point id + point type + edge type。都是定长int类型，可以通过ART来加速查找。不过具体的开销还需要计算。
+
+这样PointID -> PageID, PageID -> PhysicalAddr这两个索引都可以做成全内存的ART。读取性能会非常高。
+
+但是这两个索引都是需要落盘的。目前没有落盘ART的实现，需要转化成kv对落盘，其中的序列化开销不可忽视。
+
+这里有一个可以探索的点是为这种高性能的基于内存设计的索引支持落盘的能力。
+
+如果不是针对全内存设计的话，第一个索引的访问模式和用户请求相关联，需要通过buffer pool做缓存。但是就会在主链路上引入一定的开销。
 
 ### 事务
 
 ### 存储底座
 
 ### PageStore
-
