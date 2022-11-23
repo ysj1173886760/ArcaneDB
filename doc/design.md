@@ -96,7 +96,7 @@ ID为int64，type为int32
 Seek邻接表的做法分为两大类：
 
 * 内部分配点边ID，然后返回给用户，通过数组可以直接索引到邻接表头
-* 不做编码，通过索引（ART，LSMT）等结构定位到邻接表头。
+* 不做编码，通过索引定位到邻接表头。
 
 第一种方式需要用户层，或者我们自己额外维护索引，通过属性定位到点边ID。相较于第二种方式并没有节省一次索引，并且还不灵活。所以决定选择第二种方案。
 
@@ -109,8 +109,6 @@ Scan邻接表的数据结构有：链表，LSMT，BTree，数组等。这几种�
 1. 通过请求的起点ID定位到具体的边集。由于我们是disk-orient的系统，所以这里需要走一个PointID -> PageID的映射
 2. 根据PageID定位到磁盘中的数据。即PageID -> DiskOffset
 
-一般在云上的环境中，我们基于BlobStore存储的话，需要维护的是PageID到(BlobID, Offset)的映射。
-
 传统的单机数据库中，PageID一般和DiskOffset相关，比如DiskOffset = PageID * PageSize。而定位PageID只需要查找一下对应Table的元数据即可。元数据可以全缓存所以没什么问题。
 
 但是在图数据库中，点非常多，所以PointID -> PageID的映射会变得非常大。同样的，由于每个Point至少对应两个Page，一个存储边，一个存储点，所以在PageID -> DiskOffset的映射中也会变得偏大。
@@ -119,9 +117,9 @@ Scan邻接表的数据结构有：链表，LSMT，BTree，数组等。这几种�
 
 #### 方案1
 
-我们可以通过特殊的编码，将PageID编码成PointID + xxx的形式，这样免除了PageID的分配，以及从PointID到PageID的索引。代价就是PageID为String类型。(hash)
+我们可以通过特殊的编码，将PageID编码成PointID + xxx的形式，这样免除了PageID的分配，以及从PointID到PageID的索引。代价就是PageID为String类型。
 
-后面称PhysicalAddr为DiskOffset，或者(BlobID, Offset)对应云上环境。
+后面统称可以定位具体数据位置的信息为PhysicalAddr。
 
 维护PageID -> PhysicalAddr是不可避免的，这个索引有以下的特点：
 
@@ -134,6 +132,10 @@ PageID是String类型，并且需要面向磁盘设计，所以选择的点主�
 
 综上所述，使用落盘的LSMT最适合这种workload。
 
+我们可以通过将PageID哈希成一个int64来缓解PageID的空间开销问题。但是需要处理哈希冲突的情况。一个可选的解决方案就是在Page内部记录原始的Key，然后读取的时候去检查一下原始的Key。如果不匹配就需要重新哈希。这个方法要求我们不能删除原始的Page，相当于将索引Inline到了Page中。不过这个索引比普通的哈希索引冲突会少很多，因为他的范围是int64，而非bucket num。
+
+这样int类型的PageID就可以缓解空间开销问题，下层的PageID -> PhysicalAddr的索引也可以做的更加高效。
+
 #### 方案2
 
 如果针对全内存设计的话，定位到一个点需要point id + type，定位到一个起点的所有出边需要point id + point type + edge type。都是定长int类型，可以通过ART来加速查找。不过具体的开销还需要计算。
@@ -145,6 +147,26 @@ PageID是String类型，并且需要面向磁盘设计，所以选择的点主�
 这里有一个可以探索的点是为这种高性能的基于内存设计的索引支持落盘的能力。
 
 如果不是针对全内存设计的话，第一个索引的访问模式和用户请求相关联，需要通过buffer pool做缓存。但是就会在主链路上引入一定的开销。
+
+### BTree
+
+数据组织的形式使用BTree，在现代SSD的加持下，BTree可以提供高性能的读，以及Scan的能力。
+
+传统的BTree的并发控制手段一般是使用latch coupling，即子节点先上锁，然后父节点放锁。对于同一个Page的访问，读写是互斥的。这就导致高并发的情况下，写操作会影响读操作的性能。
+
+在大多数的场景下，读的数量都是远大于写的，并且图存储引擎希望提供高性能的读（Scan），所以我们希望针对读操作来优化。
+
+写不阻塞读是一个比较常见的话题了，在事务的并发控制手段中，多版本并发控制（MVCC）通过写请求创建新版本的方式来避免读请求被阻塞。一般这里多版本的粒度就是行级。
+
+我们可以使用相似的思路，在写一个BTree Page的时候，创建一个新的副本出来，在上面执行写操作，而读操作则可以直接读取现有的副本。通过CopyOnWrite的方式来避免读请求被阻塞。这样，在一个BTree上的读操作都是永不阻塞的。
+
+对于BTree的SMO操作，我们认为一般是小概率事件，所以会将其和BTree的写操作阻塞，从而简化实现的复杂度。
+
+所以在正常的写操作下，他只会修改BTree中的一个Page。而在SMO的情况下，可能修改若干个Page。
+
+为了防止读性能受到影响，我们允许SMO和读操作的并发，这里的要求是每次SMO会生成新的PageID，老的Page在失去引用后会被删掉。并且要保证子节点先完成SMO，再去完成父节点的SMO。
+
+SMO作为一个系统级别的事务，为了性能以及简化实现，不为SMO操作记录undo日志，即SMO是redo only的。可以类比innodb的mini transaction。
 
 ### 事务
 
