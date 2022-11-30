@@ -168,8 +168,35 @@ PageID是String类型，并且需要面向磁盘设计，所以选择的点主�
 
 SMO作为一个系统级别的事务，为了性能以及简化实现，不为SMO操作记录undo日志，即SMO是redo only的。可以类比innodb的mini transaction。
 
+这里希望通过类似BwTree的方式来优化写入能力，即借用BwTree的Delta的思想。将LSM嵌入Btree的节点中。
+
+这里的设计空间有两块，一个是内存中是否选择用Delta，一个是磁盘中是否选择Delta。
+
+对于磁盘来说，使用Delta的好处是用读放大换写放大。因为都是log structured，所以是随机读的iops放大换顺序写的带宽。在现代SSD上，随机读性能不差，但是顺序写可以优化SSD内部的GC。所以一般认为磁盘的Delta是一个比较好的选择，只要iops放大不是太严重就可以。
+
+对于内存来说，使用Delta的好处是写操作可以不用重新写原本的Page，缺点就是读需要Merge-on-read，需要遍历若干个delta来读取数据。一个特别的点在于这个delta的粒度是可以动态控制的，比如一个page是热点写入的情况，我们就可以允许delta多一些，而对于希望优化读性能的场景下，则可以让delta的数量变少，甚至是0个，这样读性能就是最优的。
+
+在任意一种情况下，读写都是相互不阻塞的。在bwtree原始的论文中，允许在同一个page上做无锁的并发写入，虽然lock-free本身性能很高，但是当写入失败的时候，就需要本次写入对应的WAL被abort掉。在高争用的情况下，abort log buffer的开销变得不可忽视，并且bwtree原始的论文中，每次写入只能prepend一个delta的限制使得读操作的间接跳转变得更加严重。所以这里不选择使用bwtree的乐观协议，而是不允许写写并发，并发的写操作会通过GroupCommit聚合起来，由单线程负责写入数据。这种聚合带来两个好处，一个是批量写入log buffer，降低对log buffer模块的压力，第二个是聚合delta使得一个delta中的数据更多，从而减少delta chain的长度。（photondb是通过partial consolidation来减少delta chain的长度）
+
+内存中的consolidation和磁盘中的consolidation的时机是解耦的，缺点是引入一定的空间放大，好处则是允许上述的delta单独处理自己的逻辑（比如consolidation）
+
 ### 事务
+
+支持SI
+
+这里有两种思路：
+
+1. 单机下用ReadView做SI，提供XA接口做分布式提交。好处是ReadView的并发度更高，但是分布式场景下需要中心化的节点来维护活跃事务的视图。
+2. 每个事务分配StartTs和CommitTs。其中Ts的分配最简单就是TSO，或者用ClockSI，并且用HLC来避免读等待的问题。好处是分布式事务性能会高一些，但是其中ClockSI只能提供generalized SI，不能提供最新的快照。但是单机情况下会有一些不必要的阻塞。
+
+为了拓展性考虑，打算用方案2。（其实也是因为之前有一版方案2的设计了，就直接复用了）
+
+这个也看定位了，假如说ArcaneDB的目标是图数据库中的SQLite的话，很多设计都是可以有一定修改的。
 
 ### 存储底座
 
-### PageStore
+上面触碰到磁盘的模块就是Log和Page了。Log是AppendOnly的自然不用说。Page的话上面也说到使用类似BwTree的技术，所以也是基于一个LSS（Log Structured Storage）做。
+
+综上存粗底座的唯一需求就是提供AppendOnly的接口。实现的时候只需要抽一个Env出来，然后就可以基于各种环境实现这个Env了，感觉常见的场景就是可以放到S3，Ext4，EBS上。
+
+Env的话就借鉴leveldb的Env就行。主要就是RandomReadFile和AppendOnlyFile。
