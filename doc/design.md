@@ -199,10 +199,15 @@ SMO作为一个系统级别的事务，为了性能以及简化实现，不为SM
 
 这里我们的DC就是上面的Btree层，采用Prepend Delta的形式进行更新。读写完全无锁。
 
-而TC的目的则是提供SI，并且尽可能贴合Btree层这种immutable的设计。解耦合以后，设计就变得简单了许多：
+而TC的目的则是提供SI，并且尽可能贴合Btree层这种immutable的设计。
 
-1. 单机场景下，使用ReadView来构建快照，通过锁表来避免写写冲突，这样可以实现单机SI的最高性能。整体和innodb完全相同
-2. 分布式场景下，为了避免Btree这层immutable写入带来的写放大，一个选择是我们使用host-level的事务状态表来维护版本的TS。读取数据的时候需要在事务状态表中查找这个TS。但是这个事务状态表的维护非常困难。所以只能选择一个折中的方案是在写intent的时候就写一个dummy record + prepare ts。读者遇到了以后如果发现prepare ts比read ts要大，则直接忽视这个intent，否则则需要等待。事务提交的时候再将这个数据重新写回去，dummy record则在做compaction的时候删除掉。
+为了不干扰后续的演进过程，这里有几个备选的TC实现
+
+1. 使用ReadView来构建快照，通过锁表来避免写写冲突，这样可以实现单机SI的最高性能。整体和innodb完全相同。一个问题是ReadView的维护需要一定的开销。
+2. 我们使用host-level的事务状态表来维护版本的TS。读取数据的时候需要在事务状态表中查找这个TS。
+3. 写intent的时候就写一个dummy record + prepare ts。读者遇到了以后如果发现prepare ts比read ts要大，则直接忽视这个intent，否则则需要等待。事务提交的时候再将这个数据重新写回去，dummy record则在做compaction的时候删除掉。
+
+这里还有个问题就是对于这种Immutable的DC来说，被abort掉的数据可能后续还会被其他人看到，这就隐含的要求我们需要一个事务状态表来维护被abort掉的事务的信息。这个玩意的GC是和DC模块的Compaction是耦合的。
 
 ### 存储底座
 
@@ -217,4 +222,8 @@ Env的话就借鉴leveldb的Env就行。主要就是RandomReadFile和AppendOnlyF
 打算用bthread。对称性的有栈协程。
 
 ### Recovery
+
+Recovery属于事务的一部分，则应该由TC负责指导恢复过程。
+
+redo都是要做的，对于undo来说，单机场景下用来undo那些未提交的事务的数据，分布式场景下则需要undo掉那些dummy record。
 
