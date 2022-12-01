@@ -248,3 +248,13 @@ ArcaneDB的定位是支持高性能TP的图数据库。
 4. 云端一体，下层基于AppendOnly的接口进行IO，可以拓展到云上环境，也可以作为嵌入式数据库放在本地文件系统中。
 5. 去中心化的元数据索引，减少在关键路径上的一次索引查找。
 6. 将多版本和BTree层耦合起来，优化写入能力。
+
+## 奇思妙想
+
+一些想到的point可以用来让这个系统更nb点。
+
+1. 图数据库元数据占比较多，希望采取小树聚合，大树分裂的模式。小树聚合以减少元数据开销，大树分裂可以分散到多台机器上，提供scale out的能力。
+2. delta的compaction可以按照workload来调整，不同的page可能读写比例不同。写入多的page可以允许更多的delta，读取多的page则可以增加compaction的频率，减少delta chain的遍历
+3. 上层在刷Page的时候可以将BasePage刷成列存格式，而delta page还是行存。这样读上来的时候内存中还是行存的btree。delta page代表近期的修改，base page则代表大块的，偏老的数据。将base page换成列存格式，然后提供额外的列存读取接口，可以给一些AP类场景使用。整体思路借鉴TiDB & F1 Lighting，这里利用了BwTree的Delta为新数据，Base为老数据的特点。不过这里有个难点是一致性快照不容易构建，因为每个Page转化列存的粒度不是固定的。
+   1. 或者做的更nb点区分history store，一个逻辑的Page分为3层，最新的数据在DeltaPage中，特点是数据量少，数据新。稍微老一些的数据则在BasePage中，特点是保存一份某个特定快照下的数据，没有多余版本，数据不是很新。还有HistoryPage，保存历史时刻的所有版本，用户可以进行point-in-time query，并自己决定GC时间来释放空间。列存Page可以从BasePage或者HistoryPage导出来，导出过程可以由前台刷Page的时候执行，也可以是后台LSS进行compaction的时候执行。转化到列存后，PageStore就可以提供对某一个Page的某一列进行读取的接口，用作AP。
+   2. 有一个点是Node级别的列存的聚合能力可能会稍弱一些。这个时候可以选择周期性的导出Btree级别的列存。需要做的是在PageStore这一层按照树的粒度划分开。然后聚合Btree级别的delta。或者是聚合单机级别的Delta，然后将其Merge回列存中。有点把BwTree打回到LSM的那个意思。
