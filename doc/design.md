@@ -193,6 +193,17 @@ SMO作为一个系统级别的事务，为了性能以及简化实现，不为SM
 
 这个也看定位了，假如说ArcaneDB的目标是图数据库中的SQLite的话，很多设计都是可以有一定修改的。
 
+由于上述的Btree中的数据是immutable的，而分布式事务中不可避免的会出现2PC，就导致intent会先被写进去，后续被提交的时候会再写一次进去，造成写放大。而为了维护global snapshot，我们还必须保证Intent是先被写进去的，这样读者在读到intent的时候才能等待饼检查intent的CommitTs，从而判断可见性。
+
+这里的解决思路参考了微软的Deuteronomy，核心思路是将DC（Data Component）和TC（Transaction Component）解耦。将BTree这一层和上层的TC分开，虽然可能造成一定的性能损失，但是事务层和数据存储层都可以随意替换，比如在全内存的场景下就可以替换一些针对全内存设计的高性能DC，以及针对内存数据库设计的TC。
+
+这里我们的DC就是上面的Btree层，采用Prepend Delta的形式进行更新。读写完全无锁。
+
+而TC的目的则是提供SI，并且尽可能贴合Btree层这种immutable的设计。解耦合以后，设计就变得简单了许多：
+
+1. 单机场景下，使用ReadView来构建快照，通过锁表来避免写写冲突，这样可以实现单机SI的最高性能。整体和innodb完全相同
+2. 分布式场景下，为了避免Btree这层immutable写入带来的写放大，一个选择是我们使用host-level的事务状态表来维护版本的TS。读取数据的时候需要在事务状态表中查找这个TS。但是这个事务状态表的维护非常困难。所以只能选择一个折中的方案是在写intent的时候就写一个dummy record + prepare ts。读者遇到了以后如果发现prepare ts比read ts要大，则直接忽视这个intent，否则则需要等待。事务提交的时候再将这个数据重新写回去，dummy record则在做compaction的时候删除掉。
+
 ### 存储底座
 
 上面触碰到磁盘的模块就是Log和Page了。Log是AppendOnly的自然不用说。Page的话上面也说到使用类似BwTree的技术，所以也是基于一个LSS（Log Structured Storage）做。
@@ -200,3 +211,10 @@ SMO作为一个系统级别的事务，为了性能以及简化实现，不为SM
 综上存粗底座的唯一需求就是提供AppendOnly的接口。实现的时候只需要抽一个Env出来，然后就可以基于各种环境实现这个Env了，感觉常见的场景就是可以放到S3，Ext4，EBS上。
 
 Env的话就借鉴leveldb的Env就行。主要就是RandomReadFile和AppendOnlyFile。
+
+### 线程模型
+
+打算用bthread。对称性的有栈协程。
+
+### Recovery
+
