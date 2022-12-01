@@ -209,6 +209,12 @@ SMO作为一个系统级别的事务，为了性能以及简化实现，不为SM
 
 这里还有个问题就是对于这种Immutable的DC来说，被abort掉的数据可能后续还会被其他人看到，这就隐含的要求我们需要一个事务状态表来维护被abort掉的事务的信息。这个玩意的GC是和DC模块的Compaction是耦合的。
 
+最后的解决思路是做成耦合的，这样允许我们直接修改Btree层的一些数据。通过atomic来保证不会影响读者。这样无论是ts还是abort都可以及时被写回到数据中，避免一个全局的事务状态表成为瓶颈。
+
+所以为了提供单机版的Snapshot，我们仍然需要先做Prepare，等日志落盘，再去做Commit。
+
+Undo是无法避免的，因为一定要写到Btree上读者才能看到intent，而且我们不能保证intent被提交，所以Recovery的时候需要把未提交的intent标记成aborted，后续等待compaction再删除。
+
 ### 存储底座
 
 上面触碰到磁盘的模块就是Log和Page了。Log是AppendOnly的自然不用说。Page的话上面也说到使用类似BwTree的技术，所以也是基于一个LSS（Log Structured Storage）做。
@@ -221,9 +227,6 @@ Env的话就借鉴leveldb的Env就行。主要就是RandomReadFile和AppendOnlyF
 
 打算用bthread。对称性的有栈协程。
 
-### Recovery
+其实不太愿意依赖外部组件，但是C++没有原生的这些支持。
 
-Recovery属于事务的一部分，则应该由TC负责指导恢复过程。
-
-redo都是要做的，对于undo来说，单机场景下用来undo那些未提交的事务的数据，分布式场景下则需要undo掉那些dummy record。
-
+打算先写一版poc，后续有精力转到rust用tokio
