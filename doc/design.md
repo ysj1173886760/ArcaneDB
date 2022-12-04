@@ -40,37 +40,6 @@ ArcaneDB可以作为分布式图数据库的存储层，计算层可以构建在
 * LogStore：日志相关模块，负责写入WAL
 * PageStore：负责存储BTreePage
 
-### 演进方向
-
-#### The Log Is The Database
-
-其实LogStore和PageStore也是用来为BTree服务的，之所以将他们单独拆开，是为了方便后续的演进。
-
-因为LogStore存储Page的WAL，PageStore存储的Page本身。我们可以将LogStore以及PageStore从BTree模块分离开，放到单独的存储节点中。存储节点负责在Page上重放WAL，并提供`ReadPage`和`WriteLog`的接口，整体思路参考Amazon Aurora
-
-存算分离后，ArcaneDB BTree层和PageStore层可以独立任意Scale out。
-
-并且PageStore层还可以架在共享存储之上，比如S3。因为PageStore重放Page，需要消耗的资源是CPU和内存，可以将磁盘层再独立出来。
-
-![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221120161338.png)
-
-* 计算层负责分布式算子的执行，以及图查询语言的解析，主要消耗的资源为CPU
-* BTree层负责组织内存中的BTree，主要消耗的资源为内存
-* PageStore层负责在Page上重放WAL，主要消耗的资源为CPU
-* 磁盘层负责存储具体的数据，主要消耗的资源为磁盘
-
-#### 物化视图
-
-既然Log is Database（Source of Truth），那么其他形式的数据都是Log的一种物化形式。
-
-因为Log可以看作是对数据库状态变更的记录，那么上层的数据组织形式（BTree，LSM）都是一种视图。我们可以确定这种物化的形式，并加速特定的查询。
-
-这里引出的一个思路就是LogStore可以产出一条binlog流以便其他组件订阅。比如我们希望提供高效的多跳查询，就可以额外构建一套计算引擎来订阅binlog流。ArcaneDB主要负责TP，而这一套新的计算引擎则可以物化binlog流来加速多跳查询，负责Serving
-
-![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221120163930.png)
-
-ServingEngine可以用流式计算引擎，消费binlog并产出物化视图。上层的计算节点可以利用ServingEngine的高性能的多跳查询能力完成自己的计算。
-
 ## 数据模型
 
 有向属性图
@@ -113,10 +82,6 @@ Scan邻接表的数据结构有：链表，LSMT，BTree，数组等。这几种�
 
 但是在图数据库中，点非常多，所以PointID -> PageID的映射会变得非常大。同样的，由于每个Point至少对应两个Page，一个存储边，一个存储点，所以在PageID -> DiskOffset的映射中也会变得偏大。
 
-这里的解决思路有两个:
-
-#### 方案1
-
 我们可以通过特殊的编码，将PageID编码成PointID + xxx的形式，这样免除了PageID的分配，以及从PointID到PageID的索引。代价就是PageID为String类型。
 
 后面统称可以定位具体数据位置的信息为PhysicalAddr。
@@ -128,25 +93,15 @@ Scan邻接表的数据结构有：链表，LSMT，BTree，数组等。这几种�
 3. value较小
 4. 索引规模较大，全内存不可接受
 
-PageID是String类型，并且需要面向磁盘设计，所以选择的点主要就是成熟的LSMT以及BTree。其中value较小比较适合LSMT，因为整体的SST数量以及大小都会偏小，LSMT的写放大会得到缓解。
-
-综上所述，使用落盘的LSMT最适合这种workload。
+我们称这个索引为PageIndex
 
 我们可以通过将PageID哈希成一个int64来缓解PageID的空间开销问题。但是需要处理哈希冲突的情况。一个可选的解决方案就是在Page内部记录原始的Key，然后读取的时候去检查一下原始的Key。如果不匹配就需要重新哈希。这个方法要求我们不能删除原始的Page，相当于将索引Inline到了Page中。不过这个索引比普通的哈希索引冲突会少很多，因为他的范围是int64，而非bucket num。
 
 这样int类型的PageID就可以缓解空间开销问题，下层的PageID -> PhysicalAddr的索引也可以做的更加高效。
 
-#### 方案2
+现在备选的方案有Persistent ART，微软的落盘哈希faster，LSMT
 
-如果针对全内存设计的话，定位到一个点需要point id + type，定位到一个起点的所有出边需要point id + point type + edge type。都是定长int类型，可以通过ART来加速查找。不过具体的开销还需要计算。
-
-这样PointID -> PageID, PageID -> PhysicalAddr这两个索引都可以做成全内存的ART。读取性能会非常高。
-
-但是这两个索引都是需要落盘的。目前没有落盘ART的实现，需要转化成kv对落盘，其中的序列化开销不可忽视。
-
-这里有一个可以探索的点是为这种高性能的基于内存设计的索引支持落盘的能力。
-
-如果不是针对全内存设计的话，第一个索引的访问模式和用户请求相关联，需要通过buffer pool做缓存。但是就会在主链路上引入一定的开销。
+我们可以根据环境配置来选择是否支持全缓存的PageIndex。这个时候全缓存就可以用一些内存的数据结构。比如内存中是哈希表，磁盘中是LSMT。
 
 ### BTree
 
@@ -182,6 +137,8 @@ SMO作为一个系统级别的事务，为了性能以及简化实现，不为SM
 
 ### 事务
 
+#### SI
+
 支持SI
 
 这里有两种思路：
@@ -214,6 +171,28 @@ SMO作为一个系统级别的事务，为了性能以及简化实现，不为SM
 所以为了提供单机版的Snapshot，我们仍然需要先做Prepare，等日志落盘，再去做Commit。
 
 Undo是无法避免的，因为一定要写到Btree上读者才能看到intent，而且我们不能保证intent被提交，所以Recovery的时候需要把未提交的intent标记成aborted，后续等待compaction再删除。
+
+#### Pitfalls
+
+SI的一个问题是他和BwTree的配合不是很好。原因是这样的，BwTree的优势在于写操作直接Prepend Delta，相当于blind write。好处是完全可以不用遍历（可能比较长）的delta链就可以完成写入。
+
+但是SI要求防止丢失更新，所以每次写入之前，要先定位到这个数据的老版本的位置，确保没有并发更新之后，才能写入，否则就需要abort事务。
+
+![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221204104005.png)
+
+属于先写者胜的策略。
+
+另一种思路是先提交者胜，即无脑写intent，然后在提交的时候尝试找到在ReadTs和CommitTs之间提交的事务，如果有就abort。
+
+无论哪种方案都要求写者去遍历一遍Delta Chain。这样BwTree高性能写入的优势就会被削弱。
+
+这里避免读的思路有两个，一个是不允许交互式事务，即事务请求发送过来的时候，就已经确定了读写的集合。（很多系统都有这个限制）。这样先在锁表中上写锁，再获取ReadTs，就可以保证没有丢失更新。
+
+还有一种思路就是，即然横竖都要读，而且一版读写事务中，读写集重合的地方也比较多，就直接保证Serializable。这样就没有存储过程的要求了。
+
+如果保证Serializable的话，一个选择是OCC，这样在Commit的时候还是会多读一次。
+
+或者是选择2PL，这样不会有任何读写放大，但是需要处理一下死锁。
 
 ### 存储底座
 
@@ -258,3 +237,34 @@ ArcaneDB的定位是支持高性能TP的图数据库。
 1. 图数据库元数据占比较多，希望采取小树聚合，大树分裂的模式。小树聚合以减少元数据开销，大树分裂可以分散到多台机器上，提供scale out的能力。
 2. delta的compaction可以按照workload来调整，不同的page可能读写比例不同。写入多的page可以允许更多的delta，读取多的page则可以增加compaction的频率，减少delta chain的遍历
 3. 上层在刷Page的时候可以将BasePage刷成列存格式，而delta page还是行存。这样读上来的时候内存中还是行存的btree。delta page代表近期的修改，base page则代表大块的，偏老的数据。将base page换成列存格式，然后提供额外的列存读取接口，可以给一些AP类场景使用。整体思路借鉴TiDB & F1 Lighting，这里利用了BwTree的Delta为新数据，Base为老数据的特点。不过这里有个难点是一致性快照不容易构建，因为每个Page转化列存的粒度不是固定的。
+
+### 演进方向
+
+#### The Log Is The Database
+
+其实LogStore和PageStore也是用来为BTree服务的，之所以将他们单独拆开，是为了方便后续的演进。
+
+因为LogStore存储Page的WAL，PageStore存储的Page本身。我们可以将LogStore以及PageStore从BTree模块分离开，放到单独的存储节点中。存储节点负责在Page上重放WAL，并提供`ReadPage`和`WriteLog`的接口，整体思路参考Amazon Aurora
+
+存算分离后，ArcaneDB BTree层和PageStore层可以独立任意Scale out。
+
+并且PageStore层还可以架在共享存储之上，比如S3。因为PageStore重放Page，需要消耗的资源是CPU和内存，可以将磁盘层再独立出来。
+
+![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221120161338.png)
+
+* 计算层负责分布式算子的执行，以及图查询语言的解析，主要消耗的资源为CPU
+* BTree层负责组织内存中的BTree，主要消耗的资源为内存
+* PageStore层负责在Page上重放WAL，主要消耗的资源为CPU
+* 磁盘层负责存储具体的数据，主要消耗的资源为磁盘
+
+#### 物化视图
+
+既然Log is Database（Source of Truth），那么其他形式的数据都是Log的一种物化形式。
+
+因为Log可以看作是对数据库状态变更的记录，那么上层的数据组织形式（BTree，LSM）都是一种视图。我们可以确定这种物化的形式，并加速特定的查询。
+
+这里引出的一个思路就是LogStore可以产出一条binlog流以便其他组件订阅。比如我们希望提供高效的多跳查询，就可以额外构建一套计算引擎来订阅binlog流。ArcaneDB主要负责TP，而这一套新的计算引擎则可以物化binlog流来加速多跳查询，负责Serving
+
+![](https://picsheep.oss-cn-beijing.aliyuncs.com/pic/20221120163930.png)
+
+ServingEngine可以用流式计算引擎，消费binlog并产出物化视图。上层的计算节点可以利用ServingEngine的高性能的多跳查询能力完成自己的计算。
