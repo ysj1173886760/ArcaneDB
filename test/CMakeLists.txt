@@ -26,7 +26,10 @@ foreach (arcanedb_test_source ${ARCANEDB_TEST_SOURCES})
 
     add_executable(${arcanedb_test_name} ${arcanedb_test_source})
 
-    target_link_libraries(${arcanedb_test_name} gtest_main ${CMAKE_PROJECT_NAME}_lib)
+    target_link_libraries(${arcanedb_test_name} 
+                                    gtest_main 
+                                    ${CMAKE_PROJECT_NAME}_lib
+                                    ${ARCANEDB_LIBS})
 
     # Set test target properties and dependencies.
     # Specify the output directory. So we can integrate it into ctest directly
