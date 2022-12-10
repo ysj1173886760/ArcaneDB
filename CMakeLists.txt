@@ -77,8 +77,8 @@ endif()
 
 # brpc end
 
-set(ARCANEDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/include)
-set(ARCANEDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test/include)
+set(ARCANEDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src)
+set(ARCANEDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test)
 
 include_directories(${ARCANEDB_SRC_INCLUDE_DIR}
                     ${ARCANEDB_TEST_INCLUDE_DIR})
@@ -86,3 +86,21 @@ include_directories(BEFORE src)
 
 add_subdirectory(src)
 add_subdirectory(test)
+
+# clang-format
+find_program(CLANG_FORMAT_BIN
+    NAMES clang-format clang-format-12)
+
+string(CONCAT ARCANEDB_FORMAT_DIRS
+    "${PROJECT_SOURCE_DIR}/src,"
+    "${PROJECT_SOURCE_DIR}/test,")
+
+# Port from bustub
+# Runs clang format and updates files in place.
+add_custom_target(format 
+    ${PROJECT_SOURCE_DIR}/dev-tools/run_clang_format.py
+    ${CLANG_FORMAT_BIN}
+    ${PROJECT_SOURCE_DIR}/dev-tools/clang_format_exclusions.txt
+    --source_dirs ${ARCANEDB_FORMAT_DIRS}
+    --fix
+    --quiet)
