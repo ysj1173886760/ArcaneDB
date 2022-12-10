@@ -23,7 +23,6 @@ namespace util {
 
 class BthreadFutureBase {
 public:
-
   void Wait() noexcept {
     std::unique_lock<bthread::Mutex> lock(mu_);
     while (state_ == State::Init) {
