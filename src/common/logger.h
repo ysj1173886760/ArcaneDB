@@ -17,7 +17,6 @@
 // TODO: support logging into file by using logger in leveldb.
 
 namespace arcanedb {
-namespace common {
 
 // https://blog.galowicz.de/2016/02/20/short_file_macro/
 using cstr = const char *;
@@ -183,5 +182,4 @@ inline void OutputLogHeader(const char *file, int line, const char *func,
             func, type);
 }
 
-} // namespace common
 } // namespace arcanedb

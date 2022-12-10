@@ -14,7 +14,6 @@
 #include "logger.h"
 
 namespace arcanedb {
-namespace common {
 
 #define DISALLOW_COPY(cname)                                                   \
   cname(const cname &) = delete;                                               \
@@ -36,14 +35,14 @@ namespace common {
 
 #define FATAL(fmt, ...)                                                        \
   do {                                                                         \
-    LOG_ERROR(fmt, __VA_ARGS__);                                            \
+    LOG_ERROR(fmt, __VA_ARGS__);                                               \
     std::abort();                                                              \
   } while (false)
 
 #define CHECK(condition)                                                       \
   do {                                                                         \
     if (!(condition)) {                                                        \
-      FATAL("check failed, condition: %s", #condition);                         \
+      FATAL("check failed, condition: %s", #condition);                        \
     }                                                                          \
   } while (false)
 
@@ -54,5 +53,4 @@ namespace common {
     }                                                                          \
   } while (false)
 
-} // namespace common
 } // namespace arcanedb
