@@ -15,10 +15,12 @@
 
 namespace arcanedb {
 
-void FatalFunc() { FATAL("here %d", 1); }
+void FatalFunc1() { FATAL("here %d", 1); }
+void FatalFunc2() { FATAL("here"); }
 TEST(FatalTest, TestFatal) {
   GTEST_SKIP_("skip death test due to unsafe");
-  ASSERT_DEATH(FatalFunc(), "");
+  ASSERT_DEATH(FatalFunc1(), "");
+  ASSERT_DEATH(FatalFunc2(), "");
 }
 
 void CheckFunc() { CHECK(1 == 2); }

@@ -11,21 +11,22 @@
 
 #pragma once
 
-#include "logger.h"
-
+#include "common/logger.h"
 namespace arcanedb {
 
-#define DISALLOW_COPY(cname)                                                   \
-  cname(const cname &) = delete;                                               \
-  cname &operator=(const cname &) = delete
+// brpc has these macros
+// so i commentted it out here.
+// #define DISALLOW_COPY(cname)                                                   \
+//   cname(const cname &) = delete;                                               \
+//   cname &operator=(const cname &) = delete
 
-#define DISALLOW_MOVE(cname)                                                   \
-  cname(cname &&) = delete;                                                    \
-  cname &operator=(cname &&) = delete
+// #define DISALLOW_MOVE(cname)                                                   \
+//   cname(cname &&) = delete;                                                    \
+//   cname &operator=(cname &&) = delete
 
-#define DISALLOW_COPY_AND_MOVE(cname)                                          \
-  DISALLOW_COPY(cname);                                                        \
-  DISALLOW_MOVE(cname)
+// #define DISALLOW_COPY_AND_MOVE(cname)                                          \
+//   DISALLOW_COPY(cname);                                                        \
+//   DISALLOW_MOVE(cname)
 
 #ifdef NDEBUG
 #define DCHECK_IS_ON() 0
@@ -35,7 +36,7 @@ namespace arcanedb {
 
 #define FATAL(fmt, ...)                                                        \
   do {                                                                         \
-    LOG_ERROR(fmt, __VA_ARGS__);                                               \
+    LOG_ERROR(fmt, ##__VA_ARGS__);                                               \
     std::abort();                                                              \
   } while (false)
 
