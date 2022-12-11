@@ -24,7 +24,7 @@ namespace page_store {
  * @brief
  * Interface according to LLAMA.
  */
-class PageStoreIf {
+class PageStore {
 public:
   enum class PageType { BasePage, DeltaPage };
 
@@ -32,6 +32,19 @@ public:
     PageType type;
     std::string binary;
   };
+
+  /**
+   * @brief Open a Page Store
+   *
+   * @param[in] name
+   * @param[in] options
+   * @param[out] page_store pointer to that page store
+   * @return Status
+   */
+  static Status Open(const std::string &name, const OpenOptions &options,
+                     std::shared_ptr<PageStore> *page_store) noexcept {
+    return Status::Ok();
+  }
 
   /**
    * @brief
