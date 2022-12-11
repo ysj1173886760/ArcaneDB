@@ -12,14 +12,73 @@
 #pragma once
 
 #include "common/status.h"
+#include "common/type.h"
 #include "page_store/options.h"
 #include <string>
+#include <string_view>
 
 namespace arcanedb {
 namespace page_store {
 
+/**
+ * @brief
+ * Interface according to LLAMA.
+ */
 class PageStoreIf {
 public:
+  enum class PageType { BasePage, DeltaPage };
+
+  struct RawPage {
+    PageType type;
+    std::string binary;
+  };
+
+  /**
+   * @brief
+   * Update base page.
+   * note that this will clear all delta pages.
+   * @param page_id
+   * @param options
+   * @param data
+   * @return Status
+   */
+  virtual Status UpdateReplacement(const PageIdType &page_id,
+                                   const WriteOptions &options,
+                                   const std::string_view &data) = 0;
+
+  /**
+   * @brief
+   * Prepend a delta.
+   * @param page_id
+   * @param options
+   * @param data
+   * @return Status
+   */
+  virtual Status UpdateDelta(const PageIdType &page_id,
+                             const WriteOptions &options,
+                             const std::string_view &data) = 0;
+
+  /**
+   * @brief
+   * Delete a page, including base and delta.
+   * @param page_id
+   * @param options
+   * @return Status
+   */
+  virtual Status DeletePage(const PageIdType &page_id,
+                            const WriteOptions &options) = 0;
+
+  /**
+   * @brief
+   * Read a page.
+   * pages will contains all physical pages corresponding to that page_id.
+   * @param page_id
+   * @param options
+   * @param[out] pages
+   * @return Status
+   */
+  virtual Status ReadPage(const PageIdType &page_id, const ReadOptions &options,
+                          std::vector<RawPage> *pages) = 0;
 };
 
 } // namespace page_store
