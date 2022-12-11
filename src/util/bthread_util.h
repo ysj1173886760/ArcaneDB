@@ -17,6 +17,8 @@
 #include "bthread/bthread.h"
 #include "bthread/condition_variable.h"
 #include "butil/object_pool.h"
+#include "common/logger.h"
+#include "util/thread_pool.h"
 
 namespace arcanedb {
 namespace util {
@@ -83,7 +85,7 @@ public:
   }
 };
 
-template <typename Func> class FunctionTask {
+template <typename Func> class FunctionTask : public TaskIf {
 public:
   using ReturnType = std::result_of_t<Func()>;
   FunctionTask() = default;
@@ -95,7 +97,7 @@ public:
     return task;
   }
 
-  void Run() noexcept {
+  void Run() noexcept override {
     CallFuncHelper_();
     // clear task state
     future_ = nullptr;
@@ -127,17 +129,33 @@ private:
   std::shared_ptr<BthreadFuture<ReturnType>> future_{nullptr};
 };
 
+/**
+ * @brief
+ *
+ * @tparam Func
+ * @tparam ReturnType
+ * @param func
+ * @param thread_pool if thread_pool == nullptr, then we will launch task in
+ * bthread. otherwise, launch task by using thread pool.
+ * @return std::shared_ptr<BthreadFuture<ReturnType>>
+ */
 template <typename Func, typename ReturnType = std::result_of_t<Func()>>
-std::shared_ptr<BthreadFuture<ReturnType>> LaunchAsync(Func &&func) noexcept {
+std::shared_ptr<BthreadFuture<ReturnType>>
+LaunchAsync(Func &&func,
+            std::shared_ptr<ThreadPool> thread_pool = nullptr) noexcept {
   static_assert(
       std::is_same_v<ReturnType, typename FunctionTask<Func>::ReturnType>);
   auto *task = FunctionTask<Func>::New(std::forward<decltype(func)>(func));
   auto future = task->GetFuture();
-  bthread_attr_t attr = BTHREAD_ATTR_NORMAL;
-  bthread_t id;
-  int ret = bthread_start_background(&id, &attr,
-                                     FunctionTask<Func>::BthreadWrapper, task);
-  assert(ret == 0);
+  if (thread_pool == nullptr) {
+    bthread_attr_t attr = BTHREAD_ATTR_NORMAL;
+    bthread_t id;
+    int ret = bthread_start_background(
+        &id, &attr, FunctionTask<Func>::BthreadWrapper, task);
+    assert(ret == 0);
+  } else {
+    thread_pool->AddTask(task);
+  }
   return future;
 }
 

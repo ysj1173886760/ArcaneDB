@@ -10,7 +10,6 @@
  */
 
 #include "util/concurrent_queue/blockingconcurrentqueue.h"
-#include "util/concurrent_queue/concurrentqueue.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {

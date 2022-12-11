@@ -1607,7 +1607,7 @@ private:
   // contention.
   template <typename N> // N must inherit FreeListNode or have the same fields
                         // (and initialization of them)
-                        struct FreeList {
+  struct FreeList {
     FreeList() : freeListHead(nullptr) {}
     FreeList(FreeList &&other)
         : freeListHead(other.freeListHead.load(std::memory_order_relaxed)) {

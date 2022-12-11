@@ -11,7 +11,10 @@
 #pragma once
 
 #include "util/bthread_util.h"
+#include "util/time.h"
 #include <gtest/gtest.h>
+#include <memory>
+#include <thread>
 
 namespace arcanedb {
 namespace util {
@@ -53,6 +56,22 @@ TEST(BthreadUtilTest, LaunchAsyncBasicTest) {
     auto future = LaunchAsync([]() { return "hello world"; });
     future->Wait();
   }
+}
+
+TEST(BthreadUtilTest, LaunchAsyncInThreadPoolTest) {
+  using namespace std::chrono_literals;
+  auto thread_pool = std::make_shared<ThreadPool>(2);
+  Timer timer;
+  auto future1 =
+      LaunchAsync([]() { std::this_thread::sleep_for(1s); }, thread_pool);
+  auto future2 =
+      LaunchAsync([]() { std::this_thread::sleep_for(1s); }, thread_pool);
+  auto future3 =
+      LaunchAsync([]() { std::this_thread::sleep_for(1s); }, thread_pool);
+  future1->Wait();
+  future2->Wait();
+  future3->Wait();
+  EXPECT_GT(timer.GetElapsed(), 1.5 * Second);
 }
 
 } // namespace util
