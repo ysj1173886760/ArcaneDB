@@ -32,12 +32,16 @@ public:
                      std::shared_ptr<util::ThreadPool> thread_pool,
                      const Options &options) noexcept;
 
+  ~AsyncLevelDB();
+
   Status Put(const std::string_view &key,
              const std::string_view &value) noexcept;
 
   Status Delete(const std::string_view &key) noexcept;
 
   Status Get(const std::string_view &key, std::string *value) noexcept;
+
+  static Status DestroyDB(const std::string &name) noexcept;
 
 private:
   leveldb::DB *db_;

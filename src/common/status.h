@@ -20,7 +20,8 @@
 
 #define ARCANEDB_STATUS_LIST                                                   \
   ARCANEDB_X(Ok)                                                               \
-  ARCANEDB_X(Err)
+  ARCANEDB_X(Err)                                                              \
+  ARCANEDB_X(NotFound)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \
@@ -48,9 +49,14 @@ public:
       msg_ = std::make_unique<std::string>(*rhs.msg_);
     }
   }
-  Status &operator=(Status rhs) noexcept {
-    std::swap(code_, rhs.code_);
-    std::swap(msg_, rhs.msg_);
+  Status &operator=(const Status &rhs) noexcept {
+    if (this == &rhs) {
+      return *this;
+    }
+    if (rhs.msg_) {
+      msg_ = std::make_unique<std::string>(*rhs.msg_);
+    }
+    code_ = rhs.code_;
     return *this;
   }
 
