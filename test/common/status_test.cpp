@@ -28,4 +28,41 @@ TEST(StatusTest, BasicTest) {
   }
 }
 
+TEST(ResultTest, BasicTest) {
+  {
+    // pod error
+    auto s = Result<int>::Err();
+    EXPECT_TRUE(s.IsErr());
+    EXPECT_EQ(s.ValueOr(10), 10);
+  }
+  {
+    // pod ok
+    auto s = Result<int>(20);
+    EXPECT_TRUE(s.IsOk());
+    EXPECT_TRUE(s.ok());
+    EXPECT_EQ(s.GetValue(), 20);
+    EXPECT_EQ(s.ValueOr(10), 20);
+  }
+  {
+    // string error
+    auto s = Result<std::string>::Err();
+    EXPECT_TRUE(s.IsErr());
+    EXPECT_EQ(s.ValueOr("Hello"), "Hello");
+  }
+  {
+    // string ok
+    auto s = Result<std::string>("World");
+    EXPECT_TRUE(s.IsOk());
+    EXPECT_TRUE(s.ok());
+    EXPECT_EQ(s.GetValue(), "World");
+    EXPECT_EQ(s.ValueOr("Hello"), "World");
+  }
+  {
+    // rvalue string
+    EXPECT_EQ(Result<std::string>("Arcane").GetValue(), "Arcane");
+    EXPECT_EQ(Result<std::string>("Arcane").ValueOr("DB"), "Arcane");
+    EXPECT_EQ(Result<std::string>::Err().ValueOr("DB"), "DB");
+  }
+}
+
 } // namespace arcanedb
