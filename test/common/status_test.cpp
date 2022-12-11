@@ -1,16 +1,16 @@
 /**
  * @file status_test.cpp
  * @author sheep (ysj1173886760@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2022-12-10
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
-#include <gtest/gtest.h>
 #include "common/status.h"
+#include <gtest/gtest.h>
 
 namespace arcanedb {
 
@@ -28,4 +28,4 @@ TEST(StatusTest, BasicTest) {
   }
 }
 
-}
+} // namespace arcanedb

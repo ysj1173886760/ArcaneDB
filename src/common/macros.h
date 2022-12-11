@@ -16,9 +16,8 @@ namespace arcanedb {
 
 // brpc has these macros
 // so i commentted it out here.
-// #define DISALLOW_COPY(cname)                                                   \
-//   cname(const cname &) = delete;                                               \
-//   cname &operator=(const cname &) = delete
+// #define DISALLOW_COPY(cname) \
+//   cname(const cname &) = delete; \ cname &operator=(const cname &) = delete
 
 // #define DISALLOW_MOVE(cname)                                                   \
 //   cname(cname &&) = delete;                                                    \
@@ -36,7 +35,7 @@ namespace arcanedb {
 
 #define FATAL(fmt, ...)                                                        \
   do {                                                                         \
-    LOG_ERROR(fmt, ##__VA_ARGS__);                                               \
+    LOG_ERROR(fmt, ##__VA_ARGS__);                                             \
     std::abort();                                                              \
   } while (false)
 
