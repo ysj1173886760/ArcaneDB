@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "util/thread_pool.h"
+#include <memory>
 namespace arcanedb {
 namespace page_store {
 
@@ -20,6 +22,7 @@ struct OpenOptions {
   };
 
   PageStoreType type{PageStoreType::LeveldbPageStore};
+  std::shared_ptr<util::ThreadPool> thread_pool{nullptr};
 };
 
 struct WriteOptions {};

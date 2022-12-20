@@ -57,7 +57,7 @@ public:
    */
   virtual Status UpdateReplacement(const PageIdType &page_id,
                                    const WriteOptions &options,
-                                   const std::string_view &data) = 0;
+                                   const std::string_view &data) noexcept = 0;
 
   /**
    * @brief
@@ -69,7 +69,7 @@ public:
    */
   virtual Status UpdateDelta(const PageIdType &page_id,
                              const WriteOptions &options,
-                             const std::string_view &data) = 0;
+                             const std::string_view &data) noexcept = 0;
 
   /**
    * @brief
@@ -79,7 +79,7 @@ public:
    * @return Status
    */
   virtual Status DeletePage(const PageIdType &page_id,
-                            const WriteOptions &options) = 0;
+                            const WriteOptions &options) noexcept = 0;
 
   /**
    * @brief
@@ -91,7 +91,7 @@ public:
    * @return Status
    */
   virtual Status ReadPage(const PageIdType &page_id, const ReadOptions &options,
-                          std::vector<RawPage> *pages) = 0;
+                          std::vector<RawPage> *pages) noexcept = 0;
 };
 
 } // namespace page_store
