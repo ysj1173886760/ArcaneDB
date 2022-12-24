@@ -11,7 +11,10 @@
 
 #pragma once
 
+#include "common/macros.h"
+#include "common/type.h"
 #include "kv_store/leveldb_store.h"
+#include "page_store/kv_page_store/index_page.h"
 #include "page_store/page_store.h"
 #include "util/thread_pool.h"
 #include <cstdint>
@@ -30,6 +33,8 @@ class KvPageStore : public PageStore {
 public:
   static Status Open(const std::string &name, const OpenOptions &options,
                      std::shared_ptr<PageStore> *page_store) noexcept;
+
+  static Status Destory(const std::string &name) noexcept;
 
   /**
    * @brief
@@ -78,7 +83,7 @@ public:
                   std::vector<RawPage> *pages) noexcept override;
 
 private:
-  static std::string MakeStoreName(const std::string &name, StoreType type) {
+  static std::string MakeStoreName_(const std::string &name, StoreType type) {
     switch (type) {
     case StoreType::IndexStore:
       return name + "::index_store";
@@ -89,9 +94,42 @@ private:
     default:
       break;
     }
-    // FIXME: unreachable
+    UNREACHABLE();
     return "";
   }
+
+  leveldb_store::AsyncLevelDB *GetIndexStore_() noexcept {
+    return stores_[static_cast<uint8_t>(StoreType::IndexStore)].get();
+  }
+  leveldb_store::AsyncLevelDB *GetBaseStore_() noexcept {
+    return stores_[static_cast<uint8_t>(StoreType::BaseStore)].get();
+  }
+  leveldb_store::AsyncLevelDB *GetDeltaStore_() noexcept {
+    return stores_[static_cast<uint8_t>(StoreType::DeltaStore)].get();
+  }
+  leveldb_store::AsyncLevelDB *GetStoreBasedOnPageType(PageType type) noexcept {
+    switch (type) {
+    case PageType::BasePage:
+      return GetBaseStore_();
+    case PageType::DeltaPage:
+      return GetDeltaStore_();
+    default:
+      break;
+    }
+    UNREACHABLE();
+    return nullptr;
+  }
+
+  Status ReadIndexPage_(const PageIdType &page_id, IndexPage *index_page,
+                        bool create_if_missing) noexcept;
+
+  Status WriteIndexPage_(const PageIdType &page_id,
+                         const IndexPage &index_page) noexcept;
+
+  Status
+  UpdateHelper_(const PageIdType &page_id, const std::string_view &data,
+                std::function<PageIdType(IndexPage *)> new_page_id_generator,
+                leveldb_store::AsyncLevelDB *store) noexcept;
 
   std::array<std::shared_ptr<leveldb_store::AsyncLevelDB>,
              static_cast<size_t>(StoreType::StoreNum)>

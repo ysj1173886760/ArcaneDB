@@ -12,6 +12,7 @@
 #include "page_store/kv_page_store/index_page.h"
 #include "butil/strings/string_piece.h"
 #include "common/macros.h"
+#include "common/type.h"
 #include "page_store/page_store.h"
 #include <cassert>
 #include <limits>
@@ -26,6 +27,7 @@ namespace page_store {
 // | Type 1byte |
 
 Status IndexPage::DeserializationFrom(util::BufReader *reader) noexcept {
+  CHECK(!page_id_.empty());
   pages_.clear();
   uint16_t entry_num;
 #define READ_OR_RETURN_END_OF_BUF(value)                                       \
@@ -66,7 +68,7 @@ Status IndexPage::DeserializeIndexEntry_(IndexEntry *entry,
 }
 #undef READ_OR_RETURN_END_OF_BUF
 
-void IndexPage::SerializationTo(util::BufWriter *writer) noexcept {
+void IndexPage::SerializationTo(util::BufWriter *writer) const noexcept {
   // serialize entry num
   assert(!pages_.empty());
   CHECK(pages_.size() < std::numeric_limits<uint16_t>::max());
@@ -84,7 +86,7 @@ void IndexPage::SerializationTo(util::BufWriter *writer) noexcept {
 }
 
 void IndexPage::SerializeIndexEntry_(const IndexEntry &entry,
-                                     util::BufWriter *writer) noexcept {
+                                     util::BufWriter *writer) const noexcept {
   writer->WriteBytes(static_cast<uint8_t>(entry.type));
 }
 
@@ -97,6 +99,17 @@ PageIdType IndexPage::UpdateReplacement() noexcept {
   pages_.clear();
   pages_.emplace_back(IndexEntry{.type = PageStore::PageType::BasePage});
   return AppendIndexOnPageId_(page_id_, pages_.size() - 1);
+}
+
+std::vector<PageStore::PageIdAndType>
+IndexPage::ListAllPhysicalPages() const noexcept {
+  std::vector<PageStore::PageIdAndType> res;
+  res.reserve(pages_.size());
+  for (int i = 0; i < pages_.size(); i++) {
+    res.emplace_back(PageStore::PageIdAndType{
+        .page_id = AppendIndexOnPageId_(page_id_, i), .type = pages_[i].type});
+  }
+  return res;
 }
 
 PageIdType IndexPage::AppendIndexOnPageId_(const PageIdType &page_id,

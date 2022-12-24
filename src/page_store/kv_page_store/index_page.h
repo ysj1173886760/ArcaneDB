@@ -13,7 +13,6 @@
 
 #include "common/macros.h"
 #include "common/type.h"
-#include "page_store/kv_page_store/kv_page_store.h"
 #include "page_store/page_store.h"
 #include "util/codec/buf_reader.h"
 #include "util/codec/buf_writer.h"
@@ -31,11 +30,12 @@ public:
     }
   };
 
+  IndexPage() = default;
   IndexPage(const PageIdType &page_id) : page_id_(page_id) {}
 
   Status DeserializationFrom(util::BufReader *reader) noexcept;
 
-  void SerializationTo(util::BufWriter *writer) noexcept;
+  void SerializationTo(util::BufWriter *writer) const noexcept;
 
   /**
    * @brief
@@ -51,6 +51,8 @@ public:
    */
   PageIdType UpdateReplacement() noexcept;
 
+  std::vector<PageStore::PageIdAndType> ListAllPhysicalPages() const noexcept;
+
   bool operator==(const IndexPage &rhs) const noexcept {
     return pages_ == rhs.pages_;
   }
@@ -60,7 +62,7 @@ private:
   FRIEND_TEST(KvPageStoreTest, IndexPageUpdateTest);
 
   void SerializeIndexEntry_(const IndexEntry &entry,
-                            util::BufWriter *writer) noexcept;
+                            util::BufWriter *writer) const noexcept;
   Status DeserializeIndexEntry_(IndexEntry *entry,
                                 util::BufReader *reader) noexcept;
 

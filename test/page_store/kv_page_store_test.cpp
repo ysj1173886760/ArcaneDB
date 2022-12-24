@@ -9,7 +9,10 @@
  *
  */
 
+#include "common/logger.h"
 #include "page_store/kv_page_store/index_page.h"
+#include "page_store/kv_page_store/kv_page_store.h"
+#include "page_store/options.h"
 #include "util/codec/buf_reader.h"
 #include "util/codec/buf_writer.h"
 #include <gtest/gtest.h>
@@ -57,6 +60,60 @@ TEST(KvPageStoreTest, IndexPageUpdateTest) {
   index_page.UpdateDelta();
   EXPECT_EQ(index_page.pages_.size(), 2);
   EXPECT_EQ(index_page.pages_[1].type, PageStore::PageType::DeltaPage);
+}
+
+TEST(kvPageStoreTest, BasicTest) {
+  std::shared_ptr<PageStore> store;
+  OpenOptions options;
+  std::string store_name = "test_store";
+  KvPageStore::Destory(store_name);
+  auto s = KvPageStore::Open(store_name, options, &store);
+  ASSERT_TRUE(s.ok());
+  std::string page_id = "test_page001";
+  WriteOptions write_options;
+  ReadOptions read_options;
+
+  {
+    std::vector<std::string> binarys = {"12345", "arcanedb", "graph database"};
+    for (int i = 0; i < 3; i++) {
+      auto s = store->UpdateDelta(page_id, write_options, binarys[i]);
+      EXPECT_TRUE(s.ok());
+    }
+    // read page
+    std::vector<PageStore::RawPage> pages;
+    auto s = store->ReadPage(page_id, read_options, &pages);
+    EXPECT_TRUE(s.ok());
+    EXPECT_EQ(pages.size(), 3);
+    for (int i = 0; i < 3; i++) {
+      EXPECT_EQ(pages[i].type, PageStore::PageType::DeltaPage);
+      EXPECT_EQ(pages[i].binary, binarys[i]);
+    }
+  }
+  {
+    std::vector<std::string> binarys = {"base", "delta"};
+    auto s = store->UpdateReplacement(page_id, write_options, binarys[0]);
+    EXPECT_TRUE(s.ok());
+    s = store->UpdateDelta(page_id, write_options, binarys[1]);
+    EXPECT_TRUE(s.ok());
+    std::vector<PageStore::RawPage> pages;
+    s = store->ReadPage(page_id, read_options, &pages);
+    EXPECT_TRUE(s.ok());
+    EXPECT_EQ(pages.size(), 2);
+    EXPECT_EQ(pages[0].type, PageStore::PageType::BasePage);
+    EXPECT_EQ(pages[0].binary, binarys[0]);
+    EXPECT_EQ(pages[1].type, PageStore::PageType::DeltaPage);
+    EXPECT_EQ(pages[1].binary, binarys[1]);
+  }
+  {
+    auto s = store->DeletePage(page_id, write_options);
+    EXPECT_TRUE(s.ok());
+    // read the page, should be not found
+    std::vector<PageStore::RawPage> pages;
+    s = store->ReadPage(page_id, read_options, &pages);
+    EXPECT_EQ(s, Status::NotFound());
+  }
+  store.reset();
+  KvPageStore::Destory(store_name);
 }
 
 } // namespace page_store

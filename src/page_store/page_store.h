@@ -33,6 +33,11 @@ public:
     std::string binary;
   };
 
+  struct PageIdAndType {
+    PageIdType page_id;
+    PageType type;
+  };
+
   /**
    * @brief Open a Page Store
    *
