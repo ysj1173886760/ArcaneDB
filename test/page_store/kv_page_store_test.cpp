@@ -64,7 +64,7 @@ TEST(KvPageStoreTest, IndexPageUpdateTest) {
 
 TEST(kvPageStoreTest, BasicTest) {
   std::shared_ptr<PageStore> store;
-  OpenOptions options;
+  Options options;
   std::string store_name = "test_store";
   KvPageStore::Destory(store_name);
   auto s = KvPageStore::Open(store_name, options, &store);
