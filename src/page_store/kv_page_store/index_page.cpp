@@ -15,14 +15,15 @@
 #include "page_store/page_store.h"
 #include <cassert>
 #include <limits>
+#include <string>
 
 namespace arcanedb {
 namespace page_store {
 
 // Page Format:
-// | EntryNum 2byte | Entry0 | Entry1 | Entry2 | ...
+// | EntryNum 2byte | PageId Length 1byte | PageId Bytes | Entry0 | Entry1 |...
 // Entry Format:
-// | Type 1byte | PageId Length 1byte | PageId |
+// | Type 1byte |
 
 Status IndexPage::DeserializationFrom(util::BufReader *reader) noexcept {
   pages_.clear();
@@ -34,6 +35,17 @@ Status IndexPage::DeserializationFrom(util::BufReader *reader) noexcept {
 
   READ_OR_RETURN_END_OF_BUF(entry_num);
   pages_.reserve(entry_num);
+
+  uint8_t page_id_length;
+  READ_OR_RETURN_END_OF_BUF(page_id_length);
+  butil::StringPiece buffer;
+  if (!reader->ReadPiece(&buffer, page_id_length)) {
+    return Status::EndOfBuf();
+  }
+  if (buffer != page_id_) {
+    return Status::PageIdNotMatch();
+  }
+
   for (size_t i = 0; i < entry_num; i++) {
     IndexEntry entry;
     auto s = DeserializeIndexEntry_(&entry, reader);
@@ -49,22 +61,23 @@ Status IndexPage::DeserializeIndexEntry_(IndexEntry *entry,
                                          util::BufReader *reader) noexcept {
   uint8_t type;
   READ_OR_RETURN_END_OF_BUF(type);
-  uint8_t page_id_length;
-  READ_OR_RETURN_END_OF_BUF(page_id_length);
-  butil::StringPiece buffer;
-  if (!reader->ReadPiece(&buffer, page_id_length)) {
-    return Status::EndOfBuf();
-  }
   entry->type = static_cast<PageStore::PageType>(type);
-  entry->page_id = buffer.as_string();
   return Status::Ok();
 }
 #undef READ_OR_RETURN_END_OF_BUF
 
 void IndexPage::SerializationTo(util::BufWriter *writer) noexcept {
+  // serialize entry num
   assert(!pages_.empty());
   CHECK(pages_.size() < std::numeric_limits<uint16_t>::max());
   writer->WriteBytes(static_cast<uint16_t>(pages_.size()));
+
+  // serialize page id
+  CHECK(page_id_.size() < std::numeric_limits<uint8_t>::max());
+  writer->WriteBytes(static_cast<uint8_t>(page_id_.size()));
+  writer->WriteBytes(page_id_);
+
+  // serialize entries
   for (const auto &entry : pages_) {
     SerializeIndexEntry_(entry, writer);
   }
@@ -73,20 +86,22 @@ void IndexPage::SerializationTo(util::BufWriter *writer) noexcept {
 void IndexPage::SerializeIndexEntry_(const IndexEntry &entry,
                                      util::BufWriter *writer) noexcept {
   writer->WriteBytes(static_cast<uint8_t>(entry.type));
-  CHECK(entry.page_id.size() < std::numeric_limits<uint8_t>::max());
-  writer->WriteBytes(static_cast<uint8_t>(entry.page_id.size()));
-  writer->WriteBytes(entry.page_id);
 }
 
-void IndexPage::UpdateDelta(const PageIdType &page_id) noexcept {
-  pages_.emplace_back(
-      IndexEntry{.type = PageStore::PageType::DeltaPage, .page_id = page_id});
+PageIdType IndexPage::UpdateDelta() noexcept {
+  pages_.emplace_back(IndexEntry{.type = PageStore::PageType::DeltaPage});
+  return AppendIndexOnPageId_(page_id_, pages_.size() - 1);
 }
 
-void IndexPage::UpdateReplacement(const PageIdType &page_id) noexcept {
+PageIdType IndexPage::UpdateReplacement() noexcept {
   pages_.clear();
-  pages_.emplace_back(
-      IndexEntry{.type = PageStore::PageType::BasePage, .page_id = page_id});
+  pages_.emplace_back(IndexEntry{.type = PageStore::PageType::BasePage});
+  return AppendIndexOnPageId_(page_id_, pages_.size() - 1);
+}
+
+PageIdType IndexPage::AppendIndexOnPageId_(const PageIdType &page_id,
+                                           size_t index) noexcept {
+  return page_id + "|" + std::to_string(index);
 }
 
 } // namespace page_store

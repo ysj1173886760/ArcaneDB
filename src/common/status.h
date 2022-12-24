@@ -22,7 +22,8 @@
   ARCANEDB_X(Ok)                                                               \
   ARCANEDB_X(Err)                                                              \
   ARCANEDB_X(NotFound)                                                         \
-  ARCANEDB_X(EndOfBuf)
+  ARCANEDB_X(EndOfBuf)                                                         \
+  ARCANEDB_X(PageIdNotMatch)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \

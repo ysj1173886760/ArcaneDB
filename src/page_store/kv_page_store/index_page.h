@@ -25,22 +25,31 @@ class IndexPage {
 public:
   struct IndexEntry {
     PageStore::PageType type;
-    PageIdType page_id;
 
     bool operator==(const IndexEntry &rhs) const noexcept {
-      return type == rhs.type && page_id == rhs.page_id;
+      return type == rhs.type;
     }
   };
 
-  IndexPage() = default;
+  IndexPage(const PageIdType &page_id) : page_id_(page_id) {}
 
   Status DeserializationFrom(util::BufReader *reader) noexcept;
 
   void SerializationTo(util::BufWriter *writer) noexcept;
 
-  void UpdateDelta(const PageIdType &page_id) noexcept;
+  /**
+   * @brief
+   *
+   * @return PageIdType new page id for physical page.
+   */
+  PageIdType UpdateDelta() noexcept;
 
-  void UpdateReplacement(const PageIdType &page_id) noexcept;
+  /**
+   * @brief
+   *
+   * @return PageIdType new page id for physical page.
+   */
+  PageIdType UpdateReplacement() noexcept;
 
   bool operator==(const IndexPage &rhs) const noexcept {
     return pages_ == rhs.pages_;
@@ -55,6 +64,10 @@ private:
   Status DeserializeIndexEntry_(IndexEntry *entry,
                                 util::BufReader *reader) noexcept;
 
+  static PageIdType AppendIndexOnPageId_(const PageIdType &page_id,
+                                         size_t index) noexcept;
+
+  PageIdType page_id_;
   std::vector<IndexEntry> pages_;
 };
 

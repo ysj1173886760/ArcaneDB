@@ -54,6 +54,7 @@ Status KvPageStore::Open(const std::string &name, const OpenOptions &options,
 Status KvPageStore::UpdateReplacement(const PageIdType &page_id,
                                       const WriteOptions &options,
                                       const std::string_view &data) noexcept {
+
   return Status::Ok();
 }
 

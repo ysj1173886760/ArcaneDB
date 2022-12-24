@@ -18,30 +18,45 @@ namespace arcanedb {
 namespace page_store {
 
 TEST(KvPageStoreTest, IndexPageSerializationTest) {
-  IndexPage index_page;
-  index_page.UpdateReplacement("0");
-  index_page.UpdateDelta("123");
-  index_page.UpdateDelta("456");
+  IndexPage index_page("test_page");
+  index_page.UpdateReplacement();
+  index_page.UpdateDelta();
+  index_page.UpdateDelta();
   util::BufWriter writer;
   index_page.SerializationTo(&writer);
 
-  auto bytes = writer.Detach();
-  util::BufReader reader(bytes);
-  IndexPage new_page;
-  EXPECT_TRUE(new_page.DeserializationFrom(&reader).ok());
-  EXPECT_EQ(new_page, index_page);
+  {
+    auto bytes = writer.Detach();
+    util::BufReader reader(bytes);
+    IndexPage new_page("test_page");
+    EXPECT_TRUE(new_page.DeserializationFrom(&reader).ok());
+    EXPECT_EQ(new_page, index_page);
+  }
+
+  // test page id not match
+  {
+    auto bytes = writer.Detach();
+    util::BufReader reader(bytes);
+    IndexPage new_page("error_page");
+    EXPECT_FALSE(new_page.DeserializationFrom(&reader).ok());
+  }
 }
 
 TEST(KvPageStoreTest, IndexPageUpdateTest) {
-  IndexPage index_page;
-  index_page.UpdateDelta("123");
-  index_page.UpdateDelta("456");
-  index_page.UpdateDelta("789");
+  IndexPage index_page("test_page");
+  index_page.UpdateDelta();
+  index_page.UpdateDelta();
+  index_page.UpdateDelta();
+  for (int i = 0; i < 3; i++) {
+    EXPECT_EQ(index_page.pages_[i].type, PageStore::PageType::DeltaPage);
+  }
   EXPECT_EQ(index_page.pages_.size(), 3);
-  index_page.UpdateReplacement("10");
+  index_page.UpdateReplacement();
   EXPECT_EQ(index_page.pages_.size(), 1);
-  EXPECT_EQ(index_page.pages_[0].page_id, "10");
   EXPECT_EQ(index_page.pages_[0].type, PageStore::PageType::BasePage);
+  index_page.UpdateDelta();
+  EXPECT_EQ(index_page.pages_.size(), 2);
+  EXPECT_EQ(index_page.pages_[1].type, PageStore::PageType::DeltaPage);
 }
 
 } // namespace page_store
