@@ -9,7 +9,7 @@
  *
  */
 
-#include "page_store/kv_page_store.h"
+#include "page_store/kv_page_store/kv_page_store.h"
 #include "common/config.h"
 #include "kv_store/leveldb_store.h"
 #include "util/thread_pool.h"
