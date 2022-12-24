@@ -22,7 +22,7 @@
 namespace arcanedb {
 namespace page_store {
 
-Status KvPageStore::Open(const std::string &name, const OpenOptions &options,
+Status KvPageStore::Open(const std::string &name, const Options &options,
                          std::shared_ptr<PageStore> *page_store) noexcept {
   auto thread_pool = options.thread_pool;
   if (thread_pool == nullptr) {

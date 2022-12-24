@@ -16,7 +16,7 @@
 namespace arcanedb {
 namespace page_store {
 
-struct OpenOptions {
+struct Options {
   enum class PageStoreType {
     LeveldbPageStore,
   };

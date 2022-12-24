@@ -31,7 +31,7 @@ class KvPageStore : public PageStore {
   };
 
 public:
-  static Status Open(const std::string &name, const OpenOptions &options,
+  static Status Open(const std::string &name, const Options &options,
                      std::shared_ptr<PageStore> *page_store) noexcept;
 
   static Status Destory(const std::string &name) noexcept;
