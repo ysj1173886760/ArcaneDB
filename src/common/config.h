@@ -18,7 +18,9 @@ namespace common {
 
 class Config {
 public:
-  static constexpr size_t ThreadPoolDefaultNum = 2;
+  static constexpr size_t kThreadPoolDefaultNum = 2;
+  static constexpr size_t kLogSegmentDefaultNum = 16;
+  static constexpr size_t kLogSegmentDefaultSize = 4 << 10;
 };
 
 } // namespace common

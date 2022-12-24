@@ -11,10 +11,16 @@
 
 #pragma once
 
+#include "common/config.h"
+#include "util/thread_pool.h"
 namespace arcanedb {
 namespace log_store {
 
-struct Options {};
+struct Options {
+  size_t segment_num{common::Config::kLogSegmentDefaultNum};
+  size_t segment_size{common::Config::kLogSegmentDefaultSize};
+  std::shared_ptr<util::ThreadPool> thread_pool{nullptr};
+};
 
 } // namespace log_store
 } // namespace arcanedb

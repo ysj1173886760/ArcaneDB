@@ -28,7 +28,7 @@ Status KvPageStore::Open(const std::string &name, const Options &options,
   if (thread_pool == nullptr) {
     // create if missing
     thread_pool = std::make_shared<util::ThreadPool>(
-        common::Config::ThreadPoolDefaultNum);
+        common::Config::kThreadPoolDefaultNum);
   }
   auto open = [&](const std::string &db_name) {
     std::shared_ptr<leveldb_store::AsyncLevelDB> db;
