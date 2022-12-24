@@ -21,7 +21,8 @@
 #define ARCANEDB_STATUS_LIST                                                   \
   ARCANEDB_X(Ok)                                                               \
   ARCANEDB_X(Err)                                                              \
-  ARCANEDB_X(NotFound)
+  ARCANEDB_X(NotFound)                                                         \
+  ARCANEDB_X(EndOfBuf)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \

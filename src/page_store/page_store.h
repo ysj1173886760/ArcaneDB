@@ -26,7 +26,7 @@ namespace page_store {
  */
 class PageStore {
 public:
-  enum class PageType { BasePage, DeltaPage };
+  enum class PageType : uint8_t { BasePage, DeltaPage };
 
   struct RawPage {
     PageType type;
