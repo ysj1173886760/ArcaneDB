@@ -4,7 +4,7 @@ Might be a graph storage engine.
 
 ## TODO
 
-- [] PageStore interface and implementation based on leveldb
+- [x] PageStore interface and implementation based on leveldb
 - [] LogStore interface and implementation based on Env of leveldb
 - [] BufferPoolManager
 - [] In-memory row structure
