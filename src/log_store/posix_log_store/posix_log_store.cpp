@@ -12,8 +12,12 @@
 #include "log_store/posix_log_store/posix_log_store.h"
 #include "common/config.h"
 #include "log_store/log_store.h"
+#include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
+#include "util/backoff.h"
 #include "util/bthread_util.h"
+#include "util/codec/buf_writer.h"
+#include "util/time.h"
 #include <atomic>
 #include <string>
 
@@ -58,7 +62,43 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
 
 Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
                                       std::vector<LsnRange> *result) noexcept {
-  
+  // first calc the size we need to occupy
+  size_t total_size = LogRecord::kHeaderSize * log_records.size();
+  for (const auto &record : log_records) {
+    total_size += record.size();
+  }
+
+  util::BackOff bo;
+  do {
+    // first acquire the guard
+    auto *segment = GetCurrentLogSegment_();
+    auto [guard, should_seal, raw_lsn] =
+        segment->AcquireControlGuard(total_size);
+    if (guard.has_value()) {
+      result->clear();
+      result->reserve(log_records.size());
+      auto writer = segment->GetBufWriter(raw_lsn, total_size);
+      // acquire succeed, performing serialization
+      auto current_lsn = segment->GetRealLsn(raw_lsn);
+      for (const auto &record : log_records) {
+        LogRecord log_record(current_lsn, record);
+        auto start_lsn = current_lsn;
+        current_lsn += log_record.GetSerializeSize();
+        log_record.SerializeTo(&writer);
+        result->emplace_back(
+            LsnRange{.start_lsn = start_lsn, .end_lsn = current_lsn});
+      }
+      return Status::Ok();
+    }
+    // check whether we should seal
+    if (should_seal && SealAndOpen(segment)) {
+      // start next round immediately.
+      continue;
+    }
+    // innodb will sleep 20 microseconds, so do we.
+    bo.Sleep(20 * util::MicroSec);
+  } while (true);
+
   return Status::Ok();
 }
 

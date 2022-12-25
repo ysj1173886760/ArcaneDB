@@ -55,14 +55,16 @@ public:
    * return ControlGuard indicates writer is ok to writing log records.
    * second returned value indicates whether writer should seal current log
    * segment.
+   * third returned value indicates the start lsn.
    * @param length length of this batch of log record
-   * @return std::pair<std::optional<ControlGuard>, bool>
+   * @return std::tuple<std::optional<ControlGuard>, bool, LsnType>
    */
-  std::pair<std::optional<ControlGuard>, bool>
+  std::tuple<std::optional<ControlGuard>, bool, LsnType>
   AcquireControlGuard(size_t length) {
     uint64_t current_control_bits =
         control_bits_.load(std::memory_order_acquire);
     uint64_t new_control_bits;
+    LsnType lsn;
     do {
       auto current_lsn = GetLsn_(current_control_bits);
       if (length > size_) {
@@ -72,19 +74,20 @@ public:
       }
       if (current_lsn + length > size_) {
         // writer should seal current log segment and open new one.
-        return {std::nullopt, true};
+        return {std::nullopt, true, kInvalidLsn};
       }
       auto current_writers = GetWriterNum_(current_control_bits);
       if (current_writers + 1 > kMaximumWriterNum) {
         // too much writers
-        return {std::nullopt, false};
+        return {std::nullopt, false, kInvalidLsn};
       }
+      lsn = GetLsn_(current_control_bits);
       // CAS the new control bits
       new_control_bits = IncrWriterNum_(current_control_bits);
       new_control_bits = BumpLsn_(new_control_bits, length);
     } while (control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
-    return {ControlGuard(this), false};
+    return {ControlGuard(this), false, lsn};
   }
 
   /**
@@ -177,6 +180,13 @@ public:
     }
     return new_lsn + start_lsn_;
   }
+
+  util::NonOwnershipBufWriter GetBufWriter(LsnType start_lsn,
+                                           size_t size) noexcept {
+    return util::NonOwnershipBufWriter(&buffer_[start_lsn], size);
+  }
+
+  LsnType GetRealLsn(LsnType offset) noexcept { return offset + start_lsn_; }
 
 private:
   FRIEND_TEST(PosixLogStoreTest, LogSegmentControlBitTest);

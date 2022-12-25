@@ -11,6 +11,7 @@
 #pragma once
 
 #include "butil/strings/string_piece.h"
+#include "common/macros.h"
 #include <cstring>
 #include <string>
 #include <type_traits>
@@ -18,6 +19,40 @@
 
 namespace arcanedb {
 namespace util {
+
+class NonOwnershipBufWriter {
+public:
+  NonOwnershipBufWriter(char *begin, size_t size)
+      : ptr_(begin), end_(ptr_ + size) {}
+
+  template <typename T> void WriteBytes(const T &val) noexcept {
+    static_assert(std::is_pod_v<T>, "expect POD");
+    size_t s = sizeof(T);
+    CHECK(ptr_ + s < end_);
+    memcpy(ptr_, &val, s);
+    ptr_ += s;
+  }
+
+  template <typename... Args>
+  void WriteVariant(const std::variant<Args...> &val) {
+    std::visit(
+        [this](auto &&arg) {
+          this->WriteBytes(std::forward<decltype(arg)>(arg));
+        },
+        val);
+  }
+
+  template <> void WriteBytes(const std::string &val) noexcept {
+    size_t s = val.size();
+    CHECK(ptr_ + s < end_);
+    memcpy(ptr_, val.data(), s);
+    ptr_ += s;
+  }
+
+private:
+  char *ptr_;
+  char *end_;
+};
 
 class BufWriter {
   const size_t kInitialSize = 16;
