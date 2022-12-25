@@ -47,7 +47,8 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   // initialize log segment
   store->segments_.reserve(options.segment_num);
   for (int i = 0; i < options.segment_num; i++) {
-    store->segments_.emplace_back(LogSegment(options.segment_size));
+    store->segments_.emplace_back(
+        LogSegment(options.segment_size, store->thread_pool_));
   }
 
   *log_store = store;
