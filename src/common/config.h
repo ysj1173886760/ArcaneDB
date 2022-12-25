@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "util/time.h"
 #include <cstddef>
 
 namespace arcanedb {
@@ -21,6 +22,7 @@ public:
   static constexpr size_t kThreadPoolDefaultNum = 2;
   static constexpr size_t kLogSegmentDefaultNum = 16;
   static constexpr size_t kLogSegmentDefaultSize = 4 << 10;
+  static constexpr size_t kLogStoreFlushInterval = 10 * util::MillSec;
 };
 
 } // namespace common

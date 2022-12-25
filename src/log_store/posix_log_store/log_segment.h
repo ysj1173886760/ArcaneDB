@@ -14,6 +14,7 @@
 #include "common/logger.h"
 #include "log_store/log_store.h"
 #include "util/codec/buf_writer.h"
+#include "util/simple_waiter.h"
 #include "util/thread_pool.h"
 #include <atomic>
 #include <optional>
@@ -41,12 +42,14 @@ private:
 
 class LogSegment {
 public:
-  LogSegment(size_t size) : size_(size), writer_(size) {}
+  LogSegment() = default;
 
-  LogSegment(LogSegment &&rhs) noexcept
-      : state_(rhs.state_.load(std::memory_order_relaxed)), size_(rhs.size_),
-        start_lsn_(rhs.start_lsn_), writer_(size_),
-        control_bits_(rhs.control_bits_.load(std::memory_order_relaxed)) {}
+  void Init(size_t size) noexcept {
+    size_ = size;
+    writer_.Reset(size);
+  }
+
+  void Reset() noexcept { writer_.Reset(size_); }
 
   /**
    * @brief
@@ -102,36 +105,52 @@ public:
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
     if (should_schedule_io_task) {
       state_.store(LogSegmentState::kIo, std::memory_order_relaxed);
+      // notify io thread
+      waiter_.NotifyAll();
     }
   }
 
-  void OpenLogSegmentAndSetLsn(LsnType start_lsn) noexcept {
+  void OpenLogSegment(LsnType start_lsn) noexcept {
     CHECK(state_.load(std::memory_order_relaxed) == LogSegmentState::kFree);
     start_lsn_ = start_lsn;
+    control_bits_.store(0, std::memory_order_release);
     state_.store(LogSegmentState::kOpen, std::memory_order_release);
     // writers must observe the state being kOpen before it can proceed to
     // appending log records.
   }
 
   std::optional<LsnType> TrySealLogSegment() noexcept {
-    CHECK(state_.load(std::memory_order_relaxed) == LogSegmentState::kOpen);
     uint64_t current_control_bits =
         control_bits_.load(std::memory_order_acquire);
     uint64_t new_control_bits;
     LsnType new_lsn;
+    bool should_schedule_io_task = false;
     do {
       if (IsSealed_(current_control_bits)) {
         return std::nullopt;
+      }
+      if (GetLsn_(current_control_bits) == 0) {
+        // don't seal when segment is empty
+        return std::nullopt;
+      }
+      if (GetWriterNum_(current_control_bits) == 0) {
+        should_schedule_io_task = true;
       }
       new_control_bits = MarkSealed_(current_control_bits);
       new_lsn = static_cast<LsnType>(GetLsn_(new_control_bits));
     } while (control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
+    if (should_schedule_io_task) {
+      state_.store(LogSegmentState::kIo, std::memory_order_relaxed);
+      // notify io thread
+      waiter_.NotifyAll();
+    }
     return new_lsn;
   }
 
 private:
   FRIEND_TEST(PosixLogStoreTest, LogSegmentControlBitTest);
+  friend class PosixLogStore;
 
   static bool IsSealed_(size_t control_bits) noexcept {
     return (control_bits >> kIsSealedOffset) & kIsSealedMaskbit;
@@ -202,6 +221,7 @@ private:
    */
   // TODO: there might be a more efficient way to implement lock-free WAL.
   std::atomic<uint64_t> control_bits_{0};
+  util::SimpleWaiter waiter_;
 };
 
 } // namespace log_store

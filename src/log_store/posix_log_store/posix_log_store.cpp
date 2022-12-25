@@ -10,9 +10,11 @@
  */
 
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "common/config.h"
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_segment.h"
 #include "util/bthread_util.h"
+#include <atomic>
 #include <string>
 
 namespace arcanedb {
@@ -38,13 +40,14 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   }
 
   // initialize log segment
-  store->segments_.reserve(options.segment_num);
-  for (int i = 0; i < options.segment_num; i++) {
-    store->segments_.emplace_back(LogSegment(options.segment_size));
-  }
+  store->segment_num_ = options.segment_num;
+  store->segments_ = std::make_unique<LogSegment[]>(options.segment_num);
 
   // set first log segment as open
-  store->GetCurrentLogSegment_()->OpenLogSegmentAndSetLsn(0);
+  store->GetCurrentLogSegment_()->OpenLogSegment(0);
+
+  // generate mfence here.
+  std::atomic_thread_fence(std::memory_order_seq_cst);
 
   // start background thread
   store->StartBackgroundThread_();
@@ -62,7 +65,41 @@ LsnType GetPersistentLsn() noexcept { return kInvalidLsn; }
 
 void ControlGuard::OnExit_() noexcept { segment_->OnWriterExit(); }
 
-void PosixLogStore::ThreadJob_() noexcept {}
+void PosixLogStore::ThreadJob_() noexcept {
+  size_t current_io_segment = 0;
+  while (!stopped_.load(std::memory_order_relaxed)) {
+    auto *log_segment = GetLogSegment_(current_io_segment);
+    if (log_segment->state_.load(std::memory_order_relaxed) ==
+        LogSegment::LogSegmentState::kIo) {
+      auto data = log_segment->writer_.Detach();
+      auto s = log_file_->Append(data);
+      if (!s.ok()) {
+        FATAL("Fuck, io failed, status: %s", s.ToString().c_str());
+      }
+      // reset buffer
+      log_segment->Reset();
+      // set state to kfree
+      log_segment->state_.store(LogSegment::LogSegmentState::kFree,
+                                std::memory_order_release);
+      // increment index
+      current_io_segment = (current_io_segment + 1) % segment_num_;
+      continue;
+    }
+    // otherwise, we wait
+    log_segment->waiter_.Wait(common::Config::kLogStoreFlushInterval);
+    // recheck state
+    if (log_segment->state_.load(std::memory_order_acquire) !=
+        LogSegment::LogSegmentState::kIo) {
+      // try to seal the segment.
+      auto lsn = log_segment->TrySealLogSegment();
+      if (!lsn.has_value()) {
+        continue;
+      }
+      // open a new segment
+      OpenNewLogSegment_(lsn.value());
+    }
+  }
+}
 
 } // namespace log_store
 } // namespace arcanedb

@@ -26,6 +26,12 @@ public:
   BufWriter() = default;
   BufWriter(size_t initial_size) noexcept { buffer_.resize(initial_size); }
 
+  void Reset(size_t initial_size) noexcept {
+    buffer_.clear();
+    buffer_.resize(initial_size);
+    write_offset_ = 0;
+  }
+
   std::string Detach() noexcept {
     buffer_.resize(write_offset_);
     write_offset_ = 0;

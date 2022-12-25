@@ -13,7 +13,10 @@
 
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_segment.h"
+#include "util/backoff.h"
+#include "util/simple_waiter.h"
 #include "util/thread_pool.h"
+#include "util/time.h"
 #include <atomic>
 #include <leveldb/env.h>
 
@@ -53,13 +56,38 @@ private:
     return &segments_[current_log_segment_.load(std::memory_order_relaxed)];
   }
 
+  LogSegment *GetLogSegment_(size_t index) noexcept {
+    return &segments_[index];
+  }
+
   static std::string MakeLogFileName_(const std::string name) noexcept {
     return name + "/LOG";
   }
 
+  void OpenNewLogSegment_(LsnType start_lsn) noexcept {
+    constexpr int64_t sleep_time = 1 * util::MillSec;
+    AdvanceSegmentIndex_();
+    util::BackOff bo;
+    while (GetCurrentLogSegment_()->state_.load(std::memory_order_acquire) !=
+           LogSegment::LogSegmentState::kFree) {
+      bo.Sleep(sleep_time);
+    }
+    GetCurrentLogSegment_()->OpenLogSegment(start_lsn);
+  }
+
+  void AdvanceSegmentIndex_() noexcept {
+    size_t current = current_log_segment_.load(std::memory_order_acquire);
+    size_t expect;
+    do {
+      expect = (current + 1) % segment_num_;
+    } while (current_log_segment_.compare_exchange_weak(
+        current, expect, std::memory_order_acq_rel));
+  }
+
   leveldb::Env *env_{nullptr};
   leveldb::WritableFile *log_file_{nullptr};
-  std::vector<LogSegment> segments_{};
+  std::unique_ptr<LogSegment[]> segments_{nullptr};
+  size_t segment_num_{};
   std::atomic_size_t current_log_segment_{0};
   std::string name_;
   std::unique_ptr<std::thread> background_thread_{nullptr};
