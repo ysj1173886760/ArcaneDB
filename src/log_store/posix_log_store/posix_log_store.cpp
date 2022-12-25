@@ -142,6 +142,7 @@ void PosixLogStore::ThreadJob_() noexcept {
     auto *log_segment = GetLogSegment_(current_io_segment);
     if (log_segment->state_.load(std::memory_order_relaxed) ==
         LogSegment::LogSegmentState::kIo) {
+      auto start_lsn = log_segment->start_lsn_;
       auto data = log_segment->buffer_;
       auto s = log_file_->Append(data);
       if (!s.ok()) {
@@ -155,8 +156,11 @@ void PosixLogStore::ThreadJob_() noexcept {
       // increment index
       current_io_segment = (current_io_segment + 1) % segment_num_;
       // update persistent lsn
-      persistent_lsn_.store(GetLogSegment_(current_io_segment)->start_lsn_,
-                            std::memory_order_relaxed);
+      auto next_lsn = GetLogSegment_(current_io_segment)->start_lsn_;
+      persistent_lsn_.store(next_lsn, std::memory_order_relaxed);
+      if (next_lsn - start_lsn != data.size()) {
+        LOG_WARN("Logical error might happens");
+      }
       continue;
     }
     // otherwise, we wait

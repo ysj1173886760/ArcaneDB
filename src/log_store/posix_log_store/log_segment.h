@@ -177,6 +177,8 @@ public:
       // notify io thread
       waiter_.NotifyAll();
     }
+    // resize to fit
+    buffer_.resize(new_lsn);
     return new_lsn + start_lsn_;
   }
 

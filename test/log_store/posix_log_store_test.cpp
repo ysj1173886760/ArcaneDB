@@ -48,12 +48,13 @@ TEST(PosixLogStoreTest, LogSegmentControlBitTest) {
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 0);
 }
 
-std::shared_ptr<LogStore> GenerateLogStore() {
+std::shared_ptr<LogStore> GenerateLogStore(size_t segment_size = 4096) {
   auto log_store_name = "test_log_store";
   std::shared_ptr<LogStore> store;
   Options options;
   auto s = PosixLogStore::Destory(log_store_name);
   EXPECT_EQ(s, Status::Ok());
+  options.segment_size = segment_size;
   s = PosixLogStore::Open(log_store_name, options, &store);
   EXPECT_EQ(s, Status::Ok());
   return store;
@@ -114,6 +115,34 @@ TEST(PosixLogStoreTest, LogReaderTest) {
     EXPECT_TRUE(log_reader->HasNext());
     std::string bytes;
     log_reader->GetNextLogRecord(&bytes);
+    EXPECT_EQ(bytes, log_records[i]);
+  }
+  EXPECT_EQ(log_reader->HasNext(), false);
+}
+
+TEST(PosixLogStoreTest, SwitchLogSegmentTest) {
+  auto store = GenerateLogStore(32);
+  std::vector<std::string> log_records = {
+      std::string(15, 'a'), std::string(15, 'b'), std::string(15, 'c')};
+  LsnType lsn = 0;
+  for (int i = 0; i < 3; i++) {
+    std::vector<std::string> log(1);
+    log[0] = log_records[i];
+    std::vector<LsnRange> result;
+    auto s = store->AppendLogRecord(log, &result);
+    EXPECT_EQ(s, Status::Ok());
+    lsn = std::max(lsn, result.back().end_lsn);
+  }
+
+  // wait log records to be persisted
+  WaitLsn(store, lsn);
+
+  // test log reader
+  auto log_reader = GetLogReader(store);
+  for (int i = 0; i < 3; i++) {
+    EXPECT_TRUE(log_reader->HasNext());
+    std::string bytes;
+    auto lsn = log_reader->GetNextLogRecord(&bytes);
     EXPECT_EQ(bytes, log_records[i]);
   }
   EXPECT_EQ(log_reader->HasNext(), false);
