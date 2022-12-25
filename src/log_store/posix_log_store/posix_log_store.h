@@ -64,6 +64,11 @@ private:
     return name + "/LOG";
   }
 
+  /**
+   * @brief
+   * Open a new log segment, spin when there is no freed segments.
+   * @param start_lsn start lsn of new log segment
+   */
   void OpenNewLogSegment_(LsnType start_lsn) noexcept {
     constexpr int64_t sleep_time = 1 * util::MillSec;
     AdvanceSegmentIndex_();
@@ -83,6 +88,15 @@ private:
     } while (current_log_segment_.compare_exchange_weak(
         current, expect, std::memory_order_acq_rel));
   }
+
+  /**
+   * @brief
+   * try to seal the old log segment and open new one
+   * @param log_segment old log segment
+   * @return true Seal has succeed
+   * @return false others has sealed the segment
+   */
+  bool SealAndOpen(LogSegment *log_segment) noexcept;
 
   leveldb::Env *env_{nullptr};
   leveldb::WritableFile *log_file_{nullptr};

@@ -76,11 +76,7 @@ void PosixLogStore::ThreadJob_() noexcept {
       if (!s.ok()) {
         FATAL("Fuck, io failed, status: %s", s.ToString().c_str());
       }
-      // reset buffer
-      log_segment->Reset();
-      // set state to kfree
-      log_segment->state_.store(LogSegment::LogSegmentState::kFree,
-                                std::memory_order_release);
+      log_segment->FreeSegment();
       // increment index
       current_io_segment = (current_io_segment + 1) % segment_num_;
       continue;
@@ -90,15 +86,20 @@ void PosixLogStore::ThreadJob_() noexcept {
     // recheck state
     if (log_segment->state_.load(std::memory_order_acquire) !=
         LogSegment::LogSegmentState::kIo) {
-      // try to seal the segment.
-      auto lsn = log_segment->TrySealLogSegment();
-      if (!lsn.has_value()) {
-        continue;
-      }
-      // open a new segment
-      OpenNewLogSegment_(lsn.value());
+      SealAndOpen(log_segment);
     }
   }
+}
+
+bool PosixLogStore::SealAndOpen(LogSegment *log_segment) noexcept {
+  // try to seal the segment.
+  auto lsn = log_segment->TrySealLogSegment();
+  if (!lsn.has_value()) {
+    return false;
+  }
+  // open a new segment
+  OpenNewLogSegment_(lsn.value());
+  return true;
 }
 
 } // namespace log_store

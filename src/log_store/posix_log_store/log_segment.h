@@ -49,8 +49,6 @@ public:
     writer_.Reset(size);
   }
 
-  void Reset() noexcept { writer_.Reset(size_); }
-
   /**
    * @brief
    * return nullopt indicates writer should wait.
@@ -89,6 +87,12 @@ public:
     return {ControlGuard(this), false};
   }
 
+  /**
+   * @brief
+   * decr the writer number.
+   * And notify io threads when log segment has sealed and we are the last
+   * writer.
+   */
   void OnWriterExit() noexcept {
     uint64_t current_control_bits =
         control_bits_.load(std::memory_order_acquire);
@@ -110,6 +114,23 @@ public:
     }
   }
 
+  /**
+   * @brief
+   * Free the log segment.
+   * this function should get called by IO thread.
+   */
+  void FreeSegment() noexcept {
+    // reset buffer
+    writer_.Reset(size_);
+    // set state to kfree
+    state_.store(LogSegment::LogSegmentState::kFree, std::memory_order_release);
+  }
+
+  /**
+   * @brief
+   * open the segment
+   * @param start_lsn
+   */
   void OpenLogSegment(LsnType start_lsn) noexcept {
     CHECK(state_.load(std::memory_order_relaxed) == LogSegmentState::kFree);
     start_lsn_ = start_lsn;
@@ -119,6 +140,14 @@ public:
     // appending log records.
   }
 
+  /**
+   * @brief
+   * try to seal the log segment.
+   * And notify io thread when seal has succeed and there is no concurrent
+   * writers.
+   * @return std::optional<LsnType> return nullopt indicates the seal has
+   * failed. Otherwise, returns the end lsn of current log segment
+   */
   std::optional<LsnType> TrySealLogSegment() noexcept {
     uint64_t current_control_bits =
         control_bits_.load(std::memory_order_acquire);
@@ -145,7 +174,7 @@ public:
       // notify io thread
       waiter_.NotifyAll();
     }
-    return new_lsn;
+    return new_lsn + start_lsn_;
   }
 
 private:
