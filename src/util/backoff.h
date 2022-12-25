@@ -26,7 +26,6 @@ public:
   }
 
   void Sleep(int64_t wait_us, int64_t max_wait_us) noexcept {
-    UnhealthyWaitCntChecker_();
     int64_t us = std::min(cnt_ * wait_us, max_wait_us);
     bthread_usleep(us);
     cnt_ *= 2;

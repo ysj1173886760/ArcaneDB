@@ -44,9 +44,10 @@ class LogSegment {
 public:
   LogSegment() = default;
 
-  void Init(size_t size) noexcept {
+  void Init(size_t size, size_t index) noexcept {
     size_ = size;
     buffer_.resize(size);
+    index_ = index;
   }
 
   /**
@@ -56,7 +57,7 @@ public:
    * segment.
    * third returned value indicates the start lsn.
    * @param length length of this batch of log record
-   * @return std::pair<bool, LsnType>
+   * @return std::tuple<bool, bool, LsnType>
    */
   std::tuple<bool, bool, LsnType> TryReserveLogBuffer(size_t length) {
     uint64_t current_control_bits =
@@ -64,6 +65,9 @@ public:
     uint64_t new_control_bits;
     LsnType lsn;
     do {
+      if (IsSealed_(current_control_bits)) {
+        return {false, false, kInvalidLsn};
+      }
       auto current_lsn = GetLsn_(current_control_bits);
       if (length > size_) {
         LOG_WARN("LogLength: %lld is greater than total size: %lld, resize is "
@@ -83,7 +87,7 @@ public:
       // CAS the new control bits
       new_control_bits = IncrWriterNum_(current_control_bits);
       new_control_bits = BumpLsn_(new_control_bits, length);
-    } while (control_bits_.compare_exchange_weak(
+    } while (!control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
 
     return {true, false, lsn};
@@ -107,7 +111,7 @@ public:
       if (is_last_writer && is_sealed) {
         should_schedule_io_task = true;
       }
-    } while (control_bits_.compare_exchange_weak(
+    } while (!control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
     if (should_schedule_io_task) {
       state_.store(LogSegmentState::kIo, std::memory_order_relaxed);
@@ -170,7 +174,7 @@ public:
       }
       new_control_bits = MarkSealed_(current_control_bits);
       new_lsn = static_cast<LsnType>(GetLsn_(new_control_bits));
-    } while (control_bits_.compare_exchange_weak(
+    } while (!control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
     if (should_schedule_io_task) {
       state_.store(LogSegmentState::kIo, std::memory_order_relaxed);
@@ -188,6 +192,8 @@ public:
   }
 
   LsnType GetRealLsn(LsnType offset) noexcept { return offset + start_lsn_; }
+
+  size_t GetIndex() const noexcept { return index_; }
 
 private:
   FRIEND_TEST(PosixLogStoreTest, LogSegmentControlBitTest);
@@ -263,6 +269,7 @@ private:
   // TODO: there might be a more efficient way to implement lock-free WAL.
   std::atomic<uint64_t> control_bits_{0};
   util::SimpleWaiter waiter_;
+  size_t index_;
 };
 
 } // namespace log_store

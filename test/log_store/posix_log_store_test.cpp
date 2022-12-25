@@ -14,7 +14,9 @@
 #include "log_store/posix_log_store/log_segment.h"
 #include "log_store/posix_log_store/posix_log_store.h"
 #include "util/backoff.h"
+#include "util/bthread_util.h"
 #include "util/time.h"
+#include "util/wait_group.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
@@ -142,8 +144,47 @@ TEST(PosixLogStoreTest, SwitchLogSegmentTest) {
   for (int i = 0; i < 3; i++) {
     EXPECT_TRUE(log_reader->HasNext());
     std::string bytes;
-    auto lsn = log_reader->GetNextLogRecord(&bytes);
+    log_reader->GetNextLogRecord(&bytes);
     EXPECT_EQ(bytes, log_records[i]);
+  }
+  EXPECT_EQ(log_reader->HasNext(), false);
+}
+
+TEST(PosixLogStoreTest, ConcurrentAppendLogTest) {
+  auto store = GenerateLogStore(128);
+  std::string data = "arcanedb";
+  util::WaitGroup wg(3);
+  LsnType lsn = 0;
+  bthread::Mutex mu;
+  for (int i = 0; i < 3; i++) {
+    util::LaunchAsync([&]() {
+      auto local_lsn = 0;
+      for (int j = 0; j < 100; j++) {
+        std::vector<std::string> log(1);
+        std::vector<LsnRange> result;
+        log[0] = data;
+        EXPECT_TRUE(store->AppendLogRecord(log, &result).ok());
+        local_lsn = result.back().end_lsn;
+      }
+      mu.lock();
+      if (local_lsn > lsn) {
+        lsn = local_lsn;
+      }
+      mu.unlock();
+      wg.Done();
+    });
+  }
+  wg.Wait();
+
+  WaitLsn(store, lsn);
+
+  // test log reader
+  auto log_reader = GetLogReader(store);
+  for (int i = 0; i < 3 * 100; i++) {
+    EXPECT_TRUE(log_reader->HasNext());
+    std::string bytes;
+    log_reader->GetNextLogRecord(&bytes);
+    EXPECT_EQ(bytes, data);
   }
   EXPECT_EQ(log_reader->HasNext(), false);
 }

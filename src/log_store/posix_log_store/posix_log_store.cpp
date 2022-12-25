@@ -50,7 +50,7 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   store->segment_num_ = options.segment_num;
   store->segments_ = std::make_unique<LogSegment[]>(options.segment_num);
   for (size_t i = 0; i < options.segment_num; i++) {
-    store->segments_[i].Init(options.segment_size);
+    store->segments_[i].Init(options.segment_size, i);
   }
 
   // set first log segment as open
@@ -103,6 +103,19 @@ Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
   do {
     // first acquire the guard
     auto *segment = GetCurrentLogSegment_();
+    // FIXME: there could have interesting interleaving since i'm separating
+    // state and control bits. consider the following situation: thread1 load
+    // the segment 0 state, seeing it's kOpen, then it get swapped out. thread2
+    // & io thread start to appending logs and switching segments. segment 0
+    // state is kFree thread1 came back, it tries to reserve log buffer. other
+    // threads start to reuse segment 0, changing state to kOpen and reseting
+    // the control bits then what thread1 has writen to controls bits has lost.
+    // the essential problem is that i'm separating state and control bits,
+    // which leads to changing state and control bits is not atomic.
+    if (segment->state_.load(std::memory_order_acquire) !=
+        LogSegment::LogSegmentState::kOpen) {
+      bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
+    }
     auto [succeed, should_seal, raw_lsn] =
         segment->TryReserveLogBuffer(total_size);
     if (succeed) {
@@ -128,7 +141,7 @@ Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
       continue;
     }
     // innodb will sleep 20 microseconds, so do we.
-    bo.Sleep(20 * util::MicroSec);
+    bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
   } while (true);
 
   return Status::Ok();
@@ -159,7 +172,8 @@ void PosixLogStore::ThreadJob_() noexcept {
       auto next_lsn = GetLogSegment_(current_io_segment)->start_lsn_;
       persistent_lsn_.store(next_lsn, std::memory_order_relaxed);
       if (next_lsn - start_lsn != data.size()) {
-        LOG_WARN("Logical error might happens");
+        LOG_WARN("Logical error might happens. %lld %lld", next_lsn - start_lsn,
+                 data.size());
       }
       continue;
     }
