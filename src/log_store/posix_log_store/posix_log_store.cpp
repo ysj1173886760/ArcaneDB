@@ -46,6 +46,9 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   // initialize log segment
   store->segment_num_ = options.segment_num;
   store->segments_ = std::make_unique<LogSegment[]>(options.segment_num);
+  for (size_t i = 0; i < options.segment_num; i++) {
+    store->segments_[i].Init(options.segment_size);
+  }
 
   // set first log segment as open
   store->GetCurrentLogSegment_()->OpenLogSegment(0);
@@ -57,6 +60,31 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   store->StartBackgroundThread_();
 
   *log_store = store;
+  return Status::Ok();
+}
+
+Status PosixLogStore::Destory(const std::string &store_name) noexcept {
+  auto *env = leveldb::Env::Default();
+  std::vector<std::string> filenames;
+  auto s = env->GetChildren(store_name, &filenames);
+  if (!s.ok()) {
+    return Status::Ok();
+  }
+  for (const auto &name : filenames) {
+    if (name != "LOG") {
+      continue;
+    }
+    s = env->RemoveFile(store_name + '/' + name);
+    if (!s.ok()) {
+      LOG_WARN("Failed to remove file, status: %s", s.ToString().c_str());
+      return Status::Err();
+    }
+  }
+  s = env->RemoveDir(store_name);
+  if (!s.ok()) {
+    LOG_WARN("Failed to remove dir, status: %s", s.ToString().c_str());
+    return Status::Err();
+  }
   return Status::Ok();
 }
 
@@ -101,8 +129,6 @@ Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
 
   return Status::Ok();
 }
-
-LsnType GetPersistentLsn() noexcept { return kInvalidLsn; }
 
 void ControlGuard::OnExit_() noexcept { segment_->OnWriterExit(); }
 

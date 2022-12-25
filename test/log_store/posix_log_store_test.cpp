@@ -9,6 +9,8 @@
  *
  */
 
+#include "log_store/options.h"
+#include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
 #include "log_store/posix_log_store/posix_log_store.h"
 #include <gtest/gtest.h>
@@ -42,6 +44,38 @@ TEST(PosixLogStoreTest, LogSegmentControlBitTest) {
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 1);
   control_bit = LogSegment::DecrWriterNum_(control_bit);
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 0);
+}
+
+TEST(PosixLogStoreTest, BasicTest) {
+  auto log_store_name = "test_log_store";
+  std::shared_ptr<LogStore> store;
+  Options options;
+  auto s = PosixLogStore::Destory(log_store_name);
+  EXPECT_EQ(s, Status::Ok());
+  s = PosixLogStore::Open(log_store_name, options, &store);
+  EXPECT_EQ(s, Status::Ok());
+
+  std::vector<std::string> log_records = {"123", "456", "789"};
+  std::vector<LsnRange> result;
+  s = store->AppendLogRecord(log_records, &result);
+  EXPECT_EQ(s, Status::Ok());
+  EXPECT_EQ(result.size(), log_records.size());
+  auto lsn = 0;
+  {
+    EXPECT_EQ(result[0].start_lsn, lsn);
+    lsn += LogRecord::kHeaderSize + log_records[0].size();
+    EXPECT_EQ(result[0].end_lsn, lsn);
+  }
+  {
+    EXPECT_EQ(result[1].start_lsn, lsn);
+    lsn += LogRecord::kHeaderSize + log_records[1].size();
+    EXPECT_EQ(result[1].end_lsn, lsn);
+  }
+  {
+    EXPECT_EQ(result[2].start_lsn, lsn);
+    lsn += LogRecord::kHeaderSize + log_records[2].size();
+    EXPECT_EQ(result[2].end_lsn, lsn);
+  }
 }
 
 } // namespace log_store

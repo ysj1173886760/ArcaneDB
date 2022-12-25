@@ -28,7 +28,7 @@ public:
   template <typename T> void WriteBytes(const T &val) noexcept {
     static_assert(std::is_pod_v<T>, "expect POD");
     size_t s = sizeof(T);
-    CHECK(ptr_ + s < end_);
+    CHECK(ptr_ + s <= end_);
     memcpy(ptr_, &val, s);
     ptr_ += s;
   }
@@ -44,7 +44,7 @@ public:
 
   template <> void WriteBytes(const std::string &val) noexcept {
     size_t s = val.size();
-    CHECK(ptr_ + s < end_);
+    CHECK(ptr_ + s <= end_);
     memcpy(ptr_, val.data(), s);
     ptr_ += s;
   }

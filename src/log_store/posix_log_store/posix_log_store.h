@@ -32,17 +32,20 @@ public:
   static Status Open(const std::string &name, const Options &options,
                      std::shared_ptr<LogStore> *log_store) noexcept;
 
+  static Status Destory(const std::string &name) noexcept;
+
   ~PosixLogStore() noexcept {
-    stopped_.store(std::memory_order_relaxed);
+    stopped_.store(true, std::memory_order_relaxed);
     if (background_thread_ != nullptr) {
       background_thread_->join();
     }
+    delete log_file_;
   }
 
   Status AppendLogRecord(std::vector<std::string> log_records,
                          std::vector<LsnRange> *result) noexcept override;
 
-  LsnType GetPersistentLsn() noexcept override;
+  LsnType GetPersistentLsn() noexcept override { return kInvalidLsn; }
 
 private:
   void StartBackgroundThread_() noexcept {
