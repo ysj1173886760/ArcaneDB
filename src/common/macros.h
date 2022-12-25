@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "butil/logging.h"
 #include "common/logger.h"
 namespace arcanedb {
 
@@ -27,30 +28,10 @@ namespace arcanedb {
 //   DISALLOW_COPY(cname);                                                        \
 //   DISALLOW_MOVE(cname)
 
-#ifdef NDEBUG
-#define DCHECK_IS_ON() 0
-#else
-#define DCHECK_IS_ON() 1
-#endif
-
 #define FATAL(fmt, ...)                                                        \
   do {                                                                         \
     LOG_ERROR(fmt, ##__VA_ARGS__);                                             \
-    std::abort();                                                              \
-  } while (false)
-
-#define CHECK(condition)                                                       \
-  do {                                                                         \
-    if (!(condition)) {                                                        \
-      FATAL("check failed, condition: %s", #condition);                        \
-    }                                                                          \
-  } while (false)
-
-#define DCHECK(condition)                                                      \
-  do {                                                                         \
-    if (DCHECK_IS_ON()) {                                                      \
-      CHECK(condition);                                                        \
-    }                                                                          \
+    CHECK(false);                                                              \
   } while (false)
 
 #define FRIEND_TEST(test_case_name, test_name)                                 \

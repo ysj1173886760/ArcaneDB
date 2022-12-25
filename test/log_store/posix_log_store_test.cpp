@@ -13,6 +13,8 @@
 #include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "util/backoff.h"
+#include "util/time.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
@@ -46,7 +48,7 @@ TEST(PosixLogStoreTest, LogSegmentControlBitTest) {
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 0);
 }
 
-TEST(PosixLogStoreTest, BasicTest) {
+std::shared_ptr<LogStore> GenerateLogStore() {
   auto log_store_name = "test_log_store";
   std::shared_ptr<LogStore> store;
   Options options;
@@ -54,10 +56,28 @@ TEST(PosixLogStoreTest, BasicTest) {
   EXPECT_EQ(s, Status::Ok());
   s = PosixLogStore::Open(log_store_name, options, &store);
   EXPECT_EQ(s, Status::Ok());
+  return store;
+}
 
+std::unique_ptr<LogReader> GetLogReader(std::shared_ptr<LogStore> store) {
+  std::unique_ptr<LogReader> reader;
+  auto s = store->GetLogReader(&reader);
+  EXPECT_EQ(s, Status::Ok());
+  return reader;
+}
+
+void WaitLsn(std::shared_ptr<LogStore> store, LsnType lsn) noexcept {
+  util::BackOff bo;
+  while (store->GetPersistentLsn() < lsn) {
+    bo.Sleep(1 * util::MillSec);
+  }
+}
+
+TEST(PosixLogStoreTest, BasicTest) {
+  auto store = GenerateLogStore();
   std::vector<std::string> log_records = {"123", "456", "789"};
   std::vector<LsnRange> result;
-  s = store->AppendLogRecord(log_records, &result);
+  auto s = store->AppendLogRecord(log_records, &result);
   EXPECT_EQ(s, Status::Ok());
   EXPECT_EQ(result.size(), log_records.size());
   auto lsn = 0;
@@ -76,6 +96,27 @@ TEST(PosixLogStoreTest, BasicTest) {
     lsn += LogRecord::kHeaderSize + log_records[2].size();
     EXPECT_EQ(result[2].end_lsn, lsn);
   }
+}
+
+TEST(PosixLogStoreTest, LogReaderTest) {
+  auto store = GenerateLogStore();
+  std::vector<std::string> log_records = {"123", "456", "789"};
+  std::vector<LsnRange> result;
+  auto s = store->AppendLogRecord(log_records, &result);
+  EXPECT_EQ(s, Status::Ok());
+
+  // wait log records to be persisted
+  WaitLsn(store, result.back().end_lsn);
+
+  // test log reader
+  auto log_reader = GetLogReader(store);
+  for (int i = 0; i < 3; i++) {
+    EXPECT_TRUE(log_reader->HasNext());
+    std::string bytes;
+    log_reader->GetNextLogRecord(&bytes);
+    EXPECT_EQ(bytes, log_records[i]);
+  }
+  EXPECT_EQ(log_reader->HasNext(), false);
 }
 
 } // namespace log_store

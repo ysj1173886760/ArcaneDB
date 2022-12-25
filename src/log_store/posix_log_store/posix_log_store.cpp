@@ -10,15 +10,18 @@
  */
 
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "butil/strings/string_piece.h"
 #include "common/config.h"
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
 #include "util/backoff.h"
 #include "util/bthread_util.h"
+#include "util/codec/buf_reader.h"
 #include "util/codec/buf_writer.h"
 #include "util/time.h"
 #include <atomic>
+#include <memory>
 #include <string>
 
 namespace arcanedb {
@@ -100,9 +103,10 @@ Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
   do {
     // first acquire the guard
     auto *segment = GetCurrentLogSegment_();
-    auto [guard, should_seal, raw_lsn] =
-        segment->AcquireControlGuard(total_size);
-    if (guard.has_value()) {
+    auto [succeed, should_seal, raw_lsn] =
+        segment->TryReserveLogBuffer(total_size);
+    if (succeed) {
+      auto guard = ControlGuard(segment);
       result->clear();
       result->reserve(log_records.size());
       auto writer = segment->GetBufWriter(raw_lsn, total_size);
@@ -150,6 +154,9 @@ void PosixLogStore::ThreadJob_() noexcept {
       log_segment->FreeSegment();
       // increment index
       current_io_segment = (current_io_segment + 1) % segment_num_;
+      // update persistent lsn
+      persistent_lsn_.store(GetLogSegment_(current_io_segment)->start_lsn_,
+                            std::memory_order_relaxed);
       continue;
     }
     // otherwise, we wait
@@ -171,6 +178,72 @@ bool PosixLogStore::SealAndOpen(LogSegment *log_segment) noexcept {
   // open a new segment
   OpenNewLogSegment_(lsn.value());
   return true;
+}
+
+void PosixLogReader::PeekNext_() noexcept {
+  auto s = file_->Read(LogRecord::kHeaderSize, &header_slice_,
+                       header_buffer_.data());
+  if (!s.ok()) {
+    LOG_WARN("Failed to read file, status: %s", s.ToString().c_str());
+    has_next_ = false;
+    return;
+  }
+  if (header_slice_.size() < LogRecord::kHeaderSize) {
+    has_next_ = false;
+    return;
+  }
+  // parse header
+  auto reader = util::BufReader(
+      butil::StringPiece(header_slice_.data(), header_slice_.size()));
+  if (!reader.ReadBytes(&current_lsn_)) {
+    has_next_ = false;
+    return;
+  }
+  // there is no empty log.
+  if (!reader.ReadBytes(&data_size_) || data_size_ == 0) {
+    has_next_ = false;
+    return;
+  }
+  if (data_size_ > data_buffer_.size()) {
+    data_buffer_.resize(data_size_);
+  }
+  // parse data
+  s = file_->Read(data_size_, &data_slice_, data_buffer_.data());
+  if (!s.ok()) {
+    LOG_WARN("Failed to read file, status: %s", s.ToString().c_str());
+    has_next_ = false;
+    return;
+  }
+  if (data_slice_.size() < data_size_) {
+    has_next_ = false;
+    return;
+  }
+  has_next_ = true;
+}
+
+bool PosixLogReader::HasNext() noexcept { return has_next_; }
+
+LsnType PosixLogReader::GetNextLogRecord(std::string *bytes) noexcept {
+  CHECK(has_next_);
+  // copy data out
+  *bytes = data_slice_.ToString();
+  LsnType lsn = current_lsn_;
+  // fetch next
+  PeekNext_();
+  return lsn;
+}
+
+Status
+PosixLogStore::GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept {
+  auto reader = std::make_unique<PosixLogReader>();
+  auto s = env_->NewSequentialFile(MakeLogFileName_(name_), &reader->file_);
+  if (!s.ok()) {
+    LOG_WARN("Failed to open file, status: %s", s.ToString().c_str());
+    return Status::Err();
+  }
+  reader->PeekNext_();
+  *log_reader = std::move(reader);
+  return Status::Ok();
 }
 
 } // namespace log_store

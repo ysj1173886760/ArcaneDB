@@ -51,16 +51,14 @@ public:
 
   /**
    * @brief
-   * return nullopt indicates writer should wait.
-   * return ControlGuard indicates writer is ok to writing log records.
+   * first returned value indicates that reservation has succeed.
    * second returned value indicates whether writer should seal current log
    * segment.
    * third returned value indicates the start lsn.
    * @param length length of this batch of log record
-   * @return std::tuple<std::optional<ControlGuard>, bool, LsnType>
+   * @return std::pair<bool, LsnType>
    */
-  std::tuple<std::optional<ControlGuard>, bool, LsnType>
-  AcquireControlGuard(size_t length) {
+  std::tuple<bool, bool, LsnType> TryReserveLogBuffer(size_t length) {
     uint64_t current_control_bits =
         control_bits_.load(std::memory_order_acquire);
     uint64_t new_control_bits;
@@ -74,12 +72,12 @@ public:
       }
       if (current_lsn + length > size_) {
         // writer should seal current log segment and open new one.
-        return {std::nullopt, true, kInvalidLsn};
+        return {false, true, kInvalidLsn};
       }
       auto current_writers = GetWriterNum_(current_control_bits);
       if (current_writers + 1 > kMaximumWriterNum) {
         // too much writers
-        return {std::nullopt, false, kInvalidLsn};
+        return {false, false, kInvalidLsn};
       }
       lsn = GetLsn_(current_control_bits);
       // CAS the new control bits
@@ -87,7 +85,8 @@ public:
       new_control_bits = BumpLsn_(new_control_bits, length);
     } while (control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
-    return {ControlGuard(this), false, lsn};
+
+    return {true, false, lsn};
   }
 
   /**
@@ -104,7 +103,7 @@ public:
     do {
       bool is_sealed = IsSealed_(current_control_bits);
       new_control_bits = DecrWriterNum_(current_control_bits);
-      bool is_last_writer = GetWriterNum_(new_control_bits);
+      bool is_last_writer = GetWriterNum_(new_control_bits) == 0;
       if (is_last_writer && is_sealed) {
         should_schedule_io_task = true;
       }

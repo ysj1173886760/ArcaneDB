@@ -32,6 +32,13 @@ struct LsnRange {
   LsnType end_lsn;
 };
 
+class LogReader {
+public:
+  virtual bool HasNext() noexcept = 0;
+  virtual LsnType GetNextLogRecord(std::string *bytes) noexcept = 0;
+  virtual ~LogReader() noexcept {};
+};
+
 // TODO: impl checkpoint & truncate logs
 class LogStore {
 public:
@@ -52,10 +59,24 @@ public:
    */
   virtual LsnType GetPersistentLsn() noexcept = 0;
 
+  /**
+   * @brief Get the LogReader
+   * log reader is used to read existing log to perform recovery.
+   * note that the behaviour of concurrent reading the log and appending the log
+   * record is undefined. So user should guarantee that there is at most one
+   * reader/writer
+   * @param log_reader
+   * @return Status
+   */
+  virtual Status
+  GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept = 0;
+
   static Status Open(const std::string &name, const Options &options,
                      std::shared_ptr<LogStore> *log_store) noexcept {
     return Status::Ok();
   }
+
+  virtual ~LogStore() noexcept {};
 };
 
 } // namespace log_store

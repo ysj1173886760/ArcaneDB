@@ -12,6 +12,7 @@
 #pragma once
 
 #include "log_store/log_store.h"
+#include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
 #include "util/backoff.h"
 #include "util/simple_waiter.h"
@@ -22,6 +23,33 @@
 
 namespace arcanedb {
 namespace log_store {
+
+class PosixLogReader : public LogReader {
+public:
+  bool HasNext() noexcept override;
+
+  LsnType GetNextLogRecord(std::string *bytes) noexcept override;
+
+  ~PosixLogReader() noexcept override { delete file_; }
+
+private:
+  friend class PosixLogStore;
+  void PeekNext_() noexcept;
+
+  size_t current_offset_{0};
+  leveldb::Env *env_;
+  leveldb::SequentialFile *file_{nullptr};
+  bool has_next_{false};
+  // header buffer
+  std::string header_buffer_{LogRecord::kHeaderSize};
+  leveldb::Slice header_slice_;
+  // data parsed from header
+  size_t current_lsn_{kInvalidLsn};
+  uint16_t data_size_{0};
+  // data buffer
+  std::string data_buffer_;
+  leveldb::Slice data_slice_;
+};
 
 /**
  * @brief
@@ -34,7 +62,7 @@ public:
 
   static Status Destory(const std::string &name) noexcept;
 
-  ~PosixLogStore() noexcept {
+  ~PosixLogStore() noexcept override {
     stopped_.store(true, std::memory_order_relaxed);
     if (background_thread_ != nullptr) {
       background_thread_->join();
@@ -45,7 +73,11 @@ public:
   Status AppendLogRecord(std::vector<std::string> log_records,
                          std::vector<LsnRange> *result) noexcept override;
 
-  LsnType GetPersistentLsn() noexcept override { return kInvalidLsn; }
+  LsnType GetPersistentLsn() noexcept override {
+    return persistent_lsn_.load(std::memory_order_relaxed);
+  }
+
+  Status GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept override;
 
 private:
   void StartBackgroundThread_() noexcept {
@@ -109,6 +141,7 @@ private:
   std::string name_;
   std::unique_ptr<std::thread> background_thread_{nullptr};
   std::atomic_bool stopped_{false};
+  std::atomic<LsnType> persistent_lsn_{0};
 };
 
 } // namespace log_store
