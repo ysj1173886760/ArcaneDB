@@ -26,63 +26,138 @@ class LogSegment;
 class ControlGuard {
 public:
   ControlGuard(LogSegment *segment) : segment_(segment) {}
+  ~ControlGuard() { OnExit_(); }
 
 private:
+  /**
+   * @brief
+   * 1. decr the writer num.
+   * 2. when writer num == 0 and log segment is sealed, schedule an io task.
+   */
+  void OnExit_() noexcept;
+
   LogSegment *segment_{nullptr};
 };
 
 class LogSegment {
 public:
-  LogSegment(size_t size, std::shared_ptr<util::ThreadPool> thread_pool)
-      : size_(size), writer_(size), thread_pool_(std::move(thread_pool)) {}
+  LogSegment(size_t size) : size_(size), writer_(size) {}
 
   LogSegment(LogSegment &&rhs) noexcept
-      : state_(rhs.state_), size_(rhs.size_), start_lsn_(rhs.start_lsn_),
-        writer_(size_),
-        control_bits_(rhs.control_bits_.load(std::memory_order_relaxed)),
-        thread_pool_(rhs.thread_pool_) {}
+      : state_(rhs.state_.load(std::memory_order_relaxed)), size_(rhs.size_),
+        start_lsn_(rhs.start_lsn_), writer_(size_),
+        control_bits_(rhs.control_bits_.load(std::memory_order_relaxed)) {}
 
   /**
    * @brief
    * return nullopt indicates writer should wait.
    * return ControlGuard indicates writer is ok to writing log records.
+   * second returned value indicates whether writer should seal current log
+   * segment.
    * @param length length of this batch of log record
-   * @return std::optional<ControlGuard>
+   * @return std::pair<std::optional<ControlGuard>, bool>
    */
-  std::optional<ControlGuard> AcquireControlGuard(size_t length) {
-    auto current_control_bits = control_bits_.load(std::memory_order_acquire);
-    return std::nullopt;
+  std::pair<std::optional<ControlGuard>, bool>
+  AcquireControlGuard(size_t length) {
+    uint64_t current_control_bits =
+        control_bits_.load(std::memory_order_acquire);
+    uint64_t new_control_bits;
+    do {
+      auto current_lsn = GetLsn_(current_control_bits);
+      if (length > size_) {
+        LOG_WARN("LogLength: %lld is greater than total size: %lld, resize is "
+                 "needed",
+                 static_cast<int64_t>(length), static_cast<int64_t>(size_));
+      }
+      if (current_lsn + length > size_) {
+        // writer should seal current log segment and open new one.
+        return {std::nullopt, true};
+      }
+      auto current_writers = GetWriterNum_(current_control_bits);
+      if (current_writers + 1 > kMaximumWriterNum) {
+        // too much writers
+        return {std::nullopt, false};
+      }
+      // CAS the new control bits
+      new_control_bits = IncrWriterNum_(current_control_bits);
+      new_control_bits = BumpLsn_(new_control_bits, length);
+    } while (control_bits_.compare_exchange_weak(
+        current_control_bits, new_control_bits, std::memory_order_acq_rel));
+    return {ControlGuard(this), false};
+  }
+
+  void OnWriterExit() noexcept {
+    uint64_t current_control_bits =
+        control_bits_.load(std::memory_order_acquire);
+    uint64_t new_control_bits;
+    bool should_schedule_io_task = false;
+    do {
+      bool is_sealed = IsSealed_(current_control_bits);
+      new_control_bits = DecrWriterNum_(current_control_bits);
+      bool is_last_writer = GetWriterNum_(new_control_bits);
+      if (is_last_writer && is_sealed) {
+        should_schedule_io_task = true;
+      }
+    } while (control_bits_.compare_exchange_weak(
+        current_control_bits, new_control_bits, std::memory_order_acq_rel));
+    if (should_schedule_io_task) {
+      state_.store(LogSegmentState::kIo, std::memory_order_relaxed);
+    }
+  }
+
+  void OpenLogSegmentAndSetLsn(LsnType start_lsn) noexcept {
+    CHECK(state_.load(std::memory_order_relaxed) == LogSegmentState::kFree);
+    start_lsn_ = start_lsn;
+    state_.store(LogSegmentState::kOpen, std::memory_order_release);
+    // writers must observe the state being kOpen before it can proceed to
+    // appending log records.
+  }
+
+  std::optional<LsnType> TrySealLogSegment() noexcept {
+    CHECK(state_.load(std::memory_order_relaxed) == LogSegmentState::kOpen);
+    uint64_t current_control_bits =
+        control_bits_.load(std::memory_order_acquire);
+    uint64_t new_control_bits;
+    LsnType new_lsn;
+    do {
+      if (IsSealed_(current_control_bits)) {
+        return std::nullopt;
+      }
+      new_control_bits = MarkSealed_(current_control_bits);
+      new_lsn = static_cast<LsnType>(GetLsn_(new_control_bits));
+    } while (control_bits_.compare_exchange_weak(
+        current_control_bits, new_control_bits, std::memory_order_acq_rel));
+    return new_lsn;
   }
 
 private:
   FRIEND_TEST(PosixLogStoreTest, LogSegmentControlBitTest);
-  friend class ControlGuard;
 
-  static bool IsSealed(size_t control_bits) noexcept {
+  static bool IsSealed_(size_t control_bits) noexcept {
     return (control_bits >> kIsSealedOffset) & kIsSealedMaskbit;
   }
 
-  static size_t MarkSealed(size_t control_bits) noexcept {
+  static size_t MarkSealed_(size_t control_bits) noexcept {
     return control_bits | (1ul << kIsSealedOffset);
   }
 
-  static size_t GetWriterNum(size_t control_bits) noexcept {
+  static size_t GetWriterNum_(size_t control_bits) noexcept {
     return (control_bits >> kWriterNumOffset) & kWriterNumMaskbit;
   }
 
-  static size_t IncrWriterNum(size_t control_bits) noexcept {
+  static size_t IncrWriterNum_(size_t control_bits) noexcept {
     return control_bits + (1ul << kWriterNumOffset);
   }
 
-  static size_t DecrWriterNum(size_t control_bits) noexcept {
+  static size_t DecrWriterNum_(size_t control_bits) noexcept {
     return control_bits - (1ul << kWriterNumOffset);
   }
 
-  static size_t GetLsn(size_t control_bits) noexcept {
+  static size_t GetLsn_(size_t control_bits) noexcept {
     return control_bits & kLsnMaskbit;
   }
 
-  static size_t BumpLsn(size_t control_bits, size_t length) noexcept {
+  static size_t BumpLsn_(size_t control_bits, size_t length) noexcept {
     return control_bits + length;
   }
 
@@ -92,6 +167,7 @@ private:
   static constexpr size_t kWriterNumMaskbit = 0x7FFF;
   static constexpr size_t kLsnOffset = 0;
   static constexpr size_t kLsnMaskbit = (1ul << 48) - 1;
+  static constexpr size_t kMaximumWriterNum = kWriterNumMaskbit;
 
   /**
    * @brief
@@ -108,14 +184,14 @@ private:
    * At last, after io worker has finish it's job, it will change kIo to kFree,
    * indicating this segment is reusable again.
    */
-  enum class LogSegmentState {
+  enum class LogSegmentState : uint8_t {
     kFree,
     kOpen,
-    kSeal,
+    // kSeal, Seal state is guided by control bits.
     kIo,
   };
 
-  LogSegmentState state_{LogSegmentState::kFree};
+  std::atomic<LogSegmentState> state_{LogSegmentState::kFree};
   size_t size_{};
   LsnType start_lsn_{};
   util::BufWriter writer_;
@@ -126,7 +202,6 @@ private:
    */
   // TODO: there might be a more efficient way to implement lock-free WAL.
   std::atomic<uint64_t> control_bits_{0};
-  std::shared_ptr<util::ThreadPool> thread_pool_{nullptr};
 };
 
 } // namespace log_store

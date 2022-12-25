@@ -18,30 +18,30 @@ namespace log_store {
 
 TEST(PosixLogStoreTest, LogSegmentControlBitTest) {
   size_t control_bit = 0;
-  EXPECT_EQ(LogSegment::GetLsn(control_bit), 0);
-  EXPECT_EQ(LogSegment::GetWriterNum(control_bit), 0);
-  EXPECT_EQ(LogSegment::IsSealed(control_bit), false);
+  EXPECT_EQ(LogSegment::GetLsn_(control_bit), 0);
+  EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 0);
+  EXPECT_EQ(LogSegment::IsSealed_(control_bit), false);
 
   // bump lsn
-  control_bit = LogSegment::BumpLsn(control_bit, 20);
-  EXPECT_EQ(LogSegment::GetLsn(control_bit), 20);
+  control_bit = LogSegment::BumpLsn_(control_bit, 20);
+  EXPECT_EQ(LogSegment::GetLsn_(control_bit), 20);
   // incr writer
-  control_bit = LogSegment::IncrWriterNum(control_bit);
-  EXPECT_EQ(LogSegment::GetWriterNum(control_bit), 1);
+  control_bit = LogSegment::IncrWriterNum_(control_bit);
+  EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 1);
   // bump lsn again
-  control_bit = LogSegment::BumpLsn(control_bit, 20);
-  EXPECT_EQ(LogSegment::GetLsn(control_bit), 40);
+  control_bit = LogSegment::BumpLsn_(control_bit, 20);
+  EXPECT_EQ(LogSegment::GetLsn_(control_bit), 40);
   // incr writer
-  control_bit = LogSegment::IncrWriterNum(control_bit);
-  EXPECT_EQ(LogSegment::GetWriterNum(control_bit), 2);
+  control_bit = LogSegment::IncrWriterNum_(control_bit);
+  EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 2);
   // seal
-  control_bit = LogSegment::MarkSealed(control_bit);
-  EXPECT_EQ(LogSegment::IsSealed(control_bit), true);
+  control_bit = LogSegment::MarkSealed_(control_bit);
+  EXPECT_EQ(LogSegment::IsSealed_(control_bit), true);
   // decr writer
-  control_bit = LogSegment::DecrWriterNum(control_bit);
-  EXPECT_EQ(LogSegment::GetWriterNum(control_bit), 1);
-  control_bit = LogSegment::DecrWriterNum(control_bit);
-  EXPECT_EQ(LogSegment::GetWriterNum(control_bit), 0);
+  control_bit = LogSegment::DecrWriterNum_(control_bit);
+  EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 1);
+  control_bit = LogSegment::DecrWriterNum_(control_bit);
+  EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 0);
 }
 
 } // namespace log_store
