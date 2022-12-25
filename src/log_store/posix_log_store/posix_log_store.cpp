@@ -58,6 +58,7 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
 
 Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
                                       std::vector<LsnRange> *result) noexcept {
+  
   return Status::Ok();
 }
 
@@ -71,10 +72,14 @@ void PosixLogStore::ThreadJob_() noexcept {
     auto *log_segment = GetLogSegment_(current_io_segment);
     if (log_segment->state_.load(std::memory_order_relaxed) ==
         LogSegment::LogSegmentState::kIo) {
-      auto data = log_segment->writer_.Detach();
+      auto data = log_segment->buffer_;
       auto s = log_file_->Append(data);
       if (!s.ok()) {
-        FATAL("Fuck, io failed, status: %s", s.ToString().c_str());
+        FATAL("io failed, status: %s", s.ToString().c_str());
+      }
+      s = log_file_->Sync();
+      if (!s.ok()) {
+        FATAL("sync failed, status: %s", s.ToString().c_str());
       }
       log_segment->FreeSegment();
       // increment index

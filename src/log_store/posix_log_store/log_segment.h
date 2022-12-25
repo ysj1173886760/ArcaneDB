@@ -46,7 +46,7 @@ public:
 
   void Init(size_t size) noexcept {
     size_ = size;
-    writer_.Reset(size);
+    buffer_.resize(size);
   }
 
   /**
@@ -121,7 +121,8 @@ public:
    */
   void FreeSegment() noexcept {
     // reset buffer
-    writer_.Reset(size_);
+    buffer_.clear();
+    buffer_.resize(size_);
     // set state to kfree
     state_.store(LogSegment::LogSegmentState::kFree, std::memory_order_release);
   }
@@ -242,7 +243,7 @@ private:
   std::atomic<LogSegmentState> state_{LogSegmentState::kFree};
   size_t size_{};
   LsnType start_lsn_{};
-  util::BufWriter writer_;
+  std::string buffer_;
   /**
    * @brief
    * Control bits format:
