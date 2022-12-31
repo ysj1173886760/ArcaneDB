@@ -108,8 +108,7 @@ private:
     constexpr int64_t sleep_time = 1 * util::MillSec;
     AdvanceSegmentIndex_();
     util::BackOff bo;
-    while (GetCurrentLogSegment_()->state_.load(std::memory_order_acquire) !=
-           LogSegment::LogSegmentState::kFree) {
+    while (!GetCurrentLogSegment_()->IsFree()) {
       bo.Sleep(sleep_time);
     }
     GetCurrentLogSegment_()->OpenLogSegment(start_lsn);

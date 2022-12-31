@@ -103,19 +103,6 @@ Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
   do {
     // first acquire the guard
     auto *segment = GetCurrentLogSegment_();
-    // FIXME: there could have interesting interleaving since i'm separating
-    // state and control bits. consider the following situation: thread1 load
-    // the segment 0 state, seeing it's kOpen, then it get swapped out. thread2
-    // & io thread start to appending logs and switching segments. segment 0
-    // state is kFree thread1 came back, it tries to reserve log buffer. other
-    // threads start to reuse segment 0, changing state to kOpen and reseting
-    // the control bits then what thread1 has writen to controls bits has lost.
-    // the essential problem is that i'm separating state and control bits,
-    // which leads to changing state and control bits is not atomic.
-    if (segment->state_.load(std::memory_order_acquire) !=
-        LogSegment::LogSegmentState::kOpen) {
-      bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
-    }
     auto [succeed, should_seal, raw_lsn] =
         segment->TryReserveLogBuffer(total_size);
     if (succeed) {
@@ -153,8 +140,7 @@ void PosixLogStore::ThreadJob_() noexcept {
   size_t current_io_segment = 0;
   while (!stopped_.load(std::memory_order_relaxed)) {
     auto *log_segment = GetLogSegment_(current_io_segment);
-    if (log_segment->state_.load(std::memory_order_relaxed) ==
-        LogSegment::LogSegmentState::kIo) {
+    if (log_segment->IsIo()) {
       auto start_lsn = log_segment->start_lsn_;
       auto data = log_segment->buffer_;
       auto s = log_file_->Append(data);
@@ -180,8 +166,7 @@ void PosixLogStore::ThreadJob_() noexcept {
     // otherwise, we wait
     log_segment->waiter_.Wait(common::Config::kLogStoreFlushInterval);
     // recheck state
-    if (log_segment->state_.load(std::memory_order_acquire) !=
-        LogSegment::LogSegmentState::kIo) {
+    if (!log_segment->IsIo()) {
       SealAndOpen(log_segment);
     }
   }

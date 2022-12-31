@@ -26,7 +26,7 @@ TEST(PosixLogStoreTest, LogSegmentControlBitTest) {
   size_t control_bit = 0;
   EXPECT_EQ(LogSegment::GetLsn_(control_bit), 0);
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 0);
-  EXPECT_EQ(LogSegment::IsSealed_(control_bit), false);
+  EXPECT_EQ(LogSegment::IsFree_(control_bit), true);
 
   // bump lsn
   control_bit = LogSegment::BumpLsn_(control_bit, 20);
@@ -40,9 +40,22 @@ TEST(PosixLogStoreTest, LogSegmentControlBitTest) {
   // incr writer
   control_bit = LogSegment::IncrWriterNum_(control_bit);
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 2);
+  // open
+  control_bit =
+      LogSegment::SetState_(control_bit, LogSegment::LogSegmentState::kOpen);
+  EXPECT_EQ(LogSegment::IsOpen_(control_bit), true);
   // seal
-  control_bit = LogSegment::MarkSealed_(control_bit);
-  EXPECT_EQ(LogSegment::IsSealed_(control_bit), true);
+  control_bit =
+      LogSegment::SetState_(control_bit, LogSegment::LogSegmentState::kSeal);
+  EXPECT_EQ(LogSegment::IsSeal_(control_bit), true);
+  // io
+  control_bit =
+      LogSegment::SetState_(control_bit, LogSegment::LogSegmentState::kIo);
+  EXPECT_EQ(LogSegment::IsIo_(control_bit), true);
+  // free
+  control_bit =
+      LogSegment::SetState_(control_bit, LogSegment::LogSegmentState::kFree);
+  EXPECT_EQ(LogSegment::IsFree_(control_bit), true);
   // decr writer
   control_bit = LogSegment::DecrWriterNum_(control_bit);
   EXPECT_EQ(LogSegment::GetWriterNum_(control_bit), 1);
