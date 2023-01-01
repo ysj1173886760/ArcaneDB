@@ -10,7 +10,6 @@
  */
 #pragma once
 
-#include "butil/strings/string_piece.h"
 #include "common/macros.h"
 #include <cstring>
 #include <string>

@@ -13,6 +13,7 @@
 #include "util/codec/buf_reader.h"
 #include "util/codec/buf_writer.h"
 #include <gtest/gtest.h>
+#include <string_view>
 
 namespace arcanedb {
 namespace util {
@@ -54,7 +55,7 @@ TEST(BufReaderWriterTest, BasicTest) {
     uint32_t val;
     EXPECT_TRUE(reader.ReadBytes(&val));
     EXPECT_EQ(val, s.size());
-    butil::StringPiece res;
+    std::string_view res;
     EXPECT_TRUE(reader.ReadPiece(&res, val));
     EXPECT_EQ(res, s);
   }

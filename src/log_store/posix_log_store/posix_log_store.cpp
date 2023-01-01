@@ -10,7 +10,6 @@
  */
 
 #include "log_store/posix_log_store/posix_log_store.h"
-#include "butil/strings/string_piece.h"
 #include "common/config.h"
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_record.h"
@@ -197,7 +196,7 @@ void PosixLogReader::PeekNext_() noexcept {
   }
   // parse header
   auto reader = util::BufReader(
-      butil::StringPiece(header_slice_.data(), header_slice_.size()));
+      std::string_view(header_slice_.data(), header_slice_.size()));
   if (!reader.ReadBytes(&current_lsn_)) {
     has_next_ = false;
     return;

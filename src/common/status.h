@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include "butil/strings/string_piece.h"
 #include "common/macros.h"
 #include <cstdint>
 #include <memory>
@@ -73,11 +72,11 @@ public:
 
   bool ok() const noexcept { return code_ == ErrorCode::kOk; }
 
-  butil::StringPiece GetMsg() const noexcept {
+  std::string_view GetMsg() const noexcept {
     if (msg_ == nullptr) {
-      return butil::StringPiece();
+      return {};
     }
-    return butil::StringPiece(*msg_);
+    return std::string_view(*msg_);
   }
 
 #define ARCANEDB_X(error_code) STATUS_ERROR_FUNC(error_code)

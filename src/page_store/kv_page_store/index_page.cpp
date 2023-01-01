@@ -10,7 +10,6 @@
  */
 
 #include "page_store/kv_page_store/index_page.h"
-#include "butil/strings/string_piece.h"
 #include "common/macros.h"
 #include "common/type.h"
 #include "page_store/page_store.h"
@@ -40,7 +39,7 @@ Status IndexPage::DeserializationFrom(util::BufReader *reader) noexcept {
 
   uint8_t page_id_length;
   READ_OR_RETURN_END_OF_BUF(page_id_length);
-  butil::StringPiece buffer;
+  std::string_view buffer;
   if (!reader->ReadPiece(&buffer, page_id_length)) {
     return Status::EndOfBuf();
   }

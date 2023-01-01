@@ -1,6 +1,7 @@
 #pragma once
 
-#include "butil/strings/string_piece.h"
+#include <cstddef>
+#include <string_view>
 
 namespace arcanedb {
 namespace util {
@@ -12,11 +13,10 @@ namespace util {
  */
 class BufReader {
 public:
-  BufReader(butil::StringPiece buffer)
+  BufReader(std::string_view buffer)
       : ptr_(buffer.data()), begin_(ptr_), end_(begin_ + buffer.size()) {}
 
   size_t Remaining() const noexcept { return end_ - ptr_; }
-
   size_t Offset() const noexcept { return ptr_ - begin_; }
 
   bool Skip(size_t len) noexcept {
@@ -33,11 +33,11 @@ public:
     return ReadHelper_(value);
   }
 
-  bool ReadPiece(butil::StringPiece *out, size_t len) noexcept {
+  bool ReadPiece(std::string_view *out, size_t len) noexcept {
     if (ptr_ + len > end_) {
       return false;
     }
-    *out = butil::StringPiece(ptr_, len);
+    *out = std::string_view(ptr_, len);
     ptr_ += len;
     return true;
   }
