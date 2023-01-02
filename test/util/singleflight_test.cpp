@@ -24,7 +24,7 @@ TEST(SingleFlightTest, BasicTest) {
   bthread::Mutex mu;
   int counter = 0;
   std::unordered_set<std::string> flag;
-  auto loader = [&](const std::string_view &key, std::shared_ptr<int> *entry) {
+  auto loader = [&](const std::string_view &key, int **entry) {
     std::lock_guard<bthread::Mutex> guard(mu);
     if (!flag.count(std::string(key))) {
       flag.emplace(std::string(key));
@@ -36,7 +36,7 @@ TEST(SingleFlightTest, BasicTest) {
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 100; j++) {
       LaunchAsync([&, index = i]() {
-        std::shared_ptr<int> entry;
+        int *entry;
         auto s = single_flight.Do(std::to_string(index), &entry, loader);
         EXPECT_EQ(s, Status::Ok());
         wg.Done();

@@ -22,7 +22,8 @@
   ARCANEDB_X(Err)                                                              \
   ARCANEDB_X(NotFound)                                                         \
   ARCANEDB_X(EndOfBuf)                                                         \
-  ARCANEDB_X(PageIdNotMatch)
+  ARCANEDB_X(PageIdNotMatch)                                                   \
+  ARCANEDB_X(Retry)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \
@@ -106,6 +107,8 @@ public:
   }
 
 private:
+  template <typename T> friend struct Result;
+
   Status(ErrorCode code) : code_(code) {}
   Status(ErrorCode code, std::string msg)
       : code_(code), msg_(std::make_unique<std::string>(std::move(msg))) {}
@@ -131,6 +134,8 @@ template <typename T> class Result {
 public:
   Result(T &&value)
       : code_(Status::ErrorCode::kOk), value_(std::forward<T>(value)) {}
+
+  Result(Status status) : code_(status.code_) { DCHECK(!ok()); }
 
   // TODO: support inplace constructing value
 
