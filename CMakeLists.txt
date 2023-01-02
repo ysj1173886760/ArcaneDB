@@ -80,6 +80,15 @@ endif()
 set(ARCANEDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src)
 set(ARCANEDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test)
 
+# FIXME: better way to compile.
+include_directories(third_party/abseil-cpp)
+link_directories(${PROJECT_BINARY_DIR}/third_party/abseil-cpp/absl)
+
+set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
+                  absl::base
+                  absl::hash
+                  absl::raw_hash_set)
+
 include_directories(${ARCANEDB_SRC_INCLUDE_DIR}
                     ${ARCANEDB_TEST_INCLUDE_DIR})
 include_directories(BEFORE src)

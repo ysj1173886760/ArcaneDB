@@ -4,3 +4,6 @@
 [submodule "third_party/incubator-brpc"]
 	path = third_party/incubator-brpc
 	url = https://github.com/apache/incubator-brpc
+[submodule "third_party/abseil-cpp"]
+	path = third_party/abseil-cpp
+	url = https://github.com/abseil/abseil-cpp
