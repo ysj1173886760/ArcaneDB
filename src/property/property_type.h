@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <unordered_map>
 #include <variant>
 
 namespace arcanedb {
@@ -32,6 +33,8 @@ enum class ValueType : uint8_t {
 };
 
 using Value = std::variant<int32_t, int64_t, float, double, std::string_view>;
+
+using ValueRefMap = std::unordered_map<ColumnId, Value>;
 
 } // namespace property
 } // namespace arcanedb
