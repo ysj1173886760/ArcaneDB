@@ -6,12 +6,13 @@ Might be a graph storage engine.
 
 - [x] PageStore interface and implementation based on leveldb
 - [x] LogStore interface and implementation based on Env of leveldb
-- [] BufferPoolManager
-- [] In-memory row structure
-- [] On-disk row structure
-- [] In-memory page structure
-- [] On-disk page format
-- [] Type Subsystem: Schema, Properties
+- [x] BufferPoolManager
+  - [] Swap pages
+- [x] Type Subsystem: Schema, Properties
+- [x] row read/write
+  - [] More row type
+- [] In-memory page read/write
+- [] Page serialization/deserialization
 - [] 1-level Btr
 - [] 2-level Btr
 - [] Multi-level Btr
