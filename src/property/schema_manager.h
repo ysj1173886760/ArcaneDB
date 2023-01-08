@@ -26,7 +26,7 @@ public:
   }
 
   void AddSchema(std::unique_ptr<Schema> schema) noexcept {
-    index_[schema->schema_id] = std::move(schema);
+    index_[schema->GetSchemaId()] = std::move(schema);
   }
 
   Schema *GetSchema(SchemaId schema_id) noexcept {

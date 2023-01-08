@@ -13,25 +13,32 @@
 
 #include <string>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
 #include "property/property_type.h"
 
 namespace arcanedb {
 namespace property {
 
-// TODO(sheep): support default value and null value
+class Schema {
+public:
+  Schema(const RawSchema &raw_schema) noexcept;
 
-struct Column {
-  std::string name;
-  ValueType type;
-  ColumnId column_id;
-};
+  Column *GetColumnRefById(ColumnId column_id) noexcept;
 
-constexpr size_t kDefaultColumnNum = 8;
+  Column *GetColumnRefByIndex(size_t index) noexcept;
 
-struct Schema {
-  absl::InlinedVector<Column, kDefaultColumnNum> columns;
-  SchemaId schema_id;
+  SchemaId GetSchemaId() noexcept { return schema_id_; }
+
+  size_t GetColumnNum() noexcept { return columns_.size(); }
+
+private:
+  void BuildColumnIndex_() noexcept;
+
+  absl::InlinedVector<Column, kDefaultColumnNum> columns_;
+  SchemaId schema_id_;
+  // mapping from column id to column index
+  absl::flat_hash_map<ColumnId, size_t> column_index_;
 };
 
 } // namespace property

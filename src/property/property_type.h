@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "absl/container/inlined_vector.h"
 #include <cstdint>
 #include <string_view>
 #include <unordered_map>
@@ -21,6 +22,8 @@ namespace property {
 
 using SchemaId = uint32_t;
 using ColumnId = uint32_t;
+
+constexpr size_t kDefaultColumnNum = 8;
 
 enum class ValueType : uint8_t {
   Int32,
@@ -35,6 +38,21 @@ enum class ValueType : uint8_t {
 using Value = std::variant<int32_t, int64_t, float, double, std::string_view>;
 
 using ValueRefMap = std::unordered_map<ColumnId, Value>;
+
+using ValueRefVec = absl::InlinedVector<Value, kDefaultColumnNum>;
+
+// TODO(sheep): support default value and null value
+
+struct Column {
+  std::string name;
+  ValueType type;
+  ColumnId column_id;
+};
+
+struct RawSchema {
+  absl::InlinedVector<Column, kDefaultColumnNum> columns;
+  SchemaId schema_id;
+};
 
 } // namespace property
 } // namespace arcanedb
