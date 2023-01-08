@@ -1,5 +1,5 @@
 /**
- * @file page_concept.h
+ * @file bwtree_page.h
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
@@ -8,20 +8,14 @@
  * @copyright Copyright (c) 2023
  *
  */
+#pragma once
 
-#include "common/status.h"
-#include "handler/logical_tuple.h"
-#include "property/schema.h"
+#include "btree/page/page_concept.h"
 
 namespace arcanedb {
 namespace btree {
 
-/**
- * @brief
- * Page concept of a single now in btree.
- * @tparam PageType
- */
-template <typename PageType> class PageConcept {
+class BwTreePage : public PageConcept<BwTreePage> {
 public:
   /**
    * @brief
@@ -31,9 +25,7 @@ public:
    * @return Status
    */
   Status InsertRow(const handler::LogicalTuple &tuple,
-                   const property::Schema *schema) noexcept {
-    return Real()->InsertRow(tuple, schema);
-  }
+                   const property::Schema *schema) noexcept;
 
   /**
    * @brief
@@ -44,9 +36,7 @@ public:
    * @return Status
    */
   Status UpdateRow(const handler::LogicalTuple &tuple,
-                   const property::Schema *schema) noexcept {
-    return Real()->UpdateRow(tuple, schema);
-  }
+                   const property::Schema *schema) noexcept;
 
   /**
    * @brief
@@ -57,11 +47,8 @@ public:
    * @return Status
    */
   Status DeleteRow(const handler::LogicalTuple &tuple,
-                   const property::Schema *schema) noexcept {
-    return Real()->DeleteRow(tuple, schema);
-  }
+                   const property::Schema *schema) noexcept;
 
-  // TODO(sheep): support filter
   /**
    * @brief
    * Get a row from page
@@ -70,16 +57,9 @@ public:
    * @return Status
    */
   Status GetRow(const handler::LogicalTuple &tuple,
-                const property::Schema *schema) noexcept {
-    return Real()->GetRow(tuple, schema);
-  }
-
-  // TODO(sheep): support scan
-
-  // TODO(sheep): split and merge
+                const property::Schema *schema) noexcept;
 
 private:
-  PageType *Real() noexcept { return static_cast<PageType *>(this); }
 };
 
 } // namespace btree

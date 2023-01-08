@@ -27,7 +27,7 @@ constexpr size_t kTotalLengthFieldSize = 4;
  * For string type, it will occupy 8bytes, first 4 byte is pointer,
  * second 4 byte is length
  */
-class SimpleRow : RowConcept<SimpleRow> {
+class SimpleRow : public RowConcept<SimpleRow> {
 public:
   SimpleRow(const char *ptr) noexcept : ptr_(ptr) {}
 
