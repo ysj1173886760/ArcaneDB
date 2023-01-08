@@ -11,16 +11,19 @@
 
 #pragma once
 
+#include "property/property_type.h"
 #include "property/row/row_concept.h"
 
 namespace arcanedb {
 namespace property {
 
+constexpr size_t kTotalLengthFieldSize = 4;
+
 /**
  * @brief
  * Native row implementation
  * Format:
- * | Column1 | Column2 | ... | ColumnN | String1 | String2 |
+ * | total length | Column1 | Column2 | ... | ColumnN | String1 | String2 |
  * For string type, it will occupy 8bytes, first 4 byte is pointer,
  * second 4 byte is length
  */

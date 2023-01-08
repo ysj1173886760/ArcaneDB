@@ -26,6 +26,7 @@ Status SimpleRow::GetProp(ColumnId id, Value *value, Schema *schema) noexcept {
   auto index = schema->GetColumnIndex(id);
   auto offset = schema->GetColumnOffsetForSimpleRow(index);
   auto type = schema->GetColumnRefByIndex(index)->type;
+  offset += kTotalLengthFieldSize;
   std::string_view value_ref(ptr_ + offset, GetTypeLength_(type));
   switch (type) {
   case ValueType::Int32: {
@@ -79,7 +80,19 @@ Status SimpleRow::Serialize(const ValueRefVec &value_ref_vec,
   CHECK(value_ref_vec.size() == column_num);
   // store index of va fields
   absl::InlinedVector<std::string_view, kDefaultColumnNum> va_fields;
-  size_t string_offset = schema->GetColumnOffsetForSimpleRow(column_num);
+  size_t string_offset =
+      schema->GetColumnOffsetForSimpleRow(column_num) + kTotalLengthFieldSize;
+
+  // first calc total length
+  uint32_t total_length = string_offset;
+  for (size_t i = 0; i < column_num; i++) {
+    auto type = schema->GetColumnRefByIndex(i)->type;
+    if (type == ValueType::String) {
+      total_length += std::get<std::string_view>(value_ref_vec[i]).size();
+    }
+  }
+  buf_writer->WriteBytes(total_length);
+
   for (size_t i = 0; i < column_num; i++) {
     auto type = schema->GetColumnRefByIndex(i)->type;
     CHECK(static_cast<uint8_t>(type) == value_ref_vec[i].index());
@@ -102,6 +115,8 @@ Status SimpleRow::Serialize(const ValueRefVec &value_ref_vec,
       string_offset += length;
       break;
     }
+    default:
+      UNREACHABLE();
     }
   }
   // serialize string
