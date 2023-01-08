@@ -6,6 +6,18 @@
 namespace arcanedb {
 namespace util {
 
+/**
+ * @brief
+ * Simple memcpy helper.
+ * We are assuming data is written by memcpy.
+ * @tparam T
+ * @param buf
+ * @param out
+ */
+template <typename T> inline void ReadBuf(const char buf[], T *out) noexcept {
+  memcpy(reinterpret_cast<char *>(out), buf, sizeof(T));
+}
+
 // TODO: distinguish big endian and small endian buf reader.
 /**
  * @brief

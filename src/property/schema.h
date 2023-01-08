@@ -28,17 +28,24 @@ public:
 
   Column *GetColumnRefByIndex(size_t index) noexcept;
 
+  size_t GetColumnIndex(ColumnId column_id) noexcept;
+
   SchemaId GetSchemaId() noexcept { return schema_id_; }
 
   size_t GetColumnNum() noexcept { return columns_.size(); }
 
+  size_t GetColumnOffsetForSimpleRow(size_t index) noexcept;
+
 private:
   void BuildColumnIndex_() noexcept;
+
+  void BuildOffsetCacheForSimpleRow_() noexcept;
 
   absl::InlinedVector<Column, kDefaultColumnNum> columns_;
   SchemaId schema_id_;
   // mapping from column id to column index
   absl::flat_hash_map<ColumnId, size_t> column_index_;
+  absl::InlinedVector<size_t, kDefaultColumnNum> offset_cache_simple_row_;
 };
 
 } // namespace property

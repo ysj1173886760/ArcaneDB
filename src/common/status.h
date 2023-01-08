@@ -23,7 +23,8 @@
   ARCANEDB_X(NotFound)                                                         \
   ARCANEDB_X(EndOfBuf)                                                         \
   ARCANEDB_X(PageIdNotMatch)                                                   \
-  ARCANEDB_X(Retry)
+  ARCANEDB_X(Retry)                                                            \
+  ARCANEDB_X(DeserializationFailed)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \
