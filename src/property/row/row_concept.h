@@ -32,34 +32,7 @@ public:
     return Real()->GetProp(id, value);
   }
 
-  /**
-   * @brief
-   * Serialize a row.
-   * @param value_ref_map mapping from column id to value reference
-   * @param[out] buf_writer result buffer
-   * @param schema
-   * @return Status
-   */
-  Status Serialize(const ValueRefMap &value_ref_map,
-                   util::BufWriter *buf_writer, Schema *schema) noexcept {
-    return Real()->Serialize(value_ref_map, buf_writer, schema);
-  }
-
-  /**
-   * @brief
-   * Serialize a row.
-   * @param value_ref_vec vector that stores value reference.
-   * following constraint should be satisfied:
-   *  value_ref_vec.size() == schema->size() &&
-   * value_ref_vec[i].type == schema.column[i].type
-   * @param buf_writer
-   * @param schema
-   * @return Status
-   */
-  Status Serialize(const ValueRefVec &value_ref_vec,
-                   util::BufWriter *buf_writer, Schema *schema) noexcept {
-    return Real()->Serialize(value_ref_vec, buf_writer, schema);
-  }
+  // TODO(sheep): impl GetProps, Compare, GetSortKeys
 
 private:
   RowType *Real() noexcept { return static_cast<RowType *>(this); }

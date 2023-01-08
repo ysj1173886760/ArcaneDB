@@ -24,14 +24,6 @@ public:
   NonOwnershipBufWriter(char *begin, size_t size)
       : ptr_(begin), end_(ptr_ + size) {}
 
-  template <typename T> void WriteBytes(const T &val) noexcept {
-    static_assert(std::is_pod_v<T>, "expect POD");
-    size_t s = sizeof(T);
-    CHECK(ptr_ + s <= end_);
-    memcpy(ptr_, &val, s);
-    ptr_ += s;
-  }
-
   template <typename... Args>
   void WriteVariant(const std::variant<Args...> &val) {
     std::visit(
@@ -41,7 +33,24 @@ public:
         val);
   }
 
+  template <typename T, typename Dummy = T>
+  void WriteBytes(const T &val) noexcept {
+    static_assert(std::is_pod_v<T>, "expect POD");
+    size_t s = sizeof(T);
+    CHECK(ptr_ + s <= end_);
+    memcpy(ptr_, &val, s);
+    ptr_ += s;
+  }
+
+  // TODO(sheep): more elegant way to implement template specification.
   template <> void WriteBytes(const std::string &val) noexcept {
+    size_t s = val.size();
+    CHECK(ptr_ + s <= end_);
+    memcpy(ptr_, val.data(), s);
+    ptr_ += s;
+  }
+
+  template <> void WriteBytes(const std::string_view &val) noexcept {
     size_t s = val.size();
     CHECK(ptr_ + s <= end_);
     memcpy(ptr_, val.data(), s);
@@ -76,16 +85,6 @@ public:
 
   size_t Offset() const noexcept { return write_offset_; }
 
-  template <typename T> void WriteBytes(const T &val) noexcept {
-    static_assert(std::is_pod_v<T>, "expect POD");
-    if (write_offset_ + sizeof(T) > buffer_.size()) {
-      ResizeHelper_(write_offset_ + sizeof(T));
-    }
-
-    memcpy(&buffer_[write_offset_], &val, sizeof(T));
-    write_offset_ += sizeof(T);
-  }
-
   template <typename... Args>
   void WriteVariant(const std::variant<Args...> &val) {
     std::visit(
@@ -95,7 +94,27 @@ public:
         val);
   }
 
+  template <typename T, typename Dummy = T>
+  void WriteBytes(const T &val) noexcept {
+    static_assert(std::is_pod_v<T>, "expect POD");
+    if (write_offset_ + sizeof(T) > buffer_.size()) {
+      ResizeHelper_(write_offset_ + sizeof(T));
+    }
+
+    memcpy(&buffer_[write_offset_], &val, sizeof(T));
+    write_offset_ += sizeof(T);
+  }
+
   template <> void WriteBytes(const std::string &val) noexcept {
+    size_t s = val.size();
+    if (write_offset_ + s > buffer_.size()) {
+      ResizeHelper_(write_offset_ + s);
+    }
+    memcpy(&buffer_[write_offset_], val.data(), s);
+    write_offset_ += s;
+  }
+
+  template <> void WriteBytes(const std::string_view &val) noexcept {
     size_t s = val.size();
     if (write_offset_ + s > buffer_.size()) {
       ResizeHelper_(write_offset_ + s);

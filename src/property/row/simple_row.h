@@ -26,6 +26,8 @@ namespace property {
  */
 class SimpleRow : RowConcept<SimpleRow> {
 public:
+  SimpleRow(const char *ptr) noexcept : ptr_(ptr) {}
+
   /**
    * @brief Get property by column id
    *
@@ -39,6 +41,17 @@ public:
   /**
    * @brief
    * Serialize a row.
+   * @param value_ref_map mapping from column id to value reference
+   * @param[out] buf_writer result buffer
+   * @param schema
+   * @return Status
+   */
+  static Status Serialize(const ValueRefMap &value_ref_map,
+                          util::BufWriter *buf_writer, Schema *schema) noexcept;
+
+  /**
+   * @brief
+   * Serialize a row.
    * @param value_ref_vec vector that stores value reference.
    * following constraint should be satisfied:
    *  value_ref_vec.size() == schema->size() &&
@@ -47,8 +60,8 @@ public:
    * @param schema
    * @return Status
    */
-  Status Serialize(const ValueRefVec &value_ref_vec,
-                   util::BufWriter *buf_writer, Schema *schema) noexcept;
+  static Status Serialize(const ValueRefVec &value_ref_vec,
+                          util::BufWriter *buf_writer, Schema *schema) noexcept;
 
 private:
   static size_t GetTypeLength_(ValueType type) noexcept;

@@ -24,17 +24,24 @@ class Schema {
 public:
   Schema(const RawSchema &raw_schema) noexcept;
 
-  Column *GetColumnRefById(ColumnId column_id) noexcept;
+  const Column *GetColumnRefById(ColumnId column_id) const noexcept;
 
-  Column *GetColumnRefByIndex(size_t index) noexcept;
+  const Column *GetColumnRefByIndex(size_t index) const noexcept;
 
-  size_t GetColumnIndex(ColumnId column_id) noexcept;
+  size_t GetColumnIndex(ColumnId column_id) const noexcept;
 
-  SchemaId GetSchemaId() noexcept { return schema_id_; }
+  SchemaId GetSchemaId() const noexcept { return schema_id_; }
 
-  size_t GetColumnNum() noexcept { return columns_.size(); }
+  size_t GetColumnNum() const noexcept { return columns_.size(); }
 
-  size_t GetColumnOffsetForSimpleRow(size_t index) noexcept;
+  /**
+   * @brief Get column offset.
+   * if index == columns_.size(), then we will return total length of
+   * fixed length area.
+   * @param index
+   * @return size_t
+   */
+  size_t GetColumnOffsetForSimpleRow(size_t index) const noexcept;
 
 private:
   void BuildColumnIndex_() noexcept;
@@ -45,7 +52,7 @@ private:
   SchemaId schema_id_;
   // mapping from column id to column index
   absl::flat_hash_map<ColumnId, size_t> column_index_;
-  absl::InlinedVector<size_t, kDefaultColumnNum> offset_cache_simple_row_;
+  absl::InlinedVector<size_t, kDefaultColumnNum + 1> offset_cache_simple_row_;
 };
 
 } // namespace property

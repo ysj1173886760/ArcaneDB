@@ -30,30 +30,30 @@ void Schema::BuildColumnIndex_() noexcept {
   CHECK(column_index_.size() == columns_.size());
 }
 
-Column *Schema::GetColumnRefById(ColumnId column_id) noexcept {
+const Column *Schema::GetColumnRefById(ColumnId column_id) const noexcept {
   auto it = column_index_.find(column_id);
   CHECK(it != column_index_.end());
   return &columns_[it->second];
 }
 
-Column *Schema::GetColumnRefByIndex(size_t index) noexcept {
+const Column *Schema::GetColumnRefByIndex(size_t index) const noexcept {
   CHECK(index < columns_.size());
   return &columns_[index];
 }
 
-size_t Schema::GetColumnIndex(ColumnId column_id) noexcept {
+size_t Schema::GetColumnIndex(ColumnId column_id) const noexcept {
   auto it = column_index_.find(column_id);
   CHECK(it != column_index_.end());
   return it->second;
 }
 
-size_t Schema::GetColumnOffsetForSimpleRow(size_t index) noexcept {
-  CHECK(index < columns_.size());
+size_t Schema::GetColumnOffsetForSimpleRow(size_t index) const noexcept {
+  CHECK(index <= columns_.size());
   return offset_cache_simple_row_[index];
 }
 
 void Schema::BuildOffsetCacheForSimpleRow_() noexcept {
-  offset_cache_simple_row_.resize(columns_.size());
+  offset_cache_simple_row_.resize(columns_.size() + 1);
   size_t offset = 0;
   for (size_t i = 0; i < columns_.size(); i++) {
     auto &column = columns_[i];
@@ -67,12 +67,15 @@ void Schema::BuildOffsetCacheForSimpleRow_() noexcept {
     case ValueType::Double:
     case ValueType::String:
       offset += 8;
+      break;
     case ValueType::Bool:
       offset += 1;
+      break;
     default:
       UNREACHABLE();
     }
   }
+  offset_cache_simple_row_.back() = offset;
 }
 
 } // namespace property
