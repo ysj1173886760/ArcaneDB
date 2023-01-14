@@ -94,8 +94,7 @@ public:
         val);
   }
 
-  template <typename T, typename Dummy = T>
-  void WriteBytes(const T &val) noexcept {
+  template <typename T> void WriteBytes(const T &val) noexcept {
     static_assert(std::is_pod_v<T>, "expect POD");
     if (write_offset_ + sizeof(T) > buffer_.size()) {
       ResizeHelper_(write_offset_ + sizeof(T));
@@ -121,6 +120,20 @@ public:
     }
     memcpy(&buffer_[write_offset_], val.data(), s);
     write_offset_ += s;
+  }
+
+  template <typename T> void WriteBytesAtPos(size_t pos, T val) noexcept {
+    static_assert(std::is_pod_v<T>, "expect POD");
+    auto size = sizeof(T);
+    CHECK(pos + size < write_offset_);
+    memcpy(&buffer_[pos], &val, size);
+  }
+
+  void Reserve(size_t size) noexcept {
+    if (write_offset_ + size > buffer_.size()) {
+      ResizeHelper_(write_offset_ + size);
+    }
+    write_offset_ += size;
   }
 
 private:

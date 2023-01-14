@@ -43,16 +43,26 @@ public:
    */
   size_t GetColumnOffsetForSimpleRow(size_t index) const noexcept;
 
+  size_t GetColumnOffsetForRow(size_t index) const noexcept;
+
+  size_t GetSortKeyCount() const noexcept { return sort_key_count_; }
+
 private:
   void BuildColumnIndex_() noexcept;
 
   void BuildOffsetCacheForSimpleRow_() noexcept;
+
+  void BuildOffsetCacheForRow_() noexcept;
 
   absl::InlinedVector<Column, kDefaultColumnNum> columns_;
   SchemaId schema_id_;
   // mapping from column id to column index
   absl::flat_hash_map<ColumnId, size_t> column_index_;
   absl::InlinedVector<size_t, kDefaultColumnNum + 1> offset_cache_simple_row_;
+  absl::InlinedVector<size_t, kDefaultColumnNum + 1> offset_cache_row_;
+
+  // first "sort_key_count_" columns are sort key column
+  size_t sort_key_count_;
 };
 
 } // namespace property

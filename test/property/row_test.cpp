@@ -1,19 +1,5 @@
-/**
- * @file simple_row_test.cpp
- * @author sheep (ysj1173886760@gmail.com)
- * @brief
- * @version 0.1
- * @date 2023-01-08
- *
- * @copyright Copyright (c) 2023
- *
- */
-
-#include "property/property_type.h"
-#include "property/row/simple_row.h"
-#include "util/codec/buf_writer.h"
+#include "property/row/row.h"
 #include <gtest/gtest.h>
-#include <string_view>
 
 namespace arcanedb {
 namespace property {
@@ -28,11 +14,12 @@ Schema MakeTestSchema() noexcept {
   Column column7{.column_id = 6, .name = "string2", .type = ValueType::String};
   RawSchema schema{.columns = {column1, column2, column3, column4, column5,
                                column6, column7},
-                   .schema_id = 0};
+                   .schema_id = 0,
+                   .sort_key_count = 5};
   return Schema(schema);
 }
 
-TEST(SimpleRowTest, BasicTest) {
+TEST(RowTest, BasicTest) {
   auto schema = MakeTestSchema();
   util::BufWriter writer;
   {
@@ -44,10 +31,10 @@ TEST(SimpleRowTest, BasicTest) {
     vec.push_back("arcanedb");
     vec.push_back(true);
     vec.push_back("graph");
-    EXPECT_TRUE(SimpleRow::Serialize(vec, &writer, &schema).ok());
+    EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
   }
   auto binary = writer.Detach();
-  SimpleRow row(binary.data());
+  Row row(binary.data());
   {
     ValueResult val;
     EXPECT_TRUE(row.GetProp(0, &val, &schema).ok());
@@ -83,6 +70,40 @@ TEST(SimpleRowTest, BasicTest) {
     EXPECT_TRUE(row.GetProp(6, &val, &schema).ok());
     EXPECT_EQ(std::get<std::string_view>(val.value), "graph");
   }
+}
+
+TEST(RowTest, CompareTest) {
+  auto schema = MakeTestSchema();
+  util::BufWriter writer;
+  {
+    ValueRefVec vec;
+    vec.push_back(static_cast<int64_t>(1));
+    vec.push_back(static_cast<int32_t>(2));
+    vec.push_back(static_cast<float>(2.1));
+    vec.push_back(static_cast<double>(2.2));
+    vec.push_back("arcanedb");
+    vec.push_back(true);
+    vec.push_back("graph");
+    EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
+  }
+  auto binary = writer.Detach();
+  Row row1(binary.data());
+  {
+    ValueRefVec vec;
+    vec.push_back(static_cast<int64_t>(1));
+    vec.push_back(static_cast<int32_t>(2));
+    vec.push_back(static_cast<float>(2.1));
+    vec.push_back(static_cast<double>(2.2));
+    vec.push_back("boost");
+    vec.push_back(true);
+    vec.push_back("graph");
+    EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
+  }
+  auto binary2 = writer.Detach();
+  Row row2(binary2.data());
+  auto sk1 = row1.GetSortKeys();
+  auto sk2 = row2.GetSortKeys();
+  EXPECT_LE(row1.GetSortKeys(), row2.GetSortKeys());
 }
 
 } // namespace property

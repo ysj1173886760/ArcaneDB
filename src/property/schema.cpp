@@ -18,9 +18,11 @@ namespace arcanedb {
 namespace property {
 
 Schema::Schema(const RawSchema &raw_schema) noexcept
-    : schema_id_(raw_schema.schema_id), columns_(raw_schema.columns) {
+    : schema_id_(raw_schema.schema_id), columns_(raw_schema.columns),
+      sort_key_count_(raw_schema.sort_key_count) {
   BuildColumnIndex_();
   BuildOffsetCacheForSimpleRow_();
+  BuildOffsetCacheForRow_();
 }
 
 void Schema::BuildColumnIndex_() noexcept {
@@ -76,6 +78,37 @@ void Schema::BuildOffsetCacheForSimpleRow_() noexcept {
     }
   }
   offset_cache_simple_row_.back() = offset;
+}
+
+void Schema::BuildOffsetCacheForRow_() noexcept {
+  offset_cache_row_.resize(columns_.size() + 1);
+  size_t offset = 0;
+  for (size_t i = sort_key_count_; i < columns_.size(); i++) {
+    auto &column = columns_[i];
+    offset_cache_row_[i] = offset;
+    switch (column.type) {
+    case ValueType::Int32:
+    case ValueType::Float:
+    case ValueType::String:
+      offset += 4;
+      break;
+    case ValueType::Int64:
+    case ValueType::Double:
+      offset += 8;
+      break;
+    case ValueType::Bool:
+      offset += 1;
+      break;
+    default:
+      UNREACHABLE();
+    }
+  }
+  offset_cache_row_.back() = offset;
+}
+
+size_t Schema::GetColumnOffsetForRow(size_t index) const noexcept {
+  CHECK(index <= columns_.size() && index >= sort_key_count_);
+  return offset_cache_row_[index];
 }
 
 } // namespace property

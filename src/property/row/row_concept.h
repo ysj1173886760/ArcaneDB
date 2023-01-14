@@ -13,6 +13,7 @@
 #include "common/status.h"
 #include "property/property_type.h"
 #include "property/schema.h"
+#include "property/sort_key/sort_key.h"
 #include "util/codec/buf_writer.h"
 
 namespace arcanedb {
@@ -28,11 +29,13 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, Value *value, Schema *schema) noexcept {
+  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) noexcept {
     return Real()->GetProp(id, value);
   }
 
-  // TODO(sheep): impl GetProps, Compare, GetSortKeys
+  // TODO(sheep): impl GetProps
+
+  SortKeysRef GetSortKeys() noexcept { return Real()->GetSortKeys(); }
 
 private:
   RowType *Real() noexcept { return static_cast<RowType *>(this); }

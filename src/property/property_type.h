@@ -55,6 +55,12 @@ struct Column {
 struct RawSchema {
   absl::InlinedVector<Column, kDefaultColumnNum> columns;
   SchemaId schema_id;
+  size_t sort_key_count;
+};
+
+struct ValueResult {
+  Value value;
+  std::unique_ptr<std::string> owned_str{};
 };
 
 } // namespace property

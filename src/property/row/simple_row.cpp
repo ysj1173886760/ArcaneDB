@@ -21,7 +21,8 @@
 namespace arcanedb {
 namespace property {
 
-Status SimpleRow::GetProp(ColumnId id, Value *value, Schema *schema) noexcept {
+Status SimpleRow::GetProp(ColumnId id, ValueResult *res,
+                          Schema *schema) noexcept {
   DCHECK(ptr_ != nullptr);
   auto index = schema->GetColumnIndex(id);
   auto offset = schema->GetColumnOffsetForSimpleRow(index);
@@ -32,31 +33,31 @@ Status SimpleRow::GetProp(ColumnId id, Value *value, Schema *schema) noexcept {
   case ValueType::Int32: {
     int32_t v;
     util::ReadBuf(value_ref.data(), &v);
-    *value = v;
+    res->value = v;
     break;
   }
   case ValueType::Int64: {
     int64_t v;
     util::ReadBuf(value_ref.data(), &v);
-    *value = v;
+    res->value = v;
     break;
   }
   case ValueType::Float: {
     float v;
     util::ReadBuf(value_ref.data(), &v);
-    *value = v;
+    res->value = v;
     break;
   }
   case ValueType::Double: {
     double v;
     util::ReadBuf(value_ref.data(), &v);
-    *value = v;
+    res->value = v;
     break;
   }
   case ValueType::Bool: {
     uint8_t v;
     util::ReadBuf(value_ref.data(), &v);
-    *value = (v != 0);
+    res->value = (v != 0);
     break;
   }
   case ValueType::String: {
@@ -64,7 +65,7 @@ Status SimpleRow::GetProp(ColumnId id, Value *value, Schema *schema) noexcept {
     uint32_t string_length;
     util::ReadBuf(value_ref.data(), &string_offset);
     util::ReadBuf(value_ref.data() + 4, &string_length);
-    *value = std::string_view(ptr_ + string_offset, string_length);
+    res->value = std::string_view(ptr_ + string_offset, string_length);
     break;
   }
   default:

@@ -51,6 +51,33 @@ public:
 #undef READ_POD
   }
 
+  void SkipK(int k) noexcept {
+    for (int i = 0; i < k; i++) {
+      CHECK(Remaining() > 0);
+      auto type = static_cast<ValueType>(ReadType_());
+      switch (type) {
+      case ValueType::Bool:
+        Skip(1);
+        break;
+      case ValueType::Int32:
+      case ValueType::Float:
+        Skip(4);
+        break;
+      case ValueType::Int64:
+      case ValueType::Double:
+        Skip(8);
+        break;
+      case ValueType::String: {
+        std::string dummy;
+        ReadComparableStringHelper_(&dummy);
+        break;
+      }
+      default:
+        UNREACHABLE();
+      }
+    }
+  }
+
 private:
   size_t ReadType_() noexcept {
     uint8_t type;
