@@ -19,17 +19,17 @@ template <typename T> inline void ReadBuf(const char buf[], T *out) noexcept {
 }
 
 // TODO: distinguish big endian and small endian buf reader.
-/**
- * @brief
- * buf reader based on machine arch
- */
-class BufReader {
+
+class BufReaderBase {
 public:
-  BufReader(std::string_view buffer)
+  BufReaderBase(std::string_view buffer)
       : ptr_(buffer.data()), begin_(ptr_), end_(begin_ + buffer.size()) {}
 
   size_t Remaining() const noexcept { return end_ - ptr_; }
+
   size_t Offset() const noexcept { return ptr_ - begin_; }
+
+  std::string_view as_slice() const noexcept { return {ptr_, Remaining()}; }
 
   bool Skip(size_t len) noexcept {
     if (ptr_ + len > end_) {
@@ -38,6 +38,20 @@ public:
     ptr_ += len;
     return true;
   }
+
+protected:
+  const char *ptr_;
+  const char *begin_;
+  const char *end_;
+};
+
+/**
+ * @brief
+ * buf reader based on machine arch
+ */
+class BufReader : public BufReaderBase {
+public:
+  BufReader(std::string_view buffer) : BufReaderBase(buffer) {}
 
   template <typename T> bool ReadBytes(T *value) noexcept {
     static_assert(std::is_pod_v<T>, "not a pod type");
@@ -63,10 +77,6 @@ private:
     ptr_ += sizeof(T);
     return true;
   }
-
-  const char *ptr_;
-  const char *begin_;
-  const char *end_;
 };
 
 } // namespace util

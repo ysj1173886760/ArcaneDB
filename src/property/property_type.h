@@ -37,6 +37,8 @@ enum class ValueType : uint8_t {
 
 using Value =
     std::variant<int32_t, int64_t, float, double, std::string_view, bool>;
+using OwnedValue =
+    std::variant<int32_t, int64_t, float, double, std::string, bool>;
 
 using ValueRefMap = std::unordered_map<ColumnId, Value>;
 
