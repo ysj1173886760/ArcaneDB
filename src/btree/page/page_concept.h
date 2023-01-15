@@ -11,6 +11,7 @@
 
 #include "common/status.h"
 #include "handler/logical_tuple.h"
+#include "property/row/row.h"
 #include "property/schema.h"
 
 namespace arcanedb {
@@ -26,39 +27,40 @@ public:
   /**
    * @brief
    * Insert a row into page
-   * @param tuple
+   * @param row
    * @param schema
    * @return Status
    */
-  Status InsertRow(const handler::LogicalTuple &tuple,
+  Status InsertRow(const property::Row &row,
                    const property::Schema *schema) noexcept {
-    return Real()->InsertRow(tuple, schema);
+    return Real()->InsertRow(row, schema);
   }
 
   /**
    * @brief
    * Update a row in page.
-   * Behaviour of UpdateRow is more like delete a row then insert another one.
+   * note that sort key couldn't be changed.
+   * if user want to update sort key, then delete followed by insert is
+   * preferred.
    * @param tuple
    * @param schema
    * @return Status
    */
-  Status UpdateRow(const handler::LogicalTuple &tuple,
+  Status UpdateRow(const property::Row &row,
                    const property::Schema *schema) noexcept {
-    return Real()->UpdateRow(tuple, schema);
+    return Real()->UpdateRow(row, schema);
   }
 
   /**
    * @brief
    * Delete a row from page
-   * @param tuple tuple could only contains SortKey of current btree since we
-   * don't need other properties to delete a row.
+   * @param sort_key
    * @param schema
    * @return Status
    */
-  Status DeleteRow(const handler::LogicalTuple &tuple,
+  Status DeleteRow(property::SortKeysRef sort_key,
                    const property::Schema *schema) noexcept {
-    return Real()->DeleteRow(tuple, schema);
+    return Real()->DeleteRow(sort_key, schema);
   }
 
   // TODO(sheep): support filter

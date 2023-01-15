@@ -13,27 +13,5 @@
 #include "butil/logging.h"
 
 namespace arcanedb {
-namespace btree {
-
-Status InsertRow(const handler::LogicalTuple &tuple,
-                 const property::Schema *schema) noexcept {
-  NOTIMPLEMENTED();
-}
-
-Status UpdateRow(const handler::LogicalTuple &tuple,
-                 const property::Schema *schema) noexcept {
-  NOTIMPLEMENTED();
-}
-
-Status DeleteRow(const handler::LogicalTuple &tuple,
-                 const property::Schema *schema) noexcept {
-  NOTIMPLEMENTED();
-}
-
-Status GetRow(const handler::LogicalTuple &tuple,
-              const property::Schema *schema) noexcept {
-  NOTIMPLEMENTED();
-}
-
-} // namespace btree
+namespace btree {} // namespace btree
 } // namespace arcanedb

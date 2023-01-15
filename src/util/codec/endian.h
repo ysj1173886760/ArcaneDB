@@ -1,3 +1,14 @@
+/**
+ * @file endian.h
+ * @author sheep (ysj1173886760@gmail.com)
+ * @brief
+ * @version 0.1
+ * @date 2023-01-15
+ *
+ * @copyright Copyright (c) 2023
+ *
+ */
+
 #ifndef MND_ENDIAN_HEADER
 #define MND_ENDIAN_HEADER
 

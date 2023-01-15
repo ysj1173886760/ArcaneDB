@@ -20,44 +20,35 @@ public:
   /**
    * @brief
    * Insert a row into page
-   * @param tuple
+   * @param row
    * @param schema
    * @return Status
    */
-  Status InsertRow(const handler::LogicalTuple &tuple,
+  Status InsertRow(const property::Row &row,
                    const property::Schema *schema) noexcept;
 
   /**
    * @brief
    * Update a row in page.
-   * Behaviour of UpdateRow is more like delete a row then insert another one.
+   * note that sort key couldn't be changed.
+   * if user want to update sort key, then delete followed by insert is
+   * preferred.
    * @param tuple
    * @param schema
    * @return Status
    */
-  Status UpdateRow(const handler::LogicalTuple &tuple,
+  Status UpdateRow(const property::Row &row,
                    const property::Schema *schema) noexcept;
 
   /**
    * @brief
    * Delete a row from page
-   * @param tuple tuple could only contains SortKey of current btree since we
-   * don't need other properties to delete a row.
+   * @param sort_key
    * @param schema
    * @return Status
    */
-  Status DeleteRow(const handler::LogicalTuple &tuple,
+  Status DeleteRow(property::SortKeysRef sort_key,
                    const property::Schema *schema) noexcept;
-
-  /**
-   * @brief
-   * Get a row from page
-   * @param tuple logical tuple that stores SortKey.
-   * @param schema
-   * @return Status
-   */
-  Status GetRow(const handler::LogicalTuple &tuple,
-                const property::Schema *schema) noexcept;
 
 private:
 };
