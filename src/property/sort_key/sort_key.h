@@ -108,7 +108,7 @@ public:
     for (int i = 0; i < value.size(); i++) {
       writer.WriteValue(value[i]);
     }
-    bytes_ = std::move(writer.Detach());
+    bytes_ = writer.Detach();
   }
 
   SortKeys(std::string_view ref) : bytes_(ref.data(), ref.size()) {}

@@ -112,8 +112,6 @@ TEST(RowTest, CompareTest) {
   }
   auto binary2 = writer.Detach();
   Row row2(binary2.data());
-  auto sk1 = row1.GetSortKeys();
-  auto sk2 = row2.GetSortKeys();
   EXPECT_LE(row1.GetSortKeys(), row2.GetSortKeys());
 }
 

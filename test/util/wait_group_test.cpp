@@ -20,7 +20,7 @@ namespace arcanedb {
 namespace util {
 
 TEST(WaitGroupTest, BasicTest) {
-  const int worker_cnt = 10;
+  const int worker_cnt = 1000;
   WaitGroup wg(worker_cnt);
   std::atomic_int cnt{0};
   for (int i = 0; i < worker_cnt; i++) {

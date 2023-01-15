@@ -92,7 +92,6 @@ public:
     type = #name ": ";                                                         \
     break;
 
-    char tmp[30];
     const char *type;
     switch (code_) {
 #define ARCANEDB_X(error_code) STATUS_ERROR_STRING(error_code)
@@ -109,7 +108,7 @@ public:
   }
 
 private:
-  template <typename T> friend struct Result;
+  template <typename T> friend class Result;
 
   Status(ErrorCode code) : code_(code) {}
   Status(ErrorCode code, std::string msg)
