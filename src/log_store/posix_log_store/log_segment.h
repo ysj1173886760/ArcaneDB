@@ -13,6 +13,7 @@
 
 #include "common/logger.h"
 #include "log_store/log_store.h"
+#include "spdlog/fmt/bundled/core.h"
 #include "util/codec/buf_writer.h"
 #include "util/simple_waiter.h"
 #include "util/thread_pool.h"
@@ -70,9 +71,10 @@ public:
       }
       auto current_lsn = GetLsn_(current_control_bits);
       if (length > size_) {
-        LOG_WARN("LogLength: %lld is greater than total size: %lld, resize is "
-                 "needed",
-                 static_cast<int64_t>(length), static_cast<int64_t>(size_));
+        ARCANEDB_WARN("LogLength: {} is greater than total size: {}, resize is "
+                      "needed",
+                      static_cast<int64_t>(length),
+                      static_cast<int64_t>(size_));
       }
       if (current_lsn + length > size_) {
         // writer should seal current log segment and open new one.
@@ -209,10 +211,6 @@ public:
     return IsIo_(control_bits_.load(std::memory_order_acquire));
   }
 
-private:
-  FRIEND_TEST(PosixLogStoreTest, LogSegmentControlBitTest);
-  friend class PosixLogStore;
-
   /**
    * @brief
    * State change:
@@ -234,6 +232,10 @@ private:
     kSeal = 2,
     kIo = 3,
   };
+
+private:
+  FRIEND_TEST(PosixLogStoreTest, LogSegmentControlBitTest);
+  friend class PosixLogStore;
 
   static bool IsSeal_(size_t control_bits) noexcept {
     return GetState_(control_bits) == LogSegmentState::kSeal;
@@ -290,8 +292,8 @@ private:
     uint64_t new_control_bits;
     do {
       if (GetState_(current_control_bits) != current_state) {
-        LOG_ERROR("expect state %d, get %d", current_state,
-                  GetState_(current_control_bits));
+        ARCANEDB_ERROR("expect state {}, get {}", current_state,
+                       GetState_(current_control_bits));
         return;
       }
       new_control_bits = SetState_(current_control_bits, expected_state);
@@ -323,3 +325,28 @@ private:
 
 } // namespace log_store
 } // namespace arcanedb
+
+template <>
+struct fmt::formatter<arcanedb::log_store::LogSegment::LogSegmentState>
+    : formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(arcanedb::log_store::LogSegment::LogSegmentState segment,
+              FormatContext &ctx) const {
+    string_view name = "unknown";
+    switch (segment) {
+    case arcanedb::log_store::LogSegment::LogSegmentState::kFree:
+      name = "Free";
+      break;
+    case arcanedb::log_store::LogSegment::LogSegmentState::kIo:
+      name = "Io";
+      break;
+    case arcanedb::log_store::LogSegment::LogSegmentState::kOpen:
+      name = "Open";
+      break;
+    case arcanedb::log_store::LogSegment::LogSegmentState::kSeal:
+      name = "Seal";
+      break;
+    }
+    return formatter<string_view>::format(name, ctx);
+  }
+};

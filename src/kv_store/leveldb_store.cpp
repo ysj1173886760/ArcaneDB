@@ -36,8 +36,8 @@ Status AsyncLevelDB::Open(const std::string &name,
                leveldb::Status status =
                    leveldb::DB::Open(leveldb_options, name, &db);
                if (!status.ok()) {
-                 LOG_WARN("Failed to open db, name %s, error: %s", name.c_str(),
-                          status.ToString().c_str());
+                 ARCANEDB_WARN("Failed to open db, name %s, error: %s",
+                               name.c_str(), status.ToString().c_str());
                  return Status::Err();
                }
                (*async_leveldb)->db_ = db;
@@ -56,8 +56,8 @@ Status AsyncLevelDB::Put(const std::string_view &key,
                    db_->Put(options, leveldb::Slice(key.data(), key.size()),
                             leveldb::Slice(value.data(), value.size()));
                if (!status.ok()) {
-                 LOG_WARN("Failed to put, key %s, error: %s", key.data(),
-                          status.ToString().c_str());
+                 ARCANEDB_WARN("Failed to put, key {}, error: {}", key,
+                               status.ToString());
                  return Status::Err();
                }
                return Status::Ok();
@@ -73,8 +73,8 @@ Status AsyncLevelDB::Delete(const std::string_view &key) noexcept {
                leveldb::Status status =
                    db_->Delete(options, leveldb::Slice(key.data(), key.size()));
                if (!status.ok()) {
-                 LOG_WARN("Failed to delete, key %s, error: %s", key.data(),
-                          status.ToString().c_str());
+                 ARCANEDB_WARN("Failed to delete, key {}, error: {}", key,
+                               status.ToString());
                  return Status::Err();
                }
                return Status::Ok();
@@ -95,8 +95,8 @@ Status AsyncLevelDB::Get(const std::string_view &key,
                  return Status::NotFound();
                }
                if (!status.ok()) {
-                 LOG_WARN("Failed to get, key %s, error: %s", key.data(),
-                          status.ToString().c_str());
+                 ARCANEDB_WARN("Failed to get, key {}, error: {}", key,
+                               status.ToString());
                  return Status::Err();
                }
                return Status::Ok();
@@ -108,8 +108,8 @@ Status AsyncLevelDB::Get(const std::string_view &key,
 Status AsyncLevelDB::DestroyDB(const std::string &name) noexcept {
   auto status = leveldb::DestroyDB(name, leveldb::Options());
   if (!status.ok()) {
-    LOG_WARN("Failed to destory db %s, error: %s", name.c_str(),
-             status.ToString().c_str());
+    ARCANEDB_WARN("Failed to destory db {}, error: {}", name,
+                  status.ToString());
     return Status::Err("Failed to destroy");
   }
   return Status::Ok();

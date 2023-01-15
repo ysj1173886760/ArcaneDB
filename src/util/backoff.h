@@ -36,7 +36,7 @@ public:
 private:
   void UnhealthyWaitCntChecker_() noexcept {
     if (cnt_ > kUnhealthyWaitCnt) {
-      LOG_WARN("Unhealthy sleep times %d", cnt_);
+      ARCANEDB_WARN("Unhealthy sleep times {}", cnt_);
     }
   }
   int32_t cnt_{1};

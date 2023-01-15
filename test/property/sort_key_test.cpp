@@ -12,7 +12,7 @@ TEST(SortKeyTest, BasicTest) {
   EXPECT_LE(sk1, sk2);
   EXPECT_LE(sk1.as_ref(), sk2.as_ref());
   EXPECT_LE(sk1.as_slice(), sk2.as_slice());
-  LOG_DEBUG("%s %s", sk1.ToString().c_str(), sk2.ToString().c_str());
+  ARCANEDB_DEBUG("{} {}", sk1.ToString(), sk2.ToString());
 }
 
 } // namespace property

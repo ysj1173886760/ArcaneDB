@@ -34,14 +34,14 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   // create directory
   auto s = store->env_->CreateDir(name);
   if (!s.ok()) {
-    LOG_WARN("Failed to create dir, error: %s", s.ToString().c_str());
+    ARCANEDB_WARN("Failed to create dir, error: {}", s.ToString());
     return Status::Err();
   }
 
   // create log file
   s = store->env_->NewWritableFile(MakeLogFileName_(name), &store->log_file_);
   if (!s.ok()) {
-    LOG_WARN("Failed to create writable file, error: %s", s.ToString().c_str());
+    ARCANEDB_WARN("Failed to create writable file, error: {}", s.ToString());
     return Status::Err();
   }
 
@@ -78,13 +78,13 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
     }
     s = env->RemoveFile(store_name + '/' + name);
     if (!s.ok()) {
-      LOG_WARN("Failed to remove file, status: %s", s.ToString().c_str());
+      ARCANEDB_WARN("Failed to remove file, status: {}", s.ToString());
       return Status::Err();
     }
   }
   s = env->RemoveDir(store_name);
   if (!s.ok()) {
-    LOG_WARN("Failed to remove dir, status: %s", s.ToString().c_str());
+    ARCANEDB_WARN("Failed to remove dir, status: {}", s.ToString());
     return Status::Err();
   }
   return Status::Ok();
@@ -157,8 +157,8 @@ void PosixLogStore::ThreadJob_() noexcept {
       auto next_lsn = GetLogSegment_(current_io_segment)->start_lsn_;
       persistent_lsn_.store(next_lsn, std::memory_order_relaxed);
       if (next_lsn - start_lsn != data.size()) {
-        LOG_WARN("Logical error might happens. %lld %lld", next_lsn - start_lsn,
-                 data.size());
+        ARCANEDB_WARN("Logical error might happens. {} {}",
+                      next_lsn - start_lsn, data.size());
       }
       continue;
     }
@@ -186,7 +186,7 @@ void PosixLogReader::PeekNext_() noexcept {
   auto s = file_->Read(LogRecord::kHeaderSize, &header_slice_,
                        header_buffer_.data());
   if (!s.ok()) {
-    LOG_WARN("Failed to read file, status: %s", s.ToString().c_str());
+    ARCANEDB_WARN("Failed to read file, status: {}", s.ToString());
     has_next_ = false;
     return;
   }
@@ -212,7 +212,7 @@ void PosixLogReader::PeekNext_() noexcept {
   // parse data
   s = file_->Read(data_size_, &data_slice_, data_buffer_.data());
   if (!s.ok()) {
-    LOG_WARN("Failed to read file, status: %s", s.ToString().c_str());
+    ARCANEDB_WARN("Failed to read file, status: {}", s.ToString());
     has_next_ = false;
     return;
   }
@@ -240,7 +240,7 @@ PosixLogStore::GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept {
   auto reader = std::make_unique<PosixLogReader>();
   auto s = env_->NewSequentialFile(MakeLogFileName_(name_), &reader->file_);
   if (!s.ok()) {
-    LOG_WARN("Failed to open file, status: %s", s.ToString().c_str());
+    ARCANEDB_WARN("Failed to open file, status: {}", s.ToString());
     return Status::Err();
   }
   reader->PeekNext_();

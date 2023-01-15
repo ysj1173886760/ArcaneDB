@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 3.14)
 project(ArcaneDB)
 
+set(CMAKE_BUILD_TYPE Debug)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-unused-parameter -Wno-attributes")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -ggdb -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
 # set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fPIC")
 # set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fPIC")
 # set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fPIC")
@@ -77,8 +79,12 @@ endif()
 
 # brpc end
 
-set(ARCANEDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src)
-set(ARCANEDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test)
+# spdlog
+include_directories(third_party/spdlog/include)
+link_directories(${PROJECT_BINARY_DIR}/third_party/spdlog)
+    
+set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
+                  spdlog::spdlog)
 
 # FIXME: better way to compile.
 include_directories(third_party/abseil-cpp)
@@ -88,6 +94,9 @@ set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
                   absl::base
                   absl::hash
                   absl::raw_hash_set)
+
+set(ARCANEDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src)
+set(ARCANEDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test)
 
 include_directories(${ARCANEDB_SRC_INCLUDE_DIR}
                     ${ARCANEDB_TEST_INCLUDE_DIR})

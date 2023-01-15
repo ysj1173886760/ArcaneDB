@@ -177,7 +177,7 @@ Status KvPageStore::ReadPage(const PageIdType &page_id,
           RawPage{.type = physical_pages[i].type, .binary = std::move(bytes)});
     } else {
       if (s.IsNotFound()) {
-        LOG_WARN("PageNotFound, PageId: %s", page_id.c_str());
+        ARCANEDB_WARN("PageNotFound, PageId: {}", page_id);
       } else {
         // skip not found, and regard it as empty page.
         return s;

@@ -1,7 +1,7 @@
 /**
  * @file logger.h
  * @author sheep (ysj1173886760@gmail.com)
- * @brief simple logger port from bustub
+ * @brief simple logger
  * @version 0.1
  * @date 2022-12-10
  *
@@ -11,175 +11,32 @@
 
 #pragma once
 
-#include <ctime>
-#include <string>
-
-// TODO: support logging into file by using logger in leveldb.
+#include "spdlog/spdlog.h"
+#include <cstdint>
 
 namespace arcanedb {
 
-// https://blog.galowicz.de/2016/02/20/short_file_macro/
-using cstr = const char *;
+enum class LogLevel : uint8_t {
+  kLevelDebug = 1,
+  kLevelInfo,
+  kLevelWarn,
+  kLevelError,
+  kLevelCritical,
+  kLevelOff,
+};
 
-static constexpr cstr PastLastSlash(cstr a, cstr b) {
-  return *a == '\0'  ? b
-         : *b == '/' ? PastLastSlash(a + 1, a + 1)
-                     : PastLastSlash(a + 1, b);
-}
+static_assert(static_cast<uint8_t>(LogLevel::kLevelOff) ==
+                  static_cast<uint8_t>(spdlog::level::level_enum::off),
+              "LogLevelCheck failed");
 
-static constexpr cstr PastLastSlash(cstr a) { return PastLastSlash(a, a); }
+// TODO(sheep) introduce compile time log level
 
-#define __SHORT_FILE__                                                         \
-  ({                                                                           \
-    constexpr cstr sf__{PastLastSlash(__FILE__)};                              \
-    sf__;                                                                      \
-  })
+#define ARCANEDB_DEBUG(...) spdlog::debug(__VA_ARGS__);
 
-// Log levels.
-#define LOG_LEVEL_OFF 1000
-#define LOG_LEVEL_ERROR 500
-#define LOG_LEVEL_WARN 400
-#define LOG_LEVEL_INFO 300
-#define LOG_LEVEL_DEBUG 200
-#define LOG_LEVEL_TRACE 100
-#define LOG_LEVEL_ALL 0
+#define ARCANEDB_INFO(...) spdlog::info(__VA_ARGS__);
 
-#define LOG_LOG_TIME_FORMAT "%Y-%m-%d %H:%M:%S"
-#define LOG_OUTPUT_STREAM stdout
+#define ARCANEDB_WARN(...) spdlog::warn(__VA_ARGS__);
 
-// uncomment this line to disable all log
-// #define LOG_LEVEL LOG_LEVEL_OFF
-
-// Compile Option
-#ifndef LOG_LEVEL
-#ifndef NDEBUG
-// #pragma message("LOG_LEVEL_DEBUG is used instead as DEBUG option is on.")
-#define LOG_LEVEL LOG_LEVEL_DEBUG
-#else
-// #pragma message("LOG_LEVEL_WARN is used instead as DEBUG option is off.")
-#define LOG_LEVEL LOG_LEVEL_INFO
-#endif
-// #pragma message("Give LOG_LEVEL compile option to overwrite the default
-// level.")
-#endif
-
-// For compilers which do not support __FUNCTION__
-#if !defined(__FUNCTION__) && !defined(__GNUC__)
-#define __FUNCTION__ ""
-#endif
-
-void OutputLogHeader(const char *file, int line, const char *func, int level);
-
-// Two convenient macros for debugging
-// 1. Logging macros.
-// 2. LOG_XXX_ENABLED macros. Use these to "eliminate" all the debug blocks from
-// release binary.
-#ifdef LOG_ERROR_ENABLED
-#undef LOG_ERROR_ENABLED
-#endif
-#if LOG_LEVEL <= LOG_LEVEL_ERROR
-#define LOG_ERROR_ENABLED
-// #pragma message("LOG_ERROR was enabled.")
-#define LOG_ERROR(...)                                                         \
-  OutputLogHeader(__SHORT_FILE__, __LINE__, __FUNCTION__, LOG_LEVEL_ERROR);    \
-  ::fprintf(LOG_OUTPUT_STREAM, __VA_ARGS__);                                   \
-  fprintf(LOG_OUTPUT_STREAM, "\n");                                            \
-  ::fflush(stdout)
-#else
-#define LOG_ERROR(...) ((void)0)
-#endif
-
-#ifdef LOG_WARN_ENABLED
-#undef LOG_WARN_ENABLED
-#endif
-#if LOG_LEVEL <= LOG_LEVEL_WARN
-#define LOG_WARN_ENABLED
-// #pragma message("LOG_WARN was enabled.")
-#define LOG_WARN(...)                                                          \
-  OutputLogHeader(__SHORT_FILE__, __LINE__, __FUNCTION__, LOG_LEVEL_WARN);     \
-  ::fprintf(LOG_OUTPUT_STREAM, __VA_ARGS__);                                   \
-  fprintf(LOG_OUTPUT_STREAM, "\n");                                            \
-  ::fflush(stdout)
-#else
-#define LOG_WARN(...) ((void)0)
-#endif
-
-#ifdef LOG_INFO_ENABLED
-#undef LOG_INFO_ENABLED
-#endif
-#if LOG_LEVEL <= LOG_LEVEL_INFO
-#define LOG_INFO_ENABLED
-// #pragma message("LOG_INFO was enabled.")
-#define LOG_INFO(...)                                                          \
-  OutputLogHeader(__SHORT_FILE__, __LINE__, __FUNCTION__, LOG_LEVEL_INFO);     \
-  ::fprintf(LOG_OUTPUT_STREAM, __VA_ARGS__);                                   \
-  fprintf(LOG_OUTPUT_STREAM, "\n");                                            \
-  ::fflush(stdout)
-#else
-#define LOG_INFO(...) ((void)0)
-#endif
-
-#ifdef LOG_DEBUG_ENABLED
-#undef LOG_DEBUG_ENABLED
-#endif
-#if LOG_LEVEL <= LOG_LEVEL_DEBUG
-#define LOG_DEBUG_ENABLED
-// #pragma message("LOG_DEBUG was enabled.")
-#define LOG_DEBUG(...)                                                         \
-  OutputLogHeader(__SHORT_FILE__, __LINE__, __FUNCTION__, LOG_LEVEL_DEBUG);    \
-  ::fprintf(LOG_OUTPUT_STREAM, __VA_ARGS__);                                   \
-  fprintf(LOG_OUTPUT_STREAM, "\n");                                            \
-  ::fflush(stdout)
-#else
-#define LOG_DEBUG(...) ((void)0)
-#endif
-
-#ifdef LOG_TRACE_ENABLED
-#undef LOG_TRACE_ENABLED
-#endif
-#if LOG_LEVEL <= LOG_LEVEL_TRACE
-#define LOG_TRACE_ENABLED
-// #pragma message("LOG_TRACE was enabled.")
-#define LOG_TRACE(...)                                                         \
-  OutputLogHeader(__SHORT_FILE__, __LINE__, __FUNCTION__, LOG_LEVEL_TRACE);    \
-  ::fprintf(LOG_OUTPUT_STREAM, __VA_ARGS__);                                   \
-  fprintf(LOG_OUTPUT_STREAM, "\n");                                            \
-  ::fflush(stdout)
-#else
-#define LOG_TRACE(...) ((void)0)
-#endif
-
-// Output log message header in this format: [type] [file:line:function] time -
-// ex: [ERROR] [somefile.cpp:123:doSome()] 2008/07/06 10:00:00 -
-inline void OutputLogHeader(const char *file, int line, const char *func,
-                            int level) {
-  time_t t = ::time(nullptr);
-  tm *curTime = localtime(&t); // NOLINT
-  char time_str[32];           // FIXME
-  ::strftime(time_str, 32, LOG_LOG_TIME_FORMAT, curTime);
-  const char *type;
-  switch (level) {
-  case LOG_LEVEL_ERROR:
-    type = "ERROR";
-    break;
-  case LOG_LEVEL_WARN:
-    type = "WARN ";
-    break;
-  case LOG_LEVEL_INFO:
-    type = "INFO ";
-    break;
-  case LOG_LEVEL_DEBUG:
-    type = "DEBUG";
-    break;
-  case LOG_LEVEL_TRACE:
-    type = "TRACE";
-    break;
-  default:
-    type = "UNKWN";
-  }
-  // PAVLO: DO NOT CHANGE THIS
-  ::fprintf(LOG_OUTPUT_STREAM, "%s [%s:%d:%s] %s - ", time_str, file, line,
-            func, type);
-}
+#define ARCANEDB_ERROR(...) spdlog::error(__VA_ARGS__);
 
 } // namespace arcanedb

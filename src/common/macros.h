@@ -13,6 +13,7 @@
 
 #include "butil/logging.h"
 #include "common/logger.h"
+
 namespace arcanedb {
 
 // brpc has these macros
@@ -30,7 +31,7 @@ namespace arcanedb {
 
 #define FATAL(fmt, ...)                                                        \
   do {                                                                         \
-    LOG_ERROR(fmt, ##__VA_ARGS__);                                             \
+    ARCANEDB_ERROR(fmt, ##__VA_ARGS__);                                        \
     CHECK(false);                                                              \
   } while (false)
 
