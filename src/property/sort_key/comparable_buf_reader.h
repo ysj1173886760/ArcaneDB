@@ -25,11 +25,12 @@ public:
   ComparableBufReader(std::string_view buffer) : BufReaderBase(buffer) {}
 
   void ReadValue(OwnedValue *value) noexcept {
-    auto type = static_cast<ValueType>(ReadType_());
+    auto t = ReadType_();
+    auto type = static_cast<ValueType>(t);
 
 #define READ_POD(typename)                                                     \
   typename v;                                                                  \
-  ReadPod(&v);                                                                 \
+  ReadPod_(&v);                                                                \
   *value = v;                                                                  \
   break;
 
@@ -94,18 +95,21 @@ private:
     uint8_t type;
     auto view = as_slice();
     GetComparableFixedU8(&view, &type);
-    assert(Skip(1));
+    auto res = Skip(1);
+    assert(res);
     return type;
   }
 
-  template <typename T> void ReadPod(T *value) noexcept {
+  template <typename T> void ReadPod_(T *value) noexcept {
     static_assert(std::is_pod_v<T>, "Expected pod type");
     auto view = as_slice();
+    bool res;
     if constexpr (std::is_same_v<T, bool>) {
-      assert(Skip(1));
+      res = Skip(1);
     } else {
-      assert(Skip(sizeof(T)));
+      res = Skip(sizeof(T));
     }
+    assert(res);
     if constexpr (std::is_same_v<bool, T>) {
       GetComparableFixedU8AsBool(&view, value);
     } else if constexpr (std::is_same_v<int32_t, T>) {
@@ -123,7 +127,8 @@ private:
     auto view = as_slice();
     size_t remains = view.size();
     GetComparableString(&view, value);
-    assert(Skip(remains - view.size()));
+    bool res = Skip(remains - view.size());
+    assert(res);
   }
 };
 

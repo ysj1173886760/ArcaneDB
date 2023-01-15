@@ -38,6 +38,6 @@ namespace arcanedb {
 #define FRIEND_TEST(test_case_name, test_name)                                 \
   friend class test_case_name##_##test_name##_Test
 
-#define UNREACHABLE() CHECK(false)
+#define UNREACHABLE() std::abort();
 
 } // namespace arcanedb

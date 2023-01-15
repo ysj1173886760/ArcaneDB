@@ -23,19 +23,22 @@ constexpr size_t EncGroupBytes = 8;
 
 void GetComparableFixedU16(std::string_view *sp, uint16_t *value) noexcept {
   uint16_t tmp;
-  assert(util::GetFixed16(sp, &tmp));
+  auto res = util::GetFixed16(sp, &tmp);
+  assert(res);
   *value = absl::big_endian::ToHost16(tmp);
 }
 
 void GetComparableFixedU32(std::string_view *sp, uint32_t *value) noexcept {
   uint32_t tmp;
-  assert(util::GetFixed32(sp, &tmp));
+  auto res = util::GetFixed32(sp, &tmp);
+  assert(res);
   *value = absl::big_endian::ToHost32(tmp);
 }
 
 void GetComparableFixedU64(std::string_view *sp, uint64_t *value) noexcept {
   uint64_t tmp;
-  assert(util::GetFixed64(sp, &tmp));
+  auto res = util::GetFixed64(sp, &tmp);
+  assert(res);
   *value = absl::big_endian::ToHost64(tmp);
 }
 
@@ -93,11 +96,13 @@ void GetComparableString(std::string_view *sp, std::string *s) noexcept {
 }
 
 void GetComparableFixedU8(std::string_view *sp, uint8_t *value) noexcept {
-  assert(util::GetFixed8(sp, value));
+  auto res = util::GetFixed8(sp, value);
+  assert(res);
 }
 
 void GetComparableFixedU8AsBool(std::string_view *sp, bool *value) noexcept {
-  assert(util::GetFixed8AsBool(sp, value));
+  auto res = util::GetFixed8AsBool(sp, value);
+  assert(res);
 }
 
 void PutComparableFixedU16(std::string *s, uint16_t value) noexcept {

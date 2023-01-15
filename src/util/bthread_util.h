@@ -152,7 +152,7 @@ LaunchAsync(Func &&func,
     bthread_t id;
     int ret = bthread_start_background(
         &id, &attr, FunctionTask<Func>::BthreadWrapper, task);
-    assert(ret == 0);
+    CHECK(ret == 0);
   } else {
     thread_pool->AddTask(task);
   }
