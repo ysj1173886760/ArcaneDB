@@ -7,18 +7,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-unused-parameter -Wno-attributes")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -ggdb -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC -Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wno-unused-parameter -Wno-attributes")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1 -g -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
 # set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fPIC")
 # set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fPIC")
 # set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fPIC")
-
-set(GCC_COVERAGE_LINK_FLAGS "-fPIC")
-message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
-message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${CMAKE_EXE_LINKER_FLAGS}")
-message(STATUS "CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
 
 # enable CTest
 enable_testing()
@@ -32,8 +26,9 @@ include(FindThreads)
 include(FindProtobuf)
 
 set(BRPC_INCLUDE_PATH ${BRPC_OUTPUT_PATH}/include)
-set(BRPC_LIB_PATH ${BRPC_OUTPUT_PATH}/lib/libbrpc.a)
 include_directories(${BRPC_INCLUDE_PATH})
+set(BRPC_LIB_PATH ${BRPC_OUTPUT_PATH}/lib)
+link_directories(${BRPC_LIB_PATH})
 message(STATUS "brpc output path: ${BRPC_OUTPUT_PATH}")
 message(STATUS "brpc lib path: ${BRPC_LIB_PATH}")
 message(STATUS "brpc include path: ${BRPC_INCLUDE_PATH}")
@@ -55,7 +50,7 @@ include_directories(${LEVELDB_INCLUDE_PATH})
 find_package(OpenSSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
-set(ARCANEDB_LIBS   ${BRPC_LIB_PATH}
+set(ARCANEDB_LIBS   brpc-static
                     ${CMAKE_THREAD_LIBS_INIT}
                     ${GFLAGS_LIBRARY}
                     ${PROTOBUF_LIBRARIES}
@@ -78,6 +73,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 # brpc end
+
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${CMAKE_EXE_LINKER_FLAGS}")
+message(STATUS "CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Compiler info: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # spdlog
 include_directories(third_party/spdlog/include)

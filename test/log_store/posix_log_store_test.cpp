@@ -165,11 +165,12 @@ TEST(PosixLogStoreTest, SwitchLogSegmentTest) {
 
 TEST(PosixLogStoreTest, ConcurrentAppendLogTest) {
   auto store = GenerateLogStore(128);
+  auto worker_cnt = 10;
   std::string data = "arcanedb";
-  util::WaitGroup wg(3);
+  util::WaitGroup wg(worker_cnt);
   LsnType lsn = 0;
   bthread::Mutex mu;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < worker_cnt; i++) {
     util::LaunchAsync([&]() {
       auto local_lsn = 0;
       for (int j = 0; j < 100; j++) {
@@ -193,7 +194,7 @@ TEST(PosixLogStoreTest, ConcurrentAppendLogTest) {
 
   // test log reader
   auto log_reader = GetLogReader(store);
-  for (int i = 0; i < 3 * 100; i++) {
+  for (int i = 0; i < worker_cnt * 100; i++) {
     EXPECT_TRUE(log_reader->HasNext());
     std::string bytes;
     log_reader->GetNextLogRecord(&bytes);

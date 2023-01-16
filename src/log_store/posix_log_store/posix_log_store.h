@@ -21,6 +21,8 @@
 #include <atomic>
 #include <leveldb/env.h>
 
+// TODO(sheep): might still contains bugs
+
 namespace arcanedb {
 namespace log_store {
 
