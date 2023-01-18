@@ -28,7 +28,8 @@ Schema MakeTestSchema() noexcept {
   Column column7{.column_id = 6, .name = "string2", .type = ValueType::String};
   RawSchema schema{.columns = {column1, column2, column3, column4, column5,
                                column6, column7},
-                   .schema_id = 0};
+                   .schema_id = 0,
+                   .sort_key_count = 0};
   return Schema(schema);
 }
 
@@ -41,9 +42,9 @@ TEST(SimpleRowTest, BasicTest) {
     vec.push_back(static_cast<int32_t>(2));
     vec.push_back(static_cast<float>(2.1));
     vec.push_back(static_cast<double>(2.2));
-    vec.push_back("arcanedb");
+    vec.push_back(std::string_view("arcanedb"));
     vec.push_back(true);
-    vec.push_back("graph");
+    vec.push_back(std::string_view("graph"));
     EXPECT_TRUE(SimpleRow::Serialize(vec, &writer, &schema).ok());
   }
   auto binary = writer.Detach();

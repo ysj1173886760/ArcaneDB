@@ -26,13 +26,13 @@ using ColumnId = uint32_t;
 constexpr size_t kDefaultColumnNum = 8;
 
 enum class ValueType : uint8_t {
-  Int32,
-  Int64,
-  Float,
-  Double,
-  String,
-  Bool,
-  Null,
+  Int32 = 0,
+  Int64 = 1,
+  Float = 2,
+  Double = 3,
+  String = 4,
+  Bool = 5,
+  Null = 6,
 };
 
 using Value =
@@ -47,9 +47,9 @@ using ValueRefVec = absl::InlinedVector<Value, kDefaultColumnNum>;
 // TODO(sheep): support default value and null value
 
 struct Column {
+  ColumnId column_id;
   std::string name;
   ValueType type;
-  ColumnId column_id;
 };
 
 struct RawSchema {

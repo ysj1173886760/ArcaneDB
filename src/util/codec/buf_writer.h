@@ -33,8 +33,7 @@ public:
         val);
   }
 
-  template <typename T, typename Dummy = T>
-  void WriteBytes(const T &val) noexcept {
+  template <typename T> void WriteBytes(const T &val) noexcept {
     static_assert(std::is_pod_v<T>, "expect POD");
     size_t s = sizeof(T);
     CHECK(ptr_ + s <= end_);
@@ -42,25 +41,28 @@ public:
     ptr_ += s;
   }
 
-  // TODO(sheep): more elegant way to implement template specification.
-  template <> void WriteBytes(const std::string &val) noexcept {
-    size_t s = val.size();
-    CHECK(ptr_ + s <= end_);
-    memcpy(ptr_, val.data(), s);
-    ptr_ += s;
-  }
-
-  template <> void WriteBytes(const std::string_view &val) noexcept {
-    size_t s = val.size();
-    CHECK(ptr_ + s <= end_);
-    memcpy(ptr_, val.data(), s);
-    ptr_ += s;
-  }
-
 private:
   char *ptr_;
   char *end_;
 };
+
+// TODO(sheep): more elegant way to implement template specification.
+template <>
+inline void NonOwnershipBufWriter::WriteBytes(const std::string &val) noexcept {
+  size_t s = val.size();
+  CHECK(ptr_ + s <= end_);
+  memcpy(ptr_, val.data(), s);
+  ptr_ += s;
+}
+
+template <>
+inline void
+NonOwnershipBufWriter::WriteBytes(const std::string_view &val) noexcept {
+  size_t s = val.size();
+  CHECK(ptr_ + s <= end_);
+  memcpy(ptr_, val.data(), s);
+  ptr_ += s;
+}
 
 class BufWriter {
   const size_t kInitialSize = 16;
@@ -104,24 +106,6 @@ public:
     write_offset_ += sizeof(T);
   }
 
-  template <> void WriteBytes(const std::string &val) noexcept {
-    size_t s = val.size();
-    if (write_offset_ + s > buffer_.size()) {
-      ResizeHelper_(write_offset_ + s);
-    }
-    memcpy(&buffer_[write_offset_], val.data(), s);
-    write_offset_ += s;
-  }
-
-  template <> void WriteBytes(const std::string_view &val) noexcept {
-    size_t s = val.size();
-    if (write_offset_ + s > buffer_.size()) {
-      ResizeHelper_(write_offset_ + s);
-    }
-    memcpy(&buffer_[write_offset_], val.data(), s);
-    write_offset_ += s;
-  }
-
   template <typename T> void WriteBytesAtPos(size_t pos, T val) noexcept {
     static_assert(std::is_pod_v<T>, "expect POD");
     auto size = sizeof(T);
@@ -150,6 +134,25 @@ private:
   std::string buffer_{};
   size_t write_offset_{0};
 };
+
+template <> inline void BufWriter::WriteBytes(const std::string &val) noexcept {
+  size_t s = val.size();
+  if (write_offset_ + s > buffer_.size()) {
+    ResizeHelper_(write_offset_ + s);
+  }
+  memcpy(&buffer_[write_offset_], val.data(), s);
+  write_offset_ += s;
+}
+
+template <>
+inline void BufWriter::WriteBytes(const std::string_view &val) noexcept {
+  size_t s = val.size();
+  if (write_offset_ + s > buffer_.size()) {
+    ResizeHelper_(write_offset_ + s);
+  }
+  memcpy(&buffer_[write_offset_], val.data(), s);
+  write_offset_ += s;
+}
 
 } // namespace util
 } // namespace arcanedb

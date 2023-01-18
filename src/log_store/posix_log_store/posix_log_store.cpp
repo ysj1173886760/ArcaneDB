@@ -76,13 +76,13 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
     if (name != "LOG") {
       continue;
     }
-    s = env->RemoveFile(store_name + '/' + name);
+    s = env->DeleteFile(store_name + '/' + name);
     if (!s.ok()) {
       ARCANEDB_WARN("Failed to remove file, status: {}", s.ToString());
       return Status::Err();
     }
   }
-  s = env->RemoveDir(store_name);
+  s = env->DeleteDir(store_name);
   if (!s.ok()) {
     ARCANEDB_WARN("Failed to remove dir, status: {}", s.ToString());
     return Status::Err();

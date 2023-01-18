@@ -28,8 +28,7 @@ Status Row::Serialize(const ValueRefVec &value_ref_vec,
   // first generate sort keys
   auto sort_key_cnt = schema->GetSortKeyCount();
   // TODO(sheep): one copy could be eliminated
-  auto sort_key =
-      SortKeys({value_ref_vec.begin(), value_ref_vec.begin() + sort_key_cnt});
+  auto sort_key = SortKeys(value_ref_vec, sort_key_cnt);
   auto header_pos = buf_writer->Offset();
 
   // reserve header
@@ -56,11 +55,13 @@ Status Row::Serialize(const ValueRefVec &value_ref_vec,
     case ValueType::Float: {
       total_length += 4;
       buf_writer->WriteVariant(value_ref_vec[i]);
+      break;
     }
     case ValueType::Int64:
     case ValueType::Double: {
       total_length += 8;
       buf_writer->WriteVariant(value_ref_vec[i]);
+      break;
     }
     case ValueType::Bool: {
       total_length += 1;

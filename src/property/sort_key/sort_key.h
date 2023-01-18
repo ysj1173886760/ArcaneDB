@@ -50,6 +50,8 @@ public:
       case ValueType::String:
         result += "[str]";
         break;
+      case ValueType::Bool:
+        result += "[bool]";
       default:
         UNREACHABLE();
       }
@@ -103,7 +105,15 @@ class SortKeysRef;
 
 class SortKeys : public SortKeyCRTP<SortKeys> {
 public:
-  SortKeys(const std::vector<Value> &value) {
+  SortKeys(const ValueRefVec &value, size_t sort_key_cnt) {
+    ComparableBufWriter writer;
+    for (int i = 0; i < sort_key_cnt; i++) {
+      writer.WriteValue(value[i]);
+    }
+    bytes_ = writer.Detach();
+  }
+
+  explicit SortKeys(const std::vector<Value> &value) {
     ComparableBufWriter writer;
     for (int i = 0; i < value.size(); i++) {
       writer.WriteValue(value[i]);

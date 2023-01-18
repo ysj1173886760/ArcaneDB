@@ -11,6 +11,7 @@
 
 #include "property/row/row.h"
 #include <gtest/gtest.h>
+#include <variant>
 
 namespace arcanedb {
 namespace property {
@@ -39,9 +40,9 @@ TEST(RowTest, BasicTest) {
     vec.push_back(static_cast<int32_t>(2));
     vec.push_back(static_cast<float>(2.1));
     vec.push_back(static_cast<double>(2.2));
-    vec.push_back("arcanedb");
+    vec.push_back(std::string_view("arcanedb"));
     vec.push_back(true);
-    vec.push_back("graph");
+    vec.push_back(std::string_view("graph"));
     EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
   }
   auto binary = writer.Detach();
@@ -92,9 +93,9 @@ TEST(RowTest, CompareTest) {
     vec.push_back(static_cast<int32_t>(2));
     vec.push_back(static_cast<float>(2.1));
     vec.push_back(static_cast<double>(2.2));
-    vec.push_back("arcanedb");
+    vec.push_back(std::string_view("arcanedb"));
     vec.push_back(true);
-    vec.push_back("graph");
+    vec.push_back(std::string_view("graph"));
     EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
   }
   auto binary = writer.Detach();
@@ -105,9 +106,9 @@ TEST(RowTest, CompareTest) {
     vec.push_back(static_cast<int32_t>(2));
     vec.push_back(static_cast<float>(2.1));
     vec.push_back(static_cast<double>(2.2));
-    vec.push_back("boost");
+    vec.push_back(std::string_view("boost"));
     vec.push_back(true);
-    vec.push_back("graph");
+    vec.push_back(std::string_view("graph"));
     EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
   }
   auto binary2 = writer.Detach();
@@ -124,9 +125,9 @@ TEST(RowTest, AsSliceTest) {
     vec.push_back(static_cast<int32_t>(2));
     vec.push_back(static_cast<float>(2.1));
     vec.push_back(static_cast<double>(2.2));
-    vec.push_back("arcanedb");
+    vec.push_back(std::string_view("arcanedb"));
     vec.push_back(true);
-    vec.push_back("graph");
+    vec.push_back(std::string_view("graph"));
     EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
   }
   auto binary = writer.Detach();
@@ -147,9 +148,9 @@ TEST(RowTest, SerializeOnlySortKeyTest) {
     vec.push_back(static_cast<int32_t>(2));
     vec.push_back(static_cast<float>(2.1));
     vec.push_back(static_cast<double>(2.2));
-    vec.push_back("arcanedb");
+    vec.push_back(std::string_view("arcanedb"));
     vec.push_back(true);
-    vec.push_back("graph");
+    vec.push_back(std::string_view("graph"));
     EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
   }
   auto binary = writer.Detach();

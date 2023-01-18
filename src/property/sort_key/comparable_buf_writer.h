@@ -45,6 +45,8 @@ public:
 
   std::string Detach() noexcept { return std::move(buf_); }
 
+  size_t Offset() noexcept { return buf_.size(); }
+
 private:
   std::string buf_;
 };

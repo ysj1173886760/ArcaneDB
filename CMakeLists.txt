@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 3.14)
+# TODO(sheep) fix this
+set(CMAKE_C_COMPILER "/usr/bin/clang-13")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++-13")
+
+cmake_minimum_required(VERSION 3.13)
 project(ArcaneDB)
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -7,6 +11,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# set(CMAKE_CXX_FLAGS "-lpthread -ldl")
+# set(CMAKE_CXX_FLAGS_DEBUG "-lpthread -ldl")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wno-unused-parameter -Wno-attributes")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1 -g -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
@@ -109,7 +115,7 @@ add_subdirectory(test)
 
 # clang-format
 find_program(CLANG_FORMAT_BIN
-    NAMES clang-format clang-format-12)
+    NAMES clang-format)
 
 string(CONCAT ARCANEDB_FORMAT_DIRS
     "${PROJECT_SOURCE_DIR}/src,"
