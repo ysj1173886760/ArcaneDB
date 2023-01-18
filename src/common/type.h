@@ -11,10 +11,13 @@
 
 #pragma once
 
+#include "bthread/mutex.h"
 #include <string>
 
 namespace arcanedb {
 
 using PageIdType = std::string;
 
-}
+using ArcanedbLock = bthread::Mutex;
+
+} // namespace arcanedb
