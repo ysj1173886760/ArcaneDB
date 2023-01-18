@@ -3,6 +3,7 @@
 #include "property/row/row_concept.h"
 #include "property/sort_key/sort_key.h"
 #include "util/codec/buf_writer.h"
+#include <string_view>
 namespace arcanedb {
 namespace property {
 
@@ -22,6 +23,8 @@ public:
   Row(const char *ptr) noexcept : ptr_(ptr) {}
 
   Row() = default;
+
+  std::string_view as_slice() noexcept;
 
   /**
    * @brief Get property by column id
@@ -49,8 +52,8 @@ public:
   static Status Serialize(const ValueRefVec &value_ref_vec,
                           util::BufWriter *buf_writer, Schema *schema) noexcept;
 
-  void SerializeOnlySortKey(SortKeysRef sort_key,
-                            util::BufWriter *buf_writer) noexcept;
+  static void SerializeOnlySortKey(SortKeysRef sort_key,
+                                   util::BufWriter *buf_writer) noexcept;
 
 private:
   Status GetPropNormalValue_(size_t index, ValueResult *value,

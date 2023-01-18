@@ -115,5 +115,75 @@ TEST(RowTest, CompareTest) {
   EXPECT_LE(row1.GetSortKeys(), row2.GetSortKeys());
 }
 
+TEST(RowTest, AsSliceTest) {
+  auto schema = MakeTestSchema();
+  util::BufWriter writer;
+  {
+    ValueRefVec vec;
+    vec.push_back(static_cast<int64_t>(1));
+    vec.push_back(static_cast<int32_t>(2));
+    vec.push_back(static_cast<float>(2.1));
+    vec.push_back(static_cast<double>(2.2));
+    vec.push_back("arcanedb");
+    vec.push_back(true);
+    vec.push_back("graph");
+    EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
+  }
+  auto binary = writer.Detach();
+  Row row(binary.data());
+  writer.WriteBytes(row.as_slice());
+  auto binary2 = writer.Detach();
+  Row row2(binary2.data());
+  EXPECT_EQ(row.as_slice(), row2.as_slice());
+  EXPECT_EQ(row.GetSortKeys(), row2.GetSortKeys());
+}
+
+TEST(RowTest, SerializeOnlySortKeyTest) {
+  auto schema = MakeTestSchema();
+  util::BufWriter writer;
+  {
+    ValueRefVec vec;
+    vec.push_back(static_cast<int64_t>(1));
+    vec.push_back(static_cast<int32_t>(2));
+    vec.push_back(static_cast<float>(2.1));
+    vec.push_back(static_cast<double>(2.2));
+    vec.push_back("arcanedb");
+    vec.push_back(true);
+    vec.push_back("graph");
+    EXPECT_TRUE(Row::Serialize(vec, &writer, &schema).ok());
+  }
+  auto binary = writer.Detach();
+  Row row(binary.data());
+  Row::SerializeOnlySortKey(row.GetSortKeys(), &writer);
+  auto binary2 = writer.Detach();
+  Row row2(binary2.data());
+  EXPECT_EQ(row.GetSortKeys(), row2.GetSortKeys());
+  {
+    ValueResult val;
+    EXPECT_TRUE(row2.GetProp(0, &val, &schema).ok());
+    EXPECT_EQ(std::get<int64_t>(val.value), 1);
+  }
+  {
+    ValueResult val;
+    EXPECT_TRUE(row2.GetProp(1, &val, &schema).ok());
+    EXPECT_EQ(std::get<int32_t>(val.value), 2);
+  }
+  {
+    ValueResult val;
+    EXPECT_TRUE(row2.GetProp(2, &val, &schema).ok());
+    EXPECT_EQ(std::get<float>(val.value), static_cast<float>(2.1));
+  }
+  {
+    ValueResult val;
+    EXPECT_TRUE(row2.GetProp(3, &val, &schema).ok());
+    EXPECT_EQ(std::get<double>(val.value), 2.2);
+  }
+  {
+    ValueResult val;
+    EXPECT_TRUE(row2.GetProp(4, &val, &schema).ok());
+    EXPECT_EQ(std::get<std::string_view>(val.value), "arcanedb");
+  }
+}
+
 } // namespace property
 } // namespace arcanedb

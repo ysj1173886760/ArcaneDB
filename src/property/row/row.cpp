@@ -3,6 +3,7 @@
 #include "property/property_type.h"
 #include "property/sort_key/comparable_buf_reader.h"
 #include "property/sort_key/sort_key.h"
+#include "util/codec/buf_writer.h"
 #include "util/codec/encoding.h"
 
 namespace arcanedb {
@@ -211,6 +212,12 @@ size_t Row::GetTypeLength_(ValueType type) noexcept {
     break;
   }
   UNREACHABLE();
+}
+
+std::string_view Row::as_slice() noexcept {
+  assert(ptr_);
+  auto total_length = util::DecodeFixed16(ptr_);
+  return std::string_view(ptr_, total_length);
 }
 
 } // namespace property
