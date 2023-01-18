@@ -16,31 +16,61 @@
 namespace arcanedb {
 namespace util {
 
-template <typename Mutex> class NamedMutex {
+class NamedMutexHelper {
 public:
-  explicit NamedMutex(const std::string &name)
+  explicit NamedMutexHelper(const std::string &name)
       : name_(name), wait_latency_(name + ".wait_latency"),
         throughput_(name + ".throughput") {}
 
-  ~NamedMutex() = default;
-
-  void lock() noexcept { mu_.lock(); }
-
-  void unlock() noexcept { mu_.unlock(); }
-
-  DISALLOW_COPY_AND_ASSIGN(NamedMutex);
+  ~NamedMutexHelper() = default;
 
 private:
-  Mutex mu_;
   const std::string name_;
   const std::string wait_latency_;
   const std::string throughput_;
 };
 
-// TODO(sheep): emit the metric
-template <typename NamedMutex> class InstrumentedLockGuard {
+template <typename Mutex> class DebugAssertionHelper {
 public:
-  explicit InstrumentedLockGuard(NamedMutex &mu) noexcept : mu_(mu) {
+  void lock() noexcept {
+    assert(!locked_);
+    Real()->lock();
+    locked_ = true;
+  }
+
+  void unlock() noexcept {
+    assert(locked_);
+    Real()->unlock();
+    locked_ = false;
+  }
+
+  bool AssertHeld() noexcept { assert(locked_); }
+
+private:
+  bool locked_{false};
+  Mutex *Real() { return static_cast<Mutex *>(this); }
+};
+
+template <typename Mutex>
+class ArcaneMutex : public NamedMutexHelper,
+                    DebugAssertionHelper<ArcaneMutex<Mutex>> {
+public:
+  explicit ArcaneMutex(const std::string &name) : NamedMutexHelper(name) {}
+
+  void lock() noexcept { mu_.lock(); }
+
+  void unlock() noexcept { mu_.unlock(); }
+
+  DISALLOW_COPY_AND_ASSIGN(ArcaneMutex);
+
+private:
+  Mutex mu_;
+};
+
+// TODO(sheep): emit the metric
+template <typename Mutex> class InstrumentedLockGuard {
+public:
+  explicit InstrumentedLockGuard(Mutex &mu) noexcept : mu_(mu) {
     mu_.lock();
     bvar::LatencyRecorder recorder;
   }
@@ -50,7 +80,7 @@ public:
   DISALLOW_COPY_AND_ASSIGN(InstrumentedLockGuard);
 
 private:
-  NamedMutex &mu_;
+  Mutex &mu_;
 };
 
 } // namespace util

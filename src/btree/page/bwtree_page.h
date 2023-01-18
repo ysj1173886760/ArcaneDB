@@ -11,6 +11,8 @@
 #pragma once
 
 #include "btree/page/page_concept.h"
+#include "common/type.h"
+#include "btree/page/delta_node.h"
 
 namespace arcanedb {
 namespace btree {
@@ -51,6 +53,9 @@ public:
                    const property::Schema *schema) noexcept;
 
 private:
+  // TODO(sheep): replace ptr_mu to atomic_shared_ptr
+  ArcanedbLock ptr_mu_;
+  std::shared_ptr<DeltaNode> ptr_;
 };
 
 } // namespace btree
