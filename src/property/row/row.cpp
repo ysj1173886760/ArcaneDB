@@ -44,7 +44,8 @@ Status Row::Serialize(const ValueRefVec &value_ref_vec,
   size_t string_offset = kRowTotalLengthSize + kRowSortKeyLengthSize +
                          sort_key.as_slice().size() +
                          schema->GetColumnOffsetForRow(column_cnt);
-  uint16_t total_length = 0;
+  uint16_t total_length =
+      kRowTotalLengthSize + kRowSortKeyLengthSize + sort_key.as_slice().size();
 
   for (size_t i = sort_key_cnt; i < column_cnt; i++) {
     auto type = schema->GetColumnRefByIndex(i)->type;
@@ -87,6 +88,15 @@ Status Row::Serialize(const ValueRefVec &value_ref_vec,
   // write total length
   buf_writer->WriteBytesAtPos(header_pos, total_length);
   return Status::Ok();
+}
+
+void Row::SerializeOnlySortKey(SortKeysRef sort_key,
+                               util::BufWriter *buf_writer) noexcept {
+  uint16_t total_length =
+      kRowTotalLengthSize + kRowSortKeyLengthSize + sort_key.as_slice().size();
+  buf_writer->WriteBytes(total_length);
+  buf_writer->WriteBytes(static_cast<uint16_t>(sort_key.as_slice().size()));
+  buf_writer->WriteBytes(sort_key.as_slice());
 }
 
 Status Row::GetPropNormalValue_(size_t index, ValueResult *value,

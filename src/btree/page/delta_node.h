@@ -10,6 +10,7 @@
  */
 
 #include "property/row/row.h"
+#include "property/sort_key/sort_key.h"
 #include <string>
 
 namespace arcanedb {
@@ -17,7 +18,15 @@ namespace btree {
 
 class DeltaNode {
 public:
-  explicit DeltaNode(const property::Row &row, bool is_delete) noexcept;
+  // ctor for insert and update
+  explicit DeltaNode(const property::Row &row) noexcept;
+
+  // ctor for delete
+  explicit DeltaNode(property::SortKeysRef sort_key) noexcept;
+
+  void SetPrevious(std::shared_ptr<DeltaNode> previous) noexcept {
+    previous_ = std::move(previous);
+  }
 
 private:
   enum class DeltaState {

@@ -10,9 +10,9 @@
  */
 #pragma once
 
+#include "btree/page/delta_node.h"
 #include "btree/page/page_concept.h"
 #include "common/type.h"
-#include "btree/page/delta_node.h"
 
 namespace arcanedb {
 namespace btree {
