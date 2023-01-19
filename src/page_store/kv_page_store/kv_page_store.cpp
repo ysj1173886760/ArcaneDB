@@ -110,7 +110,6 @@ Status KvPageStore::UpdateHelper_(
   if (!s.ok()) {
     return s;
   }
-  auto *index_store = GetIndexStore_();
   return WriteIndexPage_(page_id, index_page);
 }
 

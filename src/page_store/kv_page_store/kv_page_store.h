@@ -36,6 +36,8 @@ public:
 
   static Status Destory(const std::string &name) noexcept;
 
+  ~KvPageStore() override = default;
+
   /**
    * @brief
    * Update base page.

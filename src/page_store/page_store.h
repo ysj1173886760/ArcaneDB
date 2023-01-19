@@ -38,6 +38,8 @@ public:
     PageType type;
   };
 
+  virtual ~PageStore() = default;
+
   /**
    * @brief Open a Page Store
    *

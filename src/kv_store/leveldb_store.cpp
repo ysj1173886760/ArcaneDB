@@ -41,6 +41,8 @@ Status AsyncLevelDB::Open(const std::string &name,
                  return Status::Err();
                }
                (*async_leveldb)->db_ = db;
+               (*async_leveldb)->cache_ = leveldb_options.block_cache;
+               (*async_leveldb)->filter_policy_ = leveldb_options.filter_policy;
                return Status::Ok();
              },
              thread_pool)
@@ -115,7 +117,11 @@ Status AsyncLevelDB::DestroyDB(const std::string &name) noexcept {
   return Status::Ok();
 }
 
-AsyncLevelDB::~AsyncLevelDB() { delete db_; }
+AsyncLevelDB::~AsyncLevelDB() { 
+  delete db_; 
+  delete cache_;
+  delete filter_policy_;
+}
 
 } // namespace leveldb_store
 } // namespace arcanedb

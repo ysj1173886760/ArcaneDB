@@ -14,6 +14,8 @@
 #include "common/status.h"
 #include "leveldb/db.h"
 #include "util/thread_pool.h"
+#include <leveldb/cache.h>
+#include <leveldb/filter_policy.h>
 
 namespace arcanedb {
 namespace leveldb_store {
@@ -44,7 +46,10 @@ public:
   static Status DestroyDB(const std::string &name) noexcept;
 
 private:
-  leveldb::DB *db_;
+  leveldb::DB *db_{};
+  // sheep: since we are allocating cache ourself, so we need to free cache manually.
+  leveldb::Cache *cache_{};
+  const leveldb::FilterPolicy *filter_policy_{};
   std::shared_ptr<util::ThreadPool> thread_pool_;
 };
 
