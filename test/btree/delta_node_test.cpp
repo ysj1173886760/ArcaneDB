@@ -105,5 +105,27 @@ TEST_F(DeltaNodeTest, BasicTest) {
   }
 }
 
+TEST_F(DeltaNodeTest, CompactionTest) {
+  DeltaNodeBuilder builder;
+  auto value_list = GenerateValueList(100);
+  std::vector<std::shared_ptr<DeltaNode>> deltas;
+  for (const auto &value : value_list) {
+    auto node = MakeDelta(value, false);
+    deltas.push_back(node);
+    builder.AddDeltaNode(node.get());
+  }
+  auto compacted = builder.GenerateDeltaNode();
+  int index = 0;
+  property::SortKeysRef sk;
+  compacted->Traverse([&](const property::Row &row, bool is_deleted) {
+    if (index != 0) {
+      EXPECT_GT(row.GetSortKeys(), sk);
+    }
+    sk = row.GetSortKeys();
+    TestRead(row, value_list[index], false);
+    index++;
+  });
+}
+
 } // namespace btree
 } // namespace arcanedb

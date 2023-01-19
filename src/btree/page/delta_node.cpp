@@ -37,14 +37,15 @@ DeltaNode::DeltaNode(property::SortKeysRef sort_key) noexcept {
   rows_.push_back(MarkDeleted(entry));
 }
 
-void DeltaNodeBuilder::AddDeltaNode(const DeltaNode &node) noexcept {
-  node.Traverse([&](RowRef ref, bool is_deleted) {
-    auto it = map_.find(ref.get().GetSortKeys());
+void DeltaNodeBuilder::AddDeltaNode(const DeltaNode *node) noexcept {
+  node->Traverse([&](const property::Row &row, bool is_deleted) {
+    auto it = map_.find(row.GetSortKeys());
     if (it != map_.end()) {
       return;
     }
-    map_.emplace(ref.get().GetSortKeys(),
-                 BuildEntry{.ref = ref, .is_deleted = is_deleted});
+    // copy the row ptr
+    map_.emplace(row.GetSortKeys(),
+                 BuildEntry{.row = row, .is_deleted = is_deleted});
   });
 }
 
@@ -59,7 +60,7 @@ std::shared_ptr<DeltaNode> DeltaNodeBuilder::GenerateDeltaNode() noexcept {
     if (build_entry.is_deleted) {
       entry = DeltaNode::MarkDeleted(entry);
     }
-    writer.WriteBytes(build_entry.ref.get().as_slice());
+    writer.WriteBytes(build_entry.row.as_slice());
     rows.push_back(entry);
     current_offset = writer.Offset();
   }

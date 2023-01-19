@@ -23,13 +23,13 @@ class DeltaNodeBuilder {
 public:
   DeltaNodeBuilder() = default;
 
-  void AddDeltaNode(const DeltaNode &node) noexcept;
+  void AddDeltaNode(const DeltaNode *node) noexcept;
 
   std::shared_ptr<DeltaNode> GenerateDeltaNode() noexcept;
 
 private:
   struct BuildEntry {
-    RowRef ref;
+    const property::Row row;
     bool is_deleted;
   };
   std::map<property::SortKeysRef, BuildEntry> map_;
@@ -53,8 +53,9 @@ public:
    * @brief
    * Traverse the delta node.
    * @tparam Visitor
-   * Visitor requires two parameter, first is RowRef,
+   * Visitor requires two parameter, first is const Row&,
    * second indicates whether row has been deleted.
+   * !! do not store reference to the row, since it was a variable on stack.
    * @param visitor
    */
   template <typename Visitor> void Traverse(Visitor visitor) const noexcept {
