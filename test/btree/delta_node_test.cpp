@@ -63,20 +63,21 @@ public:
     return std::make_shared<DeltaNode>(row);
   }
 
-  void TestRead(RowRef ref, const ValueStruct &value, bool is_deleted) {
+  void TestRead(const property::Row &row, const ValueStruct &value,
+                bool is_deleted) {
     {
       property::ValueResult res;
-      EXPECT_TRUE(ref.get().GetProp(0, &res, &schema_).ok());
+      EXPECT_TRUE(row.GetProp(0, &res, &schema_).ok());
       EXPECT_EQ(std::get<int64_t>(res.value), value.point_id);
     }
     {
       property::ValueResult res;
-      EXPECT_TRUE(ref.get().GetProp(1, &res, &schema_).ok());
+      EXPECT_TRUE(row.GetProp(1, &res, &schema_).ok());
       EXPECT_EQ(std::get<int32_t>(res.value), value.point_type);
     }
     if (!is_deleted) {
       property::ValueResult res;
-      EXPECT_TRUE(ref.get().GetProp(2, &res, &schema_).ok());
+      EXPECT_TRUE(row.GetProp(2, &res, &schema_).ok());
       EXPECT_EQ(std::get<std::string_view>(res.value), value.value);
     }
   }
@@ -125,6 +126,34 @@ TEST_F(DeltaNodeTest, CompactionTest) {
     TestRead(row, value_list[index], false);
     index++;
   });
+}
+
+TEST_F(DeltaNodeTest, PointReadTest) {
+  DeltaNodeBuilder builder;
+  auto value_list = GenerateValueList(100);
+  std::vector<std::shared_ptr<DeltaNode>> deltas;
+  for (const auto &value : value_list) {
+    std::shared_ptr<DeltaNode> node;
+    if (value.point_id % 2 == 0) {
+      node = MakeDelta(value, false);
+    } else {
+      node = MakeDelta(value, true);
+    }
+    deltas.push_back(node);
+    builder.AddDeltaNode(node.get());
+  }
+  auto compacted = builder.GenerateDeltaNode();
+  for (const auto &value : value_list) {
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    property::Row row;
+    auto s = compacted->GetRow(sk.as_ref(), &row);
+    if (value.point_id % 2 == 0) {
+      EXPECT_TRUE(s.ok());
+      TestRead(row, value, false);
+    } else {
+      EXPECT_TRUE(s.IsNotFound());
+    }
+  }
 }
 
 } // namespace btree

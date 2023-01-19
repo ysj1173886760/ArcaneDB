@@ -36,12 +36,18 @@ private:
 };
 
 class DeltaNode {
+  using Entry = uint16_t;
+
 public:
   // ctor for insert and update
   explicit DeltaNode(const property::Row &row) noexcept;
 
   // ctor for delete
   explicit DeltaNode(property::SortKeysRef sort_key) noexcept;
+
+  // ctor for delta builder
+  DeltaNode(std::string buffer, std::vector<Entry> rows) noexcept
+      : rows_(std::move(rows)), buffer_(std::move(buffer)) {}
 
   void SetPrevious(std::shared_ptr<DeltaNode> previous) noexcept {
     previous_ = std::move(previous);
@@ -66,6 +72,35 @@ public:
     }
   }
 
+  /**
+   * @brief
+   * Point read
+   * @param sort_key
+   * @param res
+   * @return Status
+   */
+  Status GetRow(property::SortKeysRef sort_key, property::Row *res) const
+      noexcept {
+    auto it = std::lower_bound(
+        rows_.begin(), rows_.end(), sort_key,
+        [&](const Entry &entry, const property::SortKeysRef &sort_key) {
+          auto offset = GetOffset(entry);
+          auto row = property::Row(buffer_.data() + offset);
+          return row.GetSortKeys() < sort_key;
+        });
+    if (it == rows_.end()) {
+      return Status::NotFound();
+    }
+    auto entry = *it;
+    auto offset = GetOffset(entry);
+    auto row = property::Row(buffer_.data() + offset);
+    if (row.GetSortKeys() != sort_key || IsDeleted(entry)) {
+      return Status::NotFound();
+    }
+    *res = property::Row(buffer_.data() + offset);
+    return Status::Ok();
+  }
+
   DeltaNode() = default;
 
 private:
@@ -76,7 +111,6 @@ private:
     kDelete,
   };
 
-  using Entry = uint16_t;
   static constexpr size_t kStateOffset = 15;
   static constexpr size_t kOffsetMask = 0x7fff;
   static constexpr size_t kMaximumOffset = kOffsetMask;

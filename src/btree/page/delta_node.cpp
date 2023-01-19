@@ -64,9 +64,7 @@ std::shared_ptr<DeltaNode> DeltaNodeBuilder::GenerateDeltaNode() noexcept {
     rows.push_back(entry);
     current_offset = writer.Offset();
   }
-  auto node = std::make_shared<DeltaNode>();
-  node->buffer_ = writer.Detach();
-  node->rows_ = std::move(rows);
+  auto node = std::make_shared<DeltaNode>(writer.Detach(), std::move(rows));
   return node;
 }
 
