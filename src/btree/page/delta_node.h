@@ -94,8 +94,11 @@ public:
     auto entry = *it;
     auto offset = GetOffset(entry);
     auto row = property::Row(buffer_.data() + offset);
-    if (row.GetSortKeys() != sort_key || IsDeleted(entry)) {
+    if (row.GetSortKeys() != sort_key) {
       return Status::NotFound();
+    }
+    if (IsDeleted(entry)) {
+      return Status::Deleted();
     }
     *res = property::Row(buffer_.data() + offset);
     return Status::Ok();

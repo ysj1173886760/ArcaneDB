@@ -151,7 +151,7 @@ TEST_F(DeltaNodeTest, PointReadTest) {
       EXPECT_TRUE(s.ok());
       TestRead(row, value, false);
     } else {
-      EXPECT_TRUE(s.IsNotFound());
+      EXPECT_TRUE(s.IsDeleted());
     }
   }
 }
