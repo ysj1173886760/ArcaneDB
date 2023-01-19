@@ -24,6 +24,8 @@ class Schema {
 public:
   Schema(const RawSchema &raw_schema) noexcept;
 
+  Schema() = default;
+
   const Column *GetColumnRefById(ColumnId column_id) const noexcept;
 
   const Column *GetColumnRefByIndex(size_t index) const noexcept;

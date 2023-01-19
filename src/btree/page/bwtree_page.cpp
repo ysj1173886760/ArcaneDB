@@ -45,6 +45,11 @@ Status BwTreePage::DeleteRow(property::SortKeysRef sort_key,
 Status BwTreePage::GetRow(property::SortKeysRef sort_key, const Options &opts,
                           RowRef *row_ref) const noexcept {
   NOTIMPLEMENTED();
+  std::shared_ptr<DeltaNode> current_ptr;
+  {
+    util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
+    current_ptr = ptr_;
+  }
 }
 
 } // namespace btree
