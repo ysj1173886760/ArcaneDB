@@ -29,13 +29,14 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) noexcept {
+  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) const
+      noexcept {
     return Real()->GetProp(id, value);
   }
 
   // TODO(sheep): impl GetProps
 
-  SortKeysRef GetSortKeys() noexcept { return Real()->GetSortKeys(); }
+  SortKeysRef GetSortKeys() const noexcept { return Real()->GetSortKeys(); }
 
 private:
   RowType *Real() noexcept { return static_cast<RowType *>(this); }

@@ -24,7 +24,7 @@ public:
 
   Row() = default;
 
-  std::string_view as_slice() noexcept;
+  std::string_view as_slice() const noexcept;
 
   /**
    * @brief Get property by column id
@@ -34,9 +34,10 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) noexcept;
+  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) const
+      noexcept;
 
-  SortKeysRef GetSortKeys() noexcept;
+  SortKeysRef GetSortKeys() const noexcept;
 
   /**
    * @brief
@@ -57,10 +58,10 @@ public:
 
 private:
   Status GetPropNormalValue_(size_t index, ValueResult *value,
-                             Schema *schema) noexcept;
+                             Schema *schema) const noexcept;
 
-  Status GetPropSortKey_(size_t index, ValueResult *value,
-                         Schema *schema) noexcept;
+  Status GetPropSortKey_(size_t index, ValueResult *value, Schema *schema) const
+      noexcept;
 
   static size_t GetTypeLength_(ValueType type) noexcept;
 

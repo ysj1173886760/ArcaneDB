@@ -9,6 +9,8 @@
  *
  */
 
+#include "btree/options.h"
+#include "btree/row_view.h"
 #include "common/status.h"
 #include "handler/logical_tuple.h"
 #include "property/row/row.h"
@@ -28,12 +30,11 @@ public:
    * @brief
    * Insert a row into page
    * @param row
-   * @param schema
+   * @param opts
    * @return Status
    */
-  Status InsertRow(const property::Row &row,
-                   const property::Schema *schema) noexcept {
-    return Real()->InsertRow(row, schema);
+  Status InsertRow(const property::Row &row, const Options &opts) noexcept {
+    return Real()->InsertRow(row, opts);
   }
 
   /**
@@ -43,24 +44,23 @@ public:
    * if user want to update sort key, then delete followed by insert is
    * preferred.
    * @param tuple
-   * @param schema
+   * @param opts
    * @return Status
    */
-  Status UpdateRow(const property::Row &row,
-                   const property::Schema *schema) noexcept {
-    return Real()->UpdateRow(row, schema);
+  Status UpdateRow(const property::Row &row, const Options &opts) noexcept {
+    return Real()->UpdateRow(row, opts);
   }
 
   /**
    * @brief
    * Delete a row from page
    * @param sort_key
-   * @param schema
+   * @param opts
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key,
-                   const property::Schema *schema) noexcept {
-    return Real()->DeleteRow(sort_key, schema);
+                   const Options &opts) noexcept {
+    return Real()->DeleteRow(sort_key, opts);
   }
 
   // TODO(sheep): support filter
@@ -68,12 +68,14 @@ public:
    * @brief
    * Get a row from page
    * @param tuple logical tuple that stores SortKey.
-   * @param schema
-   * @return Status
+   * @param opts
+   * @param row_ref
+   * @return Status: Ok when row has been found
+   *                 NotFound.
    */
-  Status GetRow(const handler::LogicalTuple &tuple,
-                const property::Schema *schema) noexcept {
-    return Real()->GetRow(tuple, schema);
+  Status GetRow(property::SortKeysRef sort_key, const Options &opts,
+                RowRef *row_ref) const noexcept {
+    return Real()->GetRow(sort_key, opts, row_ref);
   }
 
   // TODO(sheep): support scan

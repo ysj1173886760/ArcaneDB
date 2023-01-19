@@ -39,7 +39,8 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) noexcept;
+  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) const
+      noexcept;
 
   /**
    * @brief
@@ -66,7 +67,7 @@ public:
   static Status Serialize(const ValueRefVec &value_ref_vec,
                           util::BufWriter *buf_writer, Schema *schema) noexcept;
 
-  SortKeysRef GetSortKeys() noexcept { NOTIMPLEMENTED(); }
+  SortKeysRef GetSortKeys() const noexcept { NOTIMPLEMENTED(); }
 
 private:
   static size_t GetTypeLength_(ValueType type) noexcept;

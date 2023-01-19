@@ -16,7 +16,7 @@ namespace arcanedb {
 namespace btree {
 
 Status BwTreePage::InsertRow(const property::Row &row,
-                             const property::Schema *schema) noexcept {
+                             const Options &opts) noexcept {
   auto delta = std::make_shared<DeltaNode>(row);
   util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
   delta->SetPrevious(std::move(ptr_));
@@ -25,7 +25,7 @@ Status BwTreePage::InsertRow(const property::Row &row,
 }
 
 Status BwTreePage::UpdateRow(const property::Row &row,
-                             const property::Schema *schema) noexcept {
+                             const Options &opts) noexcept {
   auto delta = std::make_shared<DeltaNode>(row);
   util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
   delta->SetPrevious(std::move(ptr_));
@@ -34,12 +34,17 @@ Status BwTreePage::UpdateRow(const property::Row &row,
 }
 
 Status BwTreePage::DeleteRow(property::SortKeysRef sort_key,
-                             const property::Schema *schema) noexcept {
+                             const Options &opts) noexcept {
   auto delta = std::make_shared<DeltaNode>(sort_key);
   util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
   delta->SetPrevious(std::move(ptr_));
   ptr_ = std::move(delta);
   return Status::Ok();
+}
+
+Status BwTreePage::GetRow(property::SortKeysRef sort_key, const Options &opts,
+                          RowRef *row_ref) const noexcept {
+  NOTIMPLEMENTED();
 }
 
 } // namespace btree

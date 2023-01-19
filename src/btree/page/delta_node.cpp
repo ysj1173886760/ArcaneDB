@@ -15,10 +15,19 @@
 namespace arcanedb {
 namespace btree {
 
-DeltaNode::DeltaNode(const property::Row &row) noexcept { NOTIMPLEMENTED(); }
+DeltaNode::DeltaNode(const property::Row &row) noexcept {
+  util::BufWriter writer;
+  auto slice = row.as_slice();
+  writer.WriteBytes(slice);
+  buffer_ = writer.Detach();
+  state_ = DeltaState::kUpdate;
+}
 
 DeltaNode::DeltaNode(property::SortKeysRef sort_key) noexcept {
-  NOTIMPLEMENTED();
+  util::BufWriter writer;
+  property::Row::SerializeOnlySortKey(sort_key, &writer);
+  buffer_ = writer.Detach();
+  state_ = DeltaState::kDelete;
 }
 
 } // namespace btree

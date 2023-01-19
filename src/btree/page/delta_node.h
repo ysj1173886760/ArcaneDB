@@ -28,6 +28,8 @@ public:
     previous_ = std::move(previous);
   }
 
+  std::shared_ptr<DeltaNode> GetPrevious() noexcept { return previous_; }
+
 private:
   enum class DeltaState {
     kUpdate,

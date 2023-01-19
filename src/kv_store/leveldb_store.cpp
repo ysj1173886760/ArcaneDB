@@ -117,8 +117,8 @@ Status AsyncLevelDB::DestroyDB(const std::string &name) noexcept {
   return Status::Ok();
 }
 
-AsyncLevelDB::~AsyncLevelDB() { 
-  delete db_; 
+AsyncLevelDB::~AsyncLevelDB() {
+  delete db_;
   delete cache_;
   delete filter_policy_;
 }

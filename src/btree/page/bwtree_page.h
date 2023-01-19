@@ -23,11 +23,10 @@ public:
    * @brief
    * Insert a row into page
    * @param row
-   * @param schema
+   * @param opts
    * @return Status
    */
-  Status InsertRow(const property::Row &row,
-                   const property::Schema *schema) noexcept;
+  Status InsertRow(const property::Row &row, const Options &opts) noexcept;
 
   /**
    * @brief
@@ -36,25 +35,35 @@ public:
    * if user want to update sort key, then delete followed by insert is
    * preferred.
    * @param tuple
-   * @param schema
+   * @param opts
    * @return Status
    */
-  Status UpdateRow(const property::Row &row,
-                   const property::Schema *schema) noexcept;
+  Status UpdateRow(const property::Row &row, const Options &opts) noexcept;
 
   /**
    * @brief
    * Delete a row from page
    * @param sort_key
-   * @param schema
+   * @param opts
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key,
-                   const property::Schema *schema) noexcept;
+                   const Options &opts) noexcept;
+
+  /**
+   * @brief
+   * Get a row from page
+   * @param tuple logical tuple that stores SortKey.
+   * @param opts
+   * @param row_ref
+   * @return Status
+   */
+  Status GetRow(property::SortKeysRef sort_key, const Options &opts,
+                RowRef *ref) const noexcept;
 
 private:
   // TODO(sheep): replace ptr_mu to atomic_shared_ptr
-  ArcanedbLock ptr_mu_;
+  mutable ArcanedbLock ptr_mu_;
   std::shared_ptr<DeltaNode> ptr_;
 };
 

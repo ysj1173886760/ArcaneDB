@@ -47,7 +47,8 @@ public:
 
 private:
   leveldb::DB *db_{};
-  // sheep: since we are allocating cache ourself, so we need to free cache manually.
+  // sheep: since we are allocating cache ourself, so we need to free cache
+  // manually.
   leveldb::Cache *cache_{};
   const leveldb::FilterPolicy *filter_policy_{};
   std::shared_ptr<util::ThreadPool> thread_pool_;
