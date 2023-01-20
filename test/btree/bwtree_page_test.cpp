@@ -10,6 +10,9 @@
  */
 
 #include "btree/page/bwtree_page.h"
+#include "common/config.h"
+#include "util/bthread_util.h"
+#include "util/wait_group.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
@@ -91,15 +94,105 @@ public:
 
 TEST_F(BwTreePageTest, BasicTest) {
   BwTreePage page;
+  // insert
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page.InsertRow(row, opts_);
+      return page.SetRow(row, opts_);
     });
     EXPECT_TRUE(s.ok());
     property::Row row;
     auto sk = property::SortKeys({value.point_id, value.point_type});
     EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &row).ok());
+    TestRead(row, value, false);
+  }
+  // update
+  {
+    ValueStruct value{.point_id = 0, .point_type = 0, .value = "world"};
+    auto s = WriteHelper(value, [&](const property::Row &row) {
+      return page.SetRow(row, opts_);
+    });
+    EXPECT_TRUE(s.ok());
+    property::Row row;
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &row).ok());
+    TestRead(row, value, false);
+  }
+  // delete
+  {
+    ValueStruct value{.point_id = 0, .point_type = 0, .value = ""};
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    auto s = page.DeleteRow(sk.as_ref(), opts_);
+    EXPECT_TRUE(s.ok());
+    property::Row row;
+    EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &row).IsNotFound());
+  }
+}
+
+TEST_F(BwTreePageTest, ConcurrentTest) {
+  int worker_count = 1000;
+  util::WaitGroup wg(worker_count);
+  BwTreePage page;
+  for (int i = 0; i < worker_count; i++) {
+    util::LaunchAsync([&, index = i]() {
+      // insert
+      {
+        ValueStruct value{.point_id = index, .point_type = 0, .value = "hello"};
+        auto s = WriteHelper(value, [&](const property::Row &row) {
+          return page.SetRow(row, opts_);
+        });
+        EXPECT_TRUE(s.ok());
+        property::Row row;
+        auto sk = property::SortKeys({value.point_id, value.point_type});
+        EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &row).ok());
+        TestRead(row, value, false);
+      }
+      // update
+      {
+        ValueStruct value{.point_id = index, .point_type = 0, .value = "world"};
+        auto s = WriteHelper(value, [&](const property::Row &row) {
+          return page.SetRow(row, opts_);
+        });
+        EXPECT_TRUE(s.ok());
+        property::Row row;
+        auto sk = property::SortKeys({value.point_id, value.point_type});
+        EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &row).ok());
+        TestRead(row, value, false);
+      }
+      // delete
+      {
+        ValueStruct value{.point_id = index, .point_type = 0, .value = ""};
+        auto sk = property::SortKeys({value.point_id, value.point_type});
+        auto s = page.DeleteRow(sk.as_ref(), opts_);
+        EXPECT_TRUE(s.ok());
+        property::Row row;
+        EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &row).IsNotFound());
+      }
+      wg.Done();
+    });
+  }
+  wg.Wait();
+}
+
+TEST_F(BwTreePageTest, CompactionTest) {
+  auto value_list = GenerateValueList(1000);
+  BwTreePage page;
+  Options opts;
+  opts.disable_compaction = false;
+  for (const auto &value : value_list) {
+    auto s = WriteHelper(value, [&](const property::Row &row) {
+      return page.SetRow(row, opts);
+    });
+    EXPECT_TRUE(s.ok());
+  }
+  EXPECT_LE(page.ptr_->GetTotalLength(),
+            common::Config::kBwTreeDeltaChainLength);
+  // test read
+  for (const auto &value : value_list) {
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    property::Row row;
+    auto s = page.GetRow(sk.as_ref(), opts_, &row);
+    EXPECT_TRUE(s.ok());
     TestRead(row, value, false);
   }
 }

@@ -11,6 +11,8 @@
 
 #include "butil/macros.h"
 #include "bvar/latency_recorder.h"
+#include "common/logger.h"
+#include <cassert>
 #include <string>
 
 namespace arcanedb {
@@ -33,18 +35,16 @@ private:
 template <typename Mutex> class DebugAssertionHelper {
 public:
   void lock() noexcept {
-    assert(!locked_);
-    Real()->lock();
+    Real()->lock_();
     locked_ = true;
   }
 
   void unlock() noexcept {
-    assert(locked_);
-    Real()->unlock();
     locked_ = false;
+    Real()->unlock_();
   }
 
-  bool AssertHeld() noexcept { assert(locked_); }
+  void AssertHeld() noexcept { assert(locked_); }
 
 private:
   bool locked_{false};
@@ -53,13 +53,13 @@ private:
 
 template <typename Mutex>
 class ArcaneMutex : public NamedMutexHelper,
-                    DebugAssertionHelper<ArcaneMutex<Mutex>> {
+                    public DebugAssertionHelper<ArcaneMutex<Mutex>> {
 public:
   explicit ArcaneMutex(const std::string &name) : NamedMutexHelper(name) {}
 
-  void lock() noexcept { mu_.lock(); }
+  void lock_() noexcept { mu_.lock(); }
 
-  void unlock() noexcept { mu_.unlock(); }
+  void unlock_() noexcept { mu_.unlock(); }
 
   DISALLOW_COPY_AND_ASSIGN(ArcaneMutex);
 

@@ -35,22 +35,8 @@ public:
    * @param opts
    * @return Status
    */
-  Status InsertRow(const property::Row &row, const Options &opts) noexcept {
-    return Real()->InsertRow(row, opts);
-  }
-
-  /**
-   * @brief
-   * Update a row in page.
-   * note that sort key couldn't be changed.
-   * if user want to update sort key, then delete followed by insert is
-   * preferred.
-   * @param tuple
-   * @param opts
-   * @return Status
-   */
-  Status UpdateRow(const property::Row &row, const Options &opts) noexcept {
-    return Real()->UpdateRow(row, opts);
+  Status SetRow(const property::Row &row, const Options &opts) noexcept {
+    return Real()->SetRow(row, opts);
   }
 
   /**

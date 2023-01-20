@@ -19,7 +19,8 @@ namespace btree {
  * Options for reading and writing btree.
  */
 struct Options {
-  const property::Schema *schema;
+  const property::Schema *schema{};
+  bool disable_compaction{true};
 };
 
 } // namespace btree

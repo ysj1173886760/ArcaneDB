@@ -27,12 +27,17 @@ public:
 
   std::shared_ptr<DeltaNode> GenerateDeltaNode() noexcept;
 
+  size_t GetRowSize() const noexcept { return map_.size(); }
+
+  size_t GetDeltaCount() const noexcept { return delta_cnt_; }
+
 private:
   struct BuildEntry {
     const property::Row row;
     bool is_deleted;
   };
   std::map<property::SortKeysRef, BuildEntry> map_;
+  size_t delta_cnt_;
 };
 
 class DeltaNode {
@@ -51,9 +56,16 @@ public:
 
   void SetPrevious(std::shared_ptr<DeltaNode> previous) noexcept {
     previous_ = std::move(previous);
+    if (previous != nullptr) {
+      total_length_ = previous->GetTotalLength() + 1;
+    }
   }
 
   std::shared_ptr<DeltaNode> GetPrevious() noexcept { return previous_; }
+
+  size_t GetSize() const noexcept { return rows_.size(); }
+
+  size_t GetTotalLength() const noexcept { return total_length_; }
 
   /**
    * @brief
@@ -133,6 +145,7 @@ private:
   // TODO(sheep): optimize memory allocation
   std::string buffer_{};
   std::shared_ptr<DeltaNode> previous_{};
+  uint32_t total_length_{};
 };
 
 } // namespace btree

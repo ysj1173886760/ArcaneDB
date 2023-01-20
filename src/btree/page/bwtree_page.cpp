@@ -11,34 +11,55 @@
 
 #include "btree/page/bwtree_page.h"
 #include "butil/logging.h"
+#include "common/config.h"
 
 namespace arcanedb {
 namespace btree {
 
-Status BwTreePage::InsertRow(const property::Row &row,
-                             const Options &opts) noexcept {
-  auto delta = std::make_shared<DeltaNode>(row);
-  util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
-  delta->SetPrevious(std::move(ptr_));
-  ptr_ = std::move(delta);
-  return Status::Ok();
+std::shared_ptr<DeltaNode> BwTreePage::Compaction_() noexcept {
+  ptr_mu_.AssertHeld();
+  auto current = ptr_->GetPrevious();
+  DeltaNodeBuilder builder;
+  builder.AddDeltaNode(ptr_.get());
+  // simple stragty
+  while (current != nullptr) {
+    builder.AddDeltaNode(current.get());
+    current = current->GetPrevious();
+  }
+  return builder.GenerateDeltaNode();
 }
 
-Status BwTreePage::UpdateRow(const property::Row &row,
-                             const Options &opts) noexcept {
-  auto delta = std::make_shared<DeltaNode>(row);
-  util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
-  delta->SetPrevious(std::move(ptr_));
-  ptr_ = std::move(delta);
+void BwTreePage::MaybePerformCompaction_(const Options &opts) noexcept {
+  ptr_mu_.AssertHeld();
+  auto total_size = ptr_->GetTotalLength();
+  if (!opts.disable_compaction &&
+      total_size > common::Config::kBwTreeDeltaChainLength) {
+    auto new_ptr = Compaction_();
+    ptr_ = std::move(new_ptr);
+  }
+}
+
+Status BwTreePage::SetRow(const property::Row &row,
+                          const Options &opts) noexcept {
+  {
+    auto delta = std::make_shared<DeltaNode>(row);
+    util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
+    delta->SetPrevious(std::move(ptr_));
+    ptr_ = std::move(delta);
+    MaybePerformCompaction_(opts);
+  }
   return Status::Ok();
 }
 
 Status BwTreePage::DeleteRow(property::SortKeysRef sort_key,
                              const Options &opts) noexcept {
-  auto delta = std::make_shared<DeltaNode>(sort_key);
-  util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
-  delta->SetPrevious(std::move(ptr_));
-  ptr_ = std::move(delta);
+  {
+    auto delta = std::make_shared<DeltaNode>(sort_key);
+    util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
+    delta->SetPrevious(std::move(ptr_));
+    ptr_ = std::move(delta);
+    MaybePerformCompaction_(opts);
+  }
   return Status::Ok();
 }
 

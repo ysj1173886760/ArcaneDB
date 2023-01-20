@@ -47,6 +47,7 @@ void DeltaNodeBuilder::AddDeltaNode(const DeltaNode *node) noexcept {
     map_.emplace(row.GetSortKeys(),
                  BuildEntry{.row = row, .is_deleted = is_deleted});
   });
+  delta_cnt_ += 1;
 }
 
 std::shared_ptr<DeltaNode> DeltaNodeBuilder::GenerateDeltaNode() noexcept {

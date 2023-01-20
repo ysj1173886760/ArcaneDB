@@ -28,19 +28,7 @@ public:
    * @param opts
    * @return Status
    */
-  Status InsertRow(const property::Row &row, const Options &opts) noexcept;
-
-  /**
-   * @brief
-   * Update a row in page.
-   * note that sort key couldn't be changed.
-   * if user want to update sort key, then delete followed by insert is
-   * preferred.
-   * @param tuple
-   * @param opts
-   * @return Status
-   */
-  Status UpdateRow(const property::Row &row, const Options &opts) noexcept;
+  Status SetRow(const property::Row &row, const Options &opts) noexcept;
 
   /**
    * @brief
@@ -64,9 +52,15 @@ public:
                 property::Row *res) const noexcept;
 
 private:
+  FRIEND_TEST(BwTreePageTest, CompactionTest);
+
+  std::shared_ptr<DeltaNode> Compaction_() noexcept;
+
+  void MaybePerformCompaction_(const Options &opts) noexcept;
+
   // TODO(sheep): replace ptr_mu to atomic_shared_ptr
   mutable ArcanedbLock ptr_mu_{"BwTreePageMutex"};
-  std::shared_ptr<DeltaNode> ptr_;
+  std::shared_ptr<DeltaNode> ptr_; // guarded by ptr_mu_
 };
 
 } // namespace btree
