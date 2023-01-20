@@ -31,7 +31,7 @@ public:
    */
   Status GetProp(ColumnId id, ValueResult *value, Schema *schema) const
       noexcept {
-    return Real()->GetProp(id, value);
+    return Real()->GetProp(id, value, schema);
   }
 
   // TODO(sheep): impl GetProps

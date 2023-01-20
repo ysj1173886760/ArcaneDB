@@ -20,7 +20,7 @@ namespace btree {
  */
 struct Options {
   const property::Schema *schema{};
-  bool disable_compaction{true};
+  bool disable_compaction{false};
 };
 
 } // namespace btree

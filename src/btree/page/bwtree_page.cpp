@@ -26,7 +26,9 @@ std::shared_ptr<DeltaNode> BwTreePage::Compaction_() noexcept {
     builder.AddDeltaNode(current.get());
     current = current->GetPrevious();
   }
-  return builder.GenerateDeltaNode();
+  auto new_node = builder.GenerateDeltaNode();
+  new_node->SetPrevious(current);
+  return new_node;
 }
 
 void BwTreePage::MaybePerformCompaction_(const Options &opts) noexcept {
@@ -64,7 +66,7 @@ Status BwTreePage::DeleteRow(property::SortKeysRef sort_key,
 }
 
 Status BwTreePage::GetRow(property::SortKeysRef sort_key, const Options &opts,
-                          property::Row *res) const noexcept {
+                          RowView *view) const noexcept {
   std::shared_ptr<DeltaNode> current_ptr;
   {
     util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
@@ -72,7 +74,7 @@ Status BwTreePage::GetRow(property::SortKeysRef sort_key, const Options &opts,
   }
   // traverse the delta node
   while (current_ptr != nullptr) {
-    auto s = current_ptr->GetRow(sort_key, res);
+    auto s = current_ptr->GetRow(sort_key, view);
     if (s.ok()) {
       return Status::Ok();
     }

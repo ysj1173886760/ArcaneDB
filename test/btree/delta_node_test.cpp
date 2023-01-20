@@ -95,14 +95,16 @@ TEST_F(DeltaNodeTest, BasicTest) {
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto delta = MakeDelta(value, false);
-    delta->Traverse(
-        [&](RowRef ref, bool is_deleted) { TestRead(ref, value, false); });
+    delta->Traverse([&](const property::Row &row, bool is_deleted) {
+      TestRead(row, value, false);
+    });
   }
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto delta = MakeDelta(value, true);
-    delta->Traverse(
-        [&](RowRef ref, bool is_deleted) { TestRead(ref, value, true); });
+    delta->Traverse([&](const property::Row &row, bool is_deleted) {
+      TestRead(row, value, true);
+    });
   }
 }
 
@@ -145,11 +147,11 @@ TEST_F(DeltaNodeTest, PointReadTest) {
   auto compacted = builder.GenerateDeltaNode();
   for (const auto &value : value_list) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    property::Row row;
-    auto s = compacted->GetRow(sk.as_ref(), &row);
+    RowView view;
+    auto s = compacted->GetRow(sk.as_ref(), &view);
     if (value.point_id % 2 == 0) {
       EXPECT_TRUE(s.ok());
-      TestRead(row, value, false);
+      TestRead(view.GetRow(), value, false);
     } else {
       EXPECT_TRUE(s.IsDeleted());
     }

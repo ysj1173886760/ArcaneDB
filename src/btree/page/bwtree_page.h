@@ -45,14 +45,15 @@ public:
    * Get a row from page
    * @param tuple logical tuple that stores SortKey.
    * @param opts
-   * @param res
+   * @param view
    * @return Status
    */
   Status GetRow(property::SortKeysRef sort_key, const Options &opts,
-                property::Row *res) const noexcept;
+                RowView *view) const noexcept;
 
 private:
   FRIEND_TEST(BwTreePageTest, CompactionTest);
+  FRIEND_TEST(BwTreePageTest, ConcurrentCompactionTest);
 
   std::shared_ptr<DeltaNode> Compaction_() noexcept;
 

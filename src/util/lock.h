@@ -12,6 +12,7 @@
 #include "butil/macros.h"
 #include "bvar/latency_recorder.h"
 #include "common/logger.h"
+#include "util/time.h"
 #include <cassert>
 #include <string>
 
@@ -21,15 +22,15 @@ namespace util {
 class NamedMutexHelper {
 public:
   explicit NamedMutexHelper(const std::string &name)
-      : name_(name), wait_latency_(name + ".wait_latency"),
-        throughput_(name + ".throughput") {}
+      : name_(name), wait_latency_name_(name + ".wait_latency"),
+        hold_latency_name_(name + ".hold_latency") {}
 
   ~NamedMutexHelper() = default;
 
-private:
+protected:
   const std::string name_;
-  const std::string wait_latency_;
-  const std::string throughput_;
+  const std::string wait_latency_name_;
+  const std::string hold_latency_name_;
 };
 
 template <typename Mutex> class DebugAssertionHelper {
@@ -46,7 +47,7 @@ public:
 
   void AssertHeld() noexcept { assert(locked_); }
 
-private:
+protected:
   bool locked_{false};
   Mutex *Real() { return static_cast<Mutex *>(this); }
 };
@@ -57,14 +58,29 @@ class ArcaneMutex : public NamedMutexHelper,
 public:
   explicit ArcaneMutex(const std::string &name) : NamedMutexHelper(name) {}
 
+  ~ArcaneMutex() noexcept {
+    // ARCANEDB_INFO("{} avg latency: {}", wait_latency_name_,
+    // wait_latency_.latency()); ARCANEDB_INFO("{} max latency: {}",
+    // wait_latency_name_, wait_latency_.latency()); ARCANEDB_INFO("{} avg
+    // latency: {}", hold_latency_name_, hold_latency_.latency());
+    // ARCANEDB_INFO("{} max latency: {}", hold_latency_name_,
+    // hold_latency_.latency());
+  }
+
   void lock_() noexcept { mu_.lock(); }
 
   void unlock_() noexcept { mu_.unlock(); }
+
+  void SetHoldLatency(int64_t time) noexcept { hold_latency_ << time; }
+
+  void SetWaitLatency(int64_t time) noexcept { wait_latency_ << time; }
 
   DISALLOW_COPY_AND_ASSIGN(ArcaneMutex);
 
 private:
   Mutex mu_;
+  bvar::LatencyRecorder wait_latency_;
+  bvar::LatencyRecorder hold_latency_;
 };
 
 // TODO(sheep): emit the metric
@@ -72,14 +88,19 @@ template <typename Mutex> class InstrumentedLockGuard {
 public:
   explicit InstrumentedLockGuard(Mutex &mu) noexcept : mu_(mu) {
     mu_.lock();
-    bvar::LatencyRecorder recorder;
+    mu_.SetWaitLatency(timer_.GetElapsed());
+    timer_.Reset();
   }
 
-  ~InstrumentedLockGuard() noexcept { mu_.unlock(); }
+  ~InstrumentedLockGuard() noexcept {
+    mu_.unlock();
+    mu_.SetHoldLatency(timer_.GetElapsed());
+  }
 
   DISALLOW_COPY_AND_ASSIGN(InstrumentedLockGuard);
 
 private:
+  util::Timer timer_{};
   Mutex &mu_;
 };
 

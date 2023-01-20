@@ -57,13 +57,13 @@ public:
    * Get a row from page
    * @param tuple logical tuple that stores SortKey.
    * @param opts
-   * @param res
+   * @param view
    * @return Status: Ok when row has been found
    *                 NotFound.
    */
   Status GetRow(property::SortKeysRef sort_key, const Options &opts,
-                property::Row *res) const noexcept {
-    return Real()->GetRow(sort_key, opts, res);
+                RowView *view) const noexcept {
+    return Real()->GetRow(sort_key, opts, view);
   }
 
   // TODO(sheep): support scan

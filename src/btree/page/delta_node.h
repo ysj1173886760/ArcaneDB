@@ -12,6 +12,7 @@
 #include "btree/row_view.h"
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"
+#include <memory>
 #include <string>
 
 namespace arcanedb {
@@ -40,7 +41,7 @@ private:
   size_t delta_cnt_;
 };
 
-class DeltaNode {
+class DeltaNode : public RowOwner {
   using Entry = uint16_t;
 
 public:
@@ -55,10 +56,10 @@ public:
       : rows_(std::move(rows)), buffer_(std::move(buffer)) {}
 
   void SetPrevious(std::shared_ptr<DeltaNode> previous) noexcept {
-    previous_ = std::move(previous);
     if (previous != nullptr) {
       total_length_ = previous->GetTotalLength() + 1;
     }
+    previous_ = std::move(previous);
   }
 
   std::shared_ptr<DeltaNode> GetPrevious() noexcept { return previous_; }
@@ -88,11 +89,10 @@ public:
    * @brief
    * Point read
    * @param sort_key
-   * @param res
+   * @param view
    * @return Status
    */
-  Status GetRow(property::SortKeysRef sort_key, property::Row *res) const
-      noexcept {
+  Status GetRow(property::SortKeysRef sort_key, RowView *view) const noexcept {
     auto it = std::lower_bound(
         rows_.begin(), rows_.end(), sort_key,
         [&](const Entry &entry, const property::SortKeysRef &sort_key) {
@@ -112,7 +112,8 @@ public:
     if (IsDeleted(entry)) {
       return Status::Deleted();
     }
-    *res = property::Row(buffer_.data() + offset);
+    *view = RowView(property::Row(buffer_.data() + offset));
+    view->SetOwner(shared_from_this());
     return Status::Ok();
   }
 
