@@ -16,11 +16,12 @@
 namespace arcanedb {
 namespace btree {
 
-std::shared_ptr<DeltaNode> BwTreePage::Compaction_() noexcept {
-  ptr_mu_.AssertHeld();
-  auto current = ptr_->GetPrevious();
+std::shared_ptr<DeltaNode>
+BwTreePage::Compaction_(DeltaNode *current_ptr) noexcept {
+  write_mu_.AssertHeld();
+  auto current = current_ptr->GetPrevious();
   DeltaNodeBuilder builder;
-  builder.AddDeltaNode(ptr_.get());
+  builder.AddDeltaNode(current_ptr);
   // simple stragty
   while (current != nullptr) {
     builder.AddDeltaNode(current.get());
@@ -31,13 +32,14 @@ std::shared_ptr<DeltaNode> BwTreePage::Compaction_() noexcept {
   return new_node;
 }
 
-void BwTreePage::MaybePerformCompaction_(const Options &opts) noexcept {
-  ptr_mu_.AssertHeld();
-  auto total_size = ptr_->GetTotalLength();
+void BwTreePage::MaybePerformCompaction_(const Options &opts,
+                                         DeltaNode *current_ptr) noexcept {
+  write_mu_.AssertHeld();
+  auto total_size = current_ptr->GetTotalLength();
   if (!opts.disable_compaction &&
       total_size > common::Config::kBwTreeDeltaChainLength) {
-    auto new_ptr = Compaction_();
-    ptr_ = std::move(new_ptr);
+    auto new_ptr = Compaction_(current_ptr);
+    UpdatePtr_(new_ptr);
   }
 }
 
@@ -45,10 +47,11 @@ Status BwTreePage::SetRow(const property::Row &row,
                           const Options &opts) noexcept {
   {
     auto delta = std::make_shared<DeltaNode>(row);
-    util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
-    delta->SetPrevious(std::move(ptr_));
-    ptr_ = std::move(delta);
-    MaybePerformCompaction_(opts);
+    util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+    auto current_ptr = GetPtr_();
+    delta->SetPrevious(std::move(current_ptr));
+    UpdatePtr_(delta);
+    MaybePerformCompaction_(opts, delta.get());
   }
   return Status::Ok();
 }
@@ -57,21 +60,19 @@ Status BwTreePage::DeleteRow(property::SortKeysRef sort_key,
                              const Options &opts) noexcept {
   {
     auto delta = std::make_shared<DeltaNode>(sort_key);
-    util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
-    delta->SetPrevious(std::move(ptr_));
-    ptr_ = std::move(delta);
-    MaybePerformCompaction_(opts);
+    util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+    auto current_ptr = GetPtr_();
+    delta->SetPrevious(std::move(current_ptr));
+    UpdatePtr_(delta);
+    MaybePerformCompaction_(opts, delta.get());
   }
   return Status::Ok();
 }
 
 Status BwTreePage::GetRow(property::SortKeysRef sort_key, const Options &opts,
                           RowView *view) const noexcept {
-  std::shared_ptr<DeltaNode> current_ptr;
-  {
-    util::InstrumentedLockGuard<ArcanedbLock> guard(ptr_mu_);
-    current_ptr = ptr_;
-  }
+  auto shared_ptr = GetPtr_();
+  auto current_ptr = shared_ptr.get();
   // traverse the delta node
   while (current_ptr != nullptr) {
     auto s = current_ptr->GetRow(sort_key, view);
@@ -81,7 +82,7 @@ Status BwTreePage::GetRow(property::SortKeysRef sort_key, const Options &opts,
     if (s.IsDeleted()) {
       return Status::NotFound();
     }
-    current_ptr = current_ptr->GetPrevious();
+    current_ptr = current_ptr->GetPrevious().get();
   }
   return Status::NotFound();
 }

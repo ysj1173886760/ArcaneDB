@@ -1,6 +1,6 @@
 # TODO(sheep) fix this
-set(CMAKE_C_COMPILER "/usr/bin/clang-13")
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++-13")
+set(CMAKE_C_COMPILER "/usr/bin/clang-16")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++-16")
 
 cmake_minimum_required(VERSION 3.13)
 project(ArcaneDB)
@@ -11,6 +11,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
+set(C_FLAG_COMMON "")
+set(CMAKE_CXX_FLAGS_DEBUG "${C_FLAG_COMMON}")
+set(CMAKE_CXX_FLAGS "${C_FLAG_COMMON}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wno-unused-parameter -Wno-attributes")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")

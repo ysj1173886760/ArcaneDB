@@ -186,7 +186,7 @@ TEST_F(BwTreePageTest, CompactionTest) {
     });
     EXPECT_TRUE(s.ok());
   }
-  EXPECT_LE(page.ptr_->GetTotalLength(),
+  EXPECT_LE(page.TEST_GetDeltaLength(),
             common::Config::kBwTreeDeltaChainLength);
   // test read
   for (const auto &value : value_list) {
@@ -276,7 +276,7 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
     });
   }
   wg.Wait();
-  EXPECT_LE(page.ptr_->GetTotalLength(),
+  EXPECT_LE(page.TEST_GetDeltaLength(),
             common::Config::kBwTreeDeltaChainLength);
   ARCANEDB_INFO("read avg latency: {}, max latency: {}", read_latency.latency(),
                 read_latency.max_latency());
@@ -286,7 +286,7 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
                 write_latency.latency(), write_latency.max_latency());
   ARCANEDB_INFO("epoch latency avg: {}, max latency: {}",
                 epoch_latency.latency(), epoch_latency.max_latency());
-  ARCANEDB_INFO("{}", page.ptr_->GetTotalLength());
+  ARCANEDB_INFO("{}", page.TEST_GetDeltaLength());
 }
 
 TEST_F(BwTreePageTest, PerformanceTest) {

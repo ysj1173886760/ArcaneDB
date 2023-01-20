@@ -12,6 +12,7 @@
 
 #include "btree/page/delta_node.h"
 #include "btree/page/page_concept.h"
+#include "butil/containers/doubly_buffered_data.h"
 #include "common/type.h"
 
 namespace arcanedb {
@@ -51,17 +52,41 @@ public:
   Status GetRow(property::SortKeysRef sort_key, const Options &opts,
                 RowView *view) const noexcept;
 
+  size_t TEST_GetDeltaLength() const noexcept {
+    auto ptr = GetPtr_();
+    return ptr->GetTotalLength();
+  }
+
 private:
+  using DoublyBufferedData =
+      butil::DoublyBufferedData<std::shared_ptr<DeltaNode>>;
   FRIEND_TEST(BwTreePageTest, CompactionTest);
   FRIEND_TEST(BwTreePageTest, ConcurrentCompactionTest);
 
-  std::shared_ptr<DeltaNode> Compaction_() noexcept;
+  std::shared_ptr<DeltaNode> Compaction_(DeltaNode *current_ptr) noexcept;
 
-  void MaybePerformCompaction_(const Options &opts) noexcept;
+  void MaybePerformCompaction_(const Options &opts,
+                               DeltaNode *current_ptr) noexcept;
+
+  std::shared_ptr<DeltaNode> GetPtr_() const noexcept {
+    DoublyBufferedData::ScopedPtr scoped_ptr;
+    CHECK(ptr_.Read(&scoped_ptr) == 0);
+    return *scoped_ptr;
+  }
+
+  void UpdatePtr_(std::shared_ptr<DeltaNode> new_node) const noexcept {
+    ptr_.Modify(UpdateFn_, new_node);
+  }
+
+  static bool UpdateFn_(std::shared_ptr<DeltaNode> &old_node,
+                        std::shared_ptr<DeltaNode> new_node) {
+    old_node = new_node;
+    return true;
+  }
 
   // TODO(sheep): replace ptr_mu to atomic_shared_ptr
-  mutable ArcanedbLock ptr_mu_{"BwTreePageMutex"};
-  std::shared_ptr<DeltaNode> ptr_; // guarded by ptr_mu_
+  mutable ArcanedbLock write_mu_{"BwTreePageWriteMutex"};
+  mutable DoublyBufferedData ptr_;
 };
 
 } // namespace btree

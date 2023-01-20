@@ -292,8 +292,9 @@ private:
     uint64_t new_control_bits;
     do {
       if (GetState_(current_control_bits) != current_state) {
-        ARCANEDB_ERROR("expect state {}, get {}", current_state,
-                       GetState_(current_control_bits));
+        ARCANEDB_ERROR("expect state {}, get {}",
+                       static_cast<uint8_t>(current_state),
+                       static_cast<uint8_t>(GetState_(current_control_bits)));
         return;
       }
       new_control_bits = SetState_(current_control_bits, expected_state);
@@ -325,28 +326,3 @@ private:
 
 } // namespace log_store
 } // namespace arcanedb
-
-template <>
-struct fmt::formatter<arcanedb::log_store::LogSegment::LogSegmentState>
-    : formatter<std::string_view> {
-  template <typename FormatContext>
-  auto format(arcanedb::log_store::LogSegment::LogSegmentState segment,
-              FormatContext &ctx) const {
-    string_view name = "unknown";
-    switch (segment) {
-    case arcanedb::log_store::LogSegment::LogSegmentState::kFree:
-      name = "Free";
-      break;
-    case arcanedb::log_store::LogSegment::LogSegmentState::kIo:
-      name = "Io";
-      break;
-    case arcanedb::log_store::LogSegment::LogSegmentState::kOpen:
-      name = "Open";
-      break;
-    case arcanedb::log_store::LogSegment::LogSegmentState::kSeal:
-      name = "Seal";
-      break;
-    }
-    return formatter<string_view>::format(name, ctx);
-  }
-};
