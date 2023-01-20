@@ -84,7 +84,7 @@ private:
     return true;
   }
 
-  // TODO(sheep): replace ptr_mu to atomic_shared_ptr
+  // TODO(sheep) use group commit to optimize write performance
   mutable ArcanedbLock write_mu_{"BwTreePageWriteMutex"};
   mutable DoublyBufferedData ptr_;
 };
