@@ -22,6 +22,8 @@ public:
   /**
    * @brief
    * Insert a row into page
+   * if row with same sortkey is existed, then we will overwrite that row.
+   * i.e. semantic is to always perform upsert.
    * @param row
    * @param opts
    * @return Status
@@ -55,15 +57,15 @@ public:
    * Get a row from page
    * @param tuple logical tuple that stores SortKey.
    * @param opts
-   * @param row_ref
+   * @param res
    * @return Status
    */
   Status GetRow(property::SortKeysRef sort_key, const Options &opts,
-                RowRef *ref) const noexcept;
+                property::Row *res) const noexcept;
 
 private:
   // TODO(sheep): replace ptr_mu to atomic_shared_ptr
-  mutable ArcanedbLock ptr_mu_;
+  mutable ArcanedbLock ptr_mu_{"BwTreePageMutex"};
   std::shared_ptr<DeltaNode> ptr_;
 };
 

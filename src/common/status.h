@@ -26,7 +26,7 @@
   ARCANEDB_X(Retry)                                                            \
   ARCANEDB_X(DeserializationFailed)                                            \
   ARCANEDB_X(InvalidArgs)                                                      \
-  ARCANEDB_X(Deleted)                                                          \
+  ARCANEDB_X(Deleted)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \

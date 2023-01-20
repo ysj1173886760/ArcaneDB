@@ -28,7 +28,9 @@ template <typename PageType> class PageConcept {
 public:
   /**
    * @brief
-   * Insert a row into page
+   * Insert a row into page.
+   * if row with same sortkey is existed, then we will overwrite that row.
+   * i.e. semantic is to always perform upsert.
    * @param row
    * @param opts
    * @return Status
@@ -69,13 +71,13 @@ public:
    * Get a row from page
    * @param tuple logical tuple that stores SortKey.
    * @param opts
-   * @param row_ref
+   * @param res
    * @return Status: Ok when row has been found
    *                 NotFound.
    */
   Status GetRow(property::SortKeysRef sort_key, const Options &opts,
-                RowRef *row_ref) const noexcept {
-    return Real()->GetRow(sort_key, opts, row_ref);
+                property::Row *res) const noexcept {
+    return Real()->GetRow(sort_key, opts, res);
   }
 
   // TODO(sheep): support scan
