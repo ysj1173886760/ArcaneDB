@@ -12,9 +12,13 @@ Might be a graph storage engine.
 - [x] Sortkey
 - [x] row read/write
   - [] More row type
-- [] In-memory page read/write
-- [] Page serialization/deserialization
+- [x] In-memory page read/write
+  - [] More page type. i.e. COW page
 - [] 1-level Btr
 - [] 2-level Btr
-- [] Multi-level Btr
 - [] Transaction component
+- [] Graph interface
+- [] WAL
+- [] Recovery
+- [] Page serialization/deserialization
+- [] Multi-level Btr
