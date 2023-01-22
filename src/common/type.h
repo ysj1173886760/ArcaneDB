@@ -18,6 +18,7 @@
 namespace arcanedb {
 
 using PageIdType = std::string;
+using PageIdView = std::string_view;
 
 using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
 
