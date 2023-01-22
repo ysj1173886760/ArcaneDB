@@ -77,5 +77,27 @@ bool InternalRows::TEST_SortKeyAscending() const noexcept {
   return true;
 }
 
+Status InternalPage::GetPageId(const Options &opts,
+                               property::SortKeysRef sort_key,
+                               PageIdView *page_id) const noexcept {
+  return data_.GetImmutablePtr()->GetPageId(opts, sort_key, page_id);
+}
+
+Status
+InternalPage::Split(const Options &opts, property::SortKeysRef old_sort_key,
+                    std::vector<InternalRow> new_internal_rows) noexcept {
+  Status s;
+  {
+    auto mutable_ptr = data_.GetMutablePtr();
+    s = mutable_ptr->Split(opts, old_sort_key, std::move(new_internal_rows));
+  }
+  data_.Promote();
+  return s;
+}
+
+bool InternalPage::TEST_SortKeyAscending() noexcept {
+  return data_.GetImmutablePtr()->TEST_SortKeyAscending();
+}
+
 } // namespace btree
 } // namespace arcanedb

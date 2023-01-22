@@ -15,6 +15,7 @@
 #include "common/status.h"
 #include "common/type.h"
 #include "property/sort_key/sort_key.h"
+#include "util/cow.h"
 
 namespace arcanedb {
 namespace btree {
@@ -23,8 +24,10 @@ struct InternalRow {
   property::SortKeys sort_key;
   PageIdType page_id;
 
-  InternalRow(InternalRow &&rhs) = default;
-  InternalRow &operator=(InternalRow &&rhs) = default;
+  InternalRow(InternalRow &&) = default;
+  InternalRow &operator=(InternalRow &&) = default;
+  InternalRow(const InternalRow &) = default;
+  InternalRow &operator=(const InternalRow &) = default;
 };
 
 class InternalRows {
@@ -45,7 +48,7 @@ private:
 
 class InternalPage {
 public:
-  InternalPage() = default;
+  InternalPage() noexcept : data_(std::make_shared<InternalRows>()) {}
 
   /**
    * @brief
@@ -72,7 +75,10 @@ public:
   Status Split(const Options &opts, property::SortKeysRef old_sort_key,
                std::vector<InternalRow> new_internal_rows) noexcept;
 
+  bool TEST_SortKeyAscending() noexcept;
+
 private:
+  util::Cow<InternalRows> data_;
 };
 
 } // namespace btree
