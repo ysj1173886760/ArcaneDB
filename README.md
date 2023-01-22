@@ -14,7 +14,7 @@ Might be a graph storage engine.
   - [] More row type
 - [x] In-memory page read/write
   - [] More page type. i.e. COW page
-- [] 1-level Btr
+- [x] 1-level Btr
 - [] 2-level Btr
 - [] Transaction component
 - [] Graph interface
