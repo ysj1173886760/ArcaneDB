@@ -16,17 +16,25 @@
 #include "property/property_type.h"
 #include "property/sort_key/comparable_buf_reader.h"
 #include "property/sort_key/comparable_buf_writer.h"
+#include <limits>
 #include <type_traits>
 #include <vector>
 
 namespace arcanedb {
 namespace property {
 
+class SortKeysRef;
+class SortKeys;
+
 template <typename T> class SortKeyCRTP {
 public:
   std::string_view as_slice() const noexcept {
     return static_cast<const T *>(this)->as_slice();
   }
+
+  bool empty() const noexcept { return as_slice().empty(); }
+
+  SortKeys GetMinSortKeys() const noexcept;
 
   std::string ToString() const noexcept {
     std::string result = "(";
@@ -101,11 +109,9 @@ OP_HELPER(!=);
 
 #undef OP_HELPER
 
-class SortKeysRef;
-
 class SortKeys : public SortKeyCRTP<SortKeys> {
 public:
-  SortKeys(const ValueRefVec &value, size_t sort_key_cnt) {
+  SortKeys(const ValueRefVec &value, size_t sort_key_cnt) noexcept {
     ComparableBufWriter writer;
     for (int i = 0; i < sort_key_cnt; i++) {
       writer.WriteValue(value[i]);
@@ -113,7 +119,7 @@ public:
     bytes_ = writer.Detach();
   }
 
-  explicit SortKeys(const std::vector<Value> &value) {
+  explicit SortKeys(const std::vector<Value> &value) noexcept {
     ComparableBufWriter writer;
     for (int i = 0; i < value.size(); i++) {
       writer.WriteValue(value[i]);
@@ -144,6 +150,29 @@ public:
 private:
   std::string_view bytes_ref_;
 };
+
+template <typename T> inline Value GetSortKeysLimitMin() noexcept {
+  return Value(std::numeric_limits<std::decay_t<T>>::min());
+}
+
+template <> inline Value GetSortKeysLimitMin<std::string>() noexcept {
+  static std::string str(1, static_cast<char>(0));
+  return Value(std::string_view(str));
+}
+
+template <typename T> SortKeys SortKeyCRTP<T>::GetMinSortKeys() const noexcept {
+  std::vector<Value> values;
+  TraverseSK_([&](OwnedValue value) {
+    std::visit(
+        [&](const auto &arg) {
+          using Type = std::decay_t<decltype(arg)>;
+          auto min = GetSortKeysLimitMin<Type>();
+          values.push_back(min);
+        },
+        value);
+  });
+  return SortKeys{values};
+}
 
 } // namespace property
 } // namespace arcanedb
