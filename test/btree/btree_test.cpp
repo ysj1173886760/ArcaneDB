@@ -11,6 +11,8 @@
 
 #include "btree/btree.h"
 #include "property/schema.h"
+#include "util/bthread_util.h"
+#include "util/wait_group.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
@@ -56,13 +58,24 @@ public:
     EXPECT_TRUE(property::Row::Serialize(vec, &writer, &schema_).ok());
     auto str = writer.Detach();
     property::Row row(str.data());
-    return func(row);
+    Status s;
+    {
+      util::Timer tc;
+      s = func(row);
+      (*write_latency_) << tc.GetElapsed();
+    }
+    return s;
   }
 
   void TestRead(const ValueStruct &value, bool is_deleted) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = btree_.GetRow(sk.as_ref(), opts_, &view);
+    Status s;
+    {
+      util::Timer tc;
+      s = btree_.GetRow(sk.as_ref(), opts_, &view);
+      (*read_latency_) << tc.GetElapsed();
+    }
     if (is_deleted) {
       EXPECT_TRUE(s.IsNotFound());
       return;
@@ -86,11 +99,20 @@ public:
     }
   }
 
+  void PrintLatency() noexcept {
+    ARCANEDB_INFO("read avg latency: {}, max latency: {}",
+                  read_latency_->latency(), read_latency_->max_latency());
+    ARCANEDB_INFO("write latency avg: {}, max latency: {}",
+                  write_latency_->latency(), write_latency_->max_latency());
+  }
+
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
     root_page_ = std::make_unique<BtreePage>();
     btree_ = Btree(root_page_.get());
+    write_latency_ = std::make_unique<bvar::LatencyRecorder>();
+    read_latency_ = std::make_unique<bvar::LatencyRecorder>();
   }
 
   void TearDown() {}
@@ -100,6 +122,8 @@ public:
   property::Schema schema_;
   std::unique_ptr<BtreePage> root_page_;
   Btree btree_{nullptr};
+  std::unique_ptr<bvar::LatencyRecorder> write_latency_;
+  std::unique_ptr<bvar::LatencyRecorder> read_latency_;
 };
 
 TEST_F(BtreeTest, BasicTest) {
@@ -124,6 +148,35 @@ TEST_F(BtreeTest, BasicTest) {
   for (const auto &value : value_list) {
     TestRead(value, true);
   }
+}
+
+TEST_F(BtreeTest, ConcurrentTest) {
+  int worker_count = 100;
+  int epoch_cnt = 100;
+  util::WaitGroup wg(worker_count);
+  for (int i = 0; i < worker_count; i++) {
+    util::LaunchAsync([&, index = i]() {
+      ValueStruct value{
+          .point_id = index, .point_type = 0, .value = std::to_string(index)};
+      for (int j = 0; j < epoch_cnt; j++) {
+        EXPECT_TRUE(WriteHelper(value,
+                                [&](const property::Row &row) {
+                                  return btree_.SetRow(row, opts_);
+                                })
+                        .ok());
+        TestRead(value, false);
+        EXPECT_TRUE(WriteHelper(value,
+                                [&](const property::Row &row) {
+                                  return btree_.DeleteRow(row.GetSortKeys(),
+                                                          opts_);
+                                })
+                        .ok());
+      }
+      wg.Done();
+    });
+  }
+  wg.Wait();
+  PrintLatency();
 }
 
 } // namespace btree
