@@ -16,9 +16,14 @@
 #include "common/type.h"
 #include "property/sort_key/sort_key.h"
 #include "util/cow.h"
+#include "util/view.h"
 
 namespace arcanedb {
 namespace btree {
+
+class InternalRows;
+
+using InternalRowView = util::Views<PageIdView, InternalRows>;
 
 struct InternalRow {
   property::SortKeys sort_key;
@@ -35,7 +40,7 @@ public:
   InternalRows() = default;
 
   Status GetPageId(const Options &opts, property::SortKeysRef sort_key,
-                   PageIdView *page_id) const noexcept;
+                   InternalRowView *view) const noexcept;
 
   Status Split(const Options &opts, property::SortKeysRef old_sort_key,
                std::vector<InternalRow> new_internal_rows) noexcept;
@@ -55,11 +60,11 @@ public:
    * Get page id though sort_key
    * @param opts
    * @param sort_key
-   * @param page_id
+   * @param view
    * @return Status
    */
   Status GetPageId(const Options &opts, property::SortKeysRef sort_key,
-                   PageIdView *page_id) const noexcept;
+                   InternalRowView *view) const noexcept;
 
   /**
    * @brief

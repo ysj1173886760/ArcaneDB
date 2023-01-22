@@ -37,27 +37,32 @@ TEST(InternalPageTest, InternalRowTest) {
   }
   {
     // test read
-    PageIdView view;
+    InternalRowView view;
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({12, 34}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "a");
+    EXPECT_EQ(view.at(0), "a");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({123, 456}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "b");
+    EXPECT_EQ(view.at(0), "b");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({456, 788}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "b");
+    EXPECT_EQ(view.at(0), "b");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({456, 789}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "c");
+    EXPECT_EQ(view.at(0), "c");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({666, 789}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "c");
+    EXPECT_EQ(view.at(0), "c");
+    view.clear();
   }
   {
     // test split
@@ -76,43 +81,52 @@ TEST(InternalPageTest, InternalRowTest) {
   }
   {
     // test read
-    PageIdView view;
+    InternalRowView view;
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({100, 34}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "a0");
+    EXPECT_EQ(view.at(0), "a0");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({111, 111}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "a1");
+    EXPECT_EQ(view.at(0), "a1");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({111, 112}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "a1");
+    EXPECT_EQ(view.at(0), "a1");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({111, 222}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "a2");
+    EXPECT_EQ(view.at(0), "a2");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({111, 223}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "a2");
+    EXPECT_EQ(view.at(0), "a2");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({123, 456}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "b");
+    EXPECT_EQ(view.at(0), "b");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({456, 788}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "b");
+    EXPECT_EQ(view.at(0), "b");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({456, 789}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "c");
+    EXPECT_EQ(view.at(0), "c");
+    view.clear();
     EXPECT_TRUE(
         rows.GetPageId(opts, property::SortKeys({666, 789}).as_ref(), &view)
             .ok());
-    EXPECT_EQ(view, "c");
+    EXPECT_EQ(view.at(0), "c");
+    view.clear();
   }
 }
 
@@ -150,10 +164,14 @@ TEST(InternalPageTest, ConcurrentTest) {
     }
     wg.Done();
   });
+  auto sk = property::SortKeys({1, 2}).GetMinSortKeys();
   for (int i = 0; i < 10; i++) {
     util::LaunchAsync([&]() {
       for (int j = 0; j < 10; j++) {
+        InternalRowView view;
         EXPECT_TRUE(page.TEST_SortKeyAscending());
+        EXPECT_TRUE(page.GetPageId(opts, sk.as_ref(), &view).ok());
+        EXPECT_EQ(view.at(0), "a");
       }
       wg.Done();
     });

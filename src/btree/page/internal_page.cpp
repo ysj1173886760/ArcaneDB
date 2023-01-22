@@ -19,7 +19,7 @@ namespace btree {
 
 Status InternalRows::GetPageId(const Options &opts,
                                property::SortKeysRef sort_key,
-                               PageIdView *page_id) const noexcept {
+                               InternalRowView *view) const noexcept {
   auto iter =
       std::upper_bound(rows_.begin(), rows_.end(), sort_key,
                        [](property::SortKeysRef sk, const InternalRow &row) {
@@ -28,7 +28,7 @@ Status InternalRows::GetPageId(const Options &opts,
   // check due to the fact that rows_.begin() is smallest sort key
   CHECK(iter != rows_.begin());
   iter--;
-  *page_id = iter->page_id;
+  view->PushBackRef(std::string_view(iter->page_id));
   return Status::Ok();
 }
 
@@ -79,8 +79,11 @@ bool InternalRows::TEST_SortKeyAscending() const noexcept {
 
 Status InternalPage::GetPageId(const Options &opts,
                                property::SortKeysRef sort_key,
-                               PageIdView *page_id) const noexcept {
-  return data_.GetImmutablePtr()->GetPageId(opts, sort_key, page_id);
+                               InternalRowView *view) const noexcept {
+  auto immutable_ptr = data_.GetImmutablePtr();
+  auto s = immutable_ptr->GetPageId(opts, sort_key, view);
+  view->AddOwnerPointer(immutable_ptr);
+  return s;
 }
 
 Status
