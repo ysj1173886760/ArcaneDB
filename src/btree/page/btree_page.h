@@ -1,5 +1,5 @@
 /**
- * @file index_page.h
+ * @file btree_page.h
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
@@ -14,7 +14,7 @@
 #include "btree/btree_type.h"
 #include "btree/page/bwtree_page.h"
 #include "btree/page/internal_page.h"
-#include "butil/containers/doubly_buffered_data.h"
+#include <atomic>
 
 namespace arcanedb {
 namespace btree {
@@ -24,7 +24,7 @@ namespace btree {
  * Real page type.
  * IndexPage could either be leaf page or internal page.
  */
-class IndexPage {
+class BtreePage {
   using PageTypeContainer = butil::DoublyBufferedData<PageType>;
 
 public:
@@ -32,7 +32,7 @@ public:
    * @brief
    * Default ctor, construct leaf page.
    */
-  IndexPage() noexcept {
+  BtreePage() noexcept {
     leaf_page_ = std::make_unique<BwTreePage>();
     ModifyPageType(PageType::LeafPage);
   }
@@ -43,17 +43,12 @@ public:
    */
 
   /**
-   * @brief Get page type
-   *
+   * @brief
+   * Get page type
    * @return PageType
    */
   PageType GetPageType() const noexcept {
-    PageTypeContainer::ScopedPtr ptr;
-    {
-      int ret = page_type_.Read(&ptr);
-      CHECK(ret);
-    }
-    return *ptr;
+    return page_type_.load(std::memory_order_acquire);
   }
 
   /**
@@ -62,7 +57,7 @@ public:
    * @param type
    */
   void ModifyPageType(PageType type) noexcept {
-    page_type_.Modify(ModifyPageType_, type);
+    page_type_.store(type, std::memory_order_release);
   }
 
   /**
@@ -150,16 +145,11 @@ public:
   }
 
 private:
-  static size_t ModifyPageType_(PageType &data, PageType type) noexcept {
-    data = type;
-    return 1;
-  }
-
   // TODO(sheep): introduce Page interface
   // for different page type
   std::unique_ptr<BwTreePage> leaf_page_;
   std::unique_ptr<InternalPage> internal_page_;
-  mutable PageTypeContainer page_type_;
+  std::atomic<PageType> page_type_;
 };
 
 } // namespace btree

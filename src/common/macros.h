@@ -27,4 +27,8 @@ namespace arcanedb {
 
 #define UNREACHABLE() std::abort();
 
+#define likely(condition) __builtin_expect((condition), 1)
+
+#define unlikely(condition) __builtin_expect((condition), 0)
+
 } // namespace arcanedb
