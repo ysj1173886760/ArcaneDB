@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include "common/type.h"
 #include "property/row/row.h"
+#include "util/view.h"
 #include <functional>
 #include <memory>
 #include <vector>
@@ -28,40 +30,7 @@ public:
   virtual ~RowOwner() noexcept {}
 };
 
-/**
- * @brief
- * row view with owner ship
- */
-class RowView : public property::RowConcept<RowView> {
-public:
-  /**
-   * @brief byte copy the row ptr
-   *
-   * @param row
-   */
-  explicit RowView(const property::Row &row) : row_(row) {}
-
-  RowView() = default;
-
-  Status GetProp(property::ColumnId id, property::ValueResult *value,
-                 property::Schema *schema) const noexcept {
-    return row_.GetProp(id, value, schema);
-  }
-
-  property::SortKeysRef GetSortKeys() const noexcept {
-    return row_.GetSortKeys();
-  }
-
-  void SetOwner(std::shared_ptr<const RowOwner> owner) noexcept {
-    owner_ = std::move(owner);
-  }
-
-  const property::Row &GetRow() const noexcept { return row_; }
-
-private:
-  property::Row row_{};
-  std::shared_ptr<const RowOwner> owner_{};
-};
+using RowView = util::Views<property::Row, RowOwner>;
 
 } // namespace btree
 } // namespace arcanedb

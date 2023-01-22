@@ -151,7 +151,7 @@ TEST_F(DeltaNodeTest, PointReadTest) {
     auto s = compacted->GetRow(sk.as_ref(), &view);
     if (value.point_id % 2 == 0) {
       EXPECT_TRUE(s.ok());
-      TestRead(view.GetRow(), value, false);
+      TestRead(view.at(0), value, false);
     } else {
       EXPECT_TRUE(s.IsDeleted());
     }

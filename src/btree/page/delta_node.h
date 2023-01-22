@@ -112,8 +112,8 @@ public:
     if (IsDeleted(entry)) {
       return Status::Deleted();
     }
-    *view = RowView(property::Row(buffer_.data() + offset));
-    view->SetOwner(shared_from_this());
+    view->PushBackRef(row);
+    view->AddOwnerPointer(shared_from_this());
     return Status::Ok();
   }
 

@@ -105,7 +105,7 @@ TEST_F(BwTreePageTest, BasicTest) {
     RowView view;
     auto sk = property::SortKeys({value.point_id, value.point_type});
     EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-    TestRead(view.GetRow(), value, false);
+    TestRead(view.at(0), value, false);
   }
   // update
   {
@@ -117,7 +117,7 @@ TEST_F(BwTreePageTest, BasicTest) {
     RowView view;
     auto sk = property::SortKeys({value.point_id, value.point_type});
     EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-    TestRead(view.GetRow(), value, false);
+    TestRead(view.at(0), value, false);
   }
   // delete
   {
@@ -146,7 +146,7 @@ TEST_F(BwTreePageTest, ConcurrentTest) {
         RowView view;
         auto sk = property::SortKeys({value.point_id, value.point_type});
         EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-        TestRead(view.GetRow(), value, false);
+        TestRead(view.at(0), value, false);
       }
       // update
       {
@@ -158,7 +158,7 @@ TEST_F(BwTreePageTest, ConcurrentTest) {
         RowView view;
         auto sk = property::SortKeys({value.point_id, value.point_type});
         EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-        TestRead(view.GetRow(), value, false);
+        TestRead(view.at(0), value, false);
       }
       // delete
       {
@@ -194,7 +194,7 @@ TEST_F(BwTreePageTest, CompactionTest) {
     RowView view;
     auto s = page.GetRow(sk.as_ref(), opts_, &view);
     EXPECT_TRUE(s.ok());
-    TestRead(view.GetRow(), value, false);
+    TestRead(view.at(0), value, false);
   }
 }
 
@@ -231,7 +231,7 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
             EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
             read_latency << timer.GetElapsed();
           }
-          TestRead(view.GetRow(), value, false);
+          TestRead(view.at(0), value, false);
         }
         // update
         {
@@ -251,7 +251,7 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
             EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
             read_latency << timer.GetElapsed();
           }
-          TestRead(view.GetRow(), value, false);
+          TestRead(view.at(0), value, false);
         }
         // delete
         {
@@ -322,7 +322,7 @@ TEST_F(BwTreePageTest, PerformanceTest) {
             EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
             read_latency << timer.GetElapsed();
           }
-          TestRead(view.GetRow(), value, false);
+          TestRead(view.at(0), value, false);
         }
         // update
         {
@@ -342,7 +342,7 @@ TEST_F(BwTreePageTest, PerformanceTest) {
             EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
             read_latency << timer.GetElapsed();
           }
-          TestRead(view.GetRow(), value, false);
+          TestRead(view.at(0), value, false);
         }
         // delete
         {
