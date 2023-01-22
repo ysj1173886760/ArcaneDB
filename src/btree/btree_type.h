@@ -1,5 +1,5 @@
 /**
- * @file row_view.h
+ * @file btree_type.h
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
@@ -14,6 +14,7 @@
 #include "common/type.h"
 #include "property/row/row.h"
 #include "util/view.h"
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -31,6 +32,11 @@ public:
 };
 
 using RowView = util::Views<property::Row, RowOwner>;
+
+enum class PageType : uint8_t {
+  InternalPage,
+  LeafPage,
+};
 
 } // namespace btree
 } // namespace arcanedb

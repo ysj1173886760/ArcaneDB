@@ -9,8 +9,8 @@
  *
  */
 
+#include "btree/btree_type.h"
 #include "btree/options.h"
-#include "btree/row_view.h"
 #include "common/status.h"
 #include "handler/logical_tuple.h"
 #include "property/row/row.h"

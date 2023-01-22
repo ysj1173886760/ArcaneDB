@@ -9,6 +9,8 @@
  *
  */
 
+#pragma once
+
 #include "property/schema.h"
 
 namespace arcanedb {
