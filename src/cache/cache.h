@@ -13,6 +13,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "bthread/mutex.h"
 #include "butil/macros.h"
+#include "common/config.h"
 #include "common/status.h"
 #include "util/singleflight.h"
 #include <list>
@@ -79,17 +80,10 @@ class ShardedLRU {
 public:
   using AllocFunc = std::function<Status(const std::string_view &key,
                                          std::unique_ptr<CacheEntry> *entry)>;
-  explicit ShardedLRU(size_t shard_num) : shard_num_(shard_num) {}
+  explicit ShardedLRU(size_t shard_num)
+      : shard_num_(shard_num), shards_(shard_num) {}
 
-  Status Init() noexcept;
-
-private:
-  size_t shard_num_;
-};
-
-class LruMap {
-public:
-  using AllocFunc = ShardedLRU::AllocFunc;
+  // Status Init() noexcept;
 
   /**
    * @brief Get CacheEntry.
@@ -99,6 +93,23 @@ public:
    * @param alloc
    * @return Result<CacheEntry *>
    */
+  Result<CacheEntry *> GetEntry(const std::string &key,
+                                AllocFunc alloc) noexcept;
+
+  static ShardedLRU *GetInstance() noexcept {
+    static ShardedLRU cache(common::Config::kCacheShardNum);
+    return &cache;
+  }
+
+private:
+  size_t shard_num_;
+  std::vector<LruMap> shards_;
+};
+
+class LruMap {
+public:
+  using AllocFunc = ShardedLRU::AllocFunc;
+
   Result<CacheEntry *> GetEntry(const std::string &key,
                                 AllocFunc alloc) noexcept;
 

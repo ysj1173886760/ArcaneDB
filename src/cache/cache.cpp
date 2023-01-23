@@ -125,5 +125,11 @@ bool LruMap::TEST_CheckAllIsUndirty() noexcept {
   return true;
 }
 
+Result<CacheEntry *> ShardedLRU::GetEntry(const std::string &key,
+                                          AllocFunc alloc) noexcept {
+  auto &shard = shards_[absl::Hash<std::string>()(key) % shard_num_];
+  return shard.GetEntry(key, alloc);
+}
+
 } // namespace cache
 } // namespace arcanedb

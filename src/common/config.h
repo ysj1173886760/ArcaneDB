@@ -26,6 +26,8 @@ public:
   static constexpr size_t kLogStoreFlushInterval = 10 * util::MillSec;
 
   static constexpr size_t kBwTreeDeltaChainLength = 16;
+
+  static constexpr size_t kCacheShardNum = 64;
 };
 
 } // namespace common
