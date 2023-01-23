@@ -22,4 +22,7 @@ using PageIdView = std::string_view;
 
 using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
 
+using TxnID = int32_t;
+using TxnTs = int32_t;
+
 } // namespace arcanedb

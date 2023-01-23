@@ -127,7 +127,7 @@ public:
     bytes_ = writer.Detach();
   }
 
-  SortKeys(std::string_view ref) : bytes_(ref.data(), ref.size()) {}
+  explicit SortKeys(std::string_view ref) : bytes_(ref.data(), ref.size()) {}
 
   std::string_view as_slice() const noexcept { return bytes_; }
 
@@ -139,7 +139,7 @@ private:
 
 class SortKeysRef : public SortKeyCRTP<SortKeysRef> {
 public:
-  SortKeysRef(std::string_view ref) : bytes_ref_(ref) {}
+  explicit SortKeysRef(std::string_view ref) : bytes_ref_(ref) {}
 
   SortKeys deref() const noexcept { return SortKeys(bytes_ref_); }
 
