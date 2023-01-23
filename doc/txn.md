@@ -16,3 +16,10 @@
 
 这里只读事务的ts获取方法参考cicada，每个线程写新版本是通过本地时钟wts，所有线程中wts的最小值作为rts可以为只读事务提供服务。这样只读事务就是完全不阻塞的。
 
+基于2PL可以简化一些实现，比如如果实现的是OCC的话，需要先写intent，做validation，再commit write，这时候如果abort write对于bwtree来说不能覆盖写，处理起来较为复杂。（不希望引入特殊的abort delta，然后让读者去merge，这样会降低读的效率）。基于2PL的话，写入可以写到buffer中，等到commit日志写成功后，再去写入到bwtree中，然后放锁。这样可以让我们在恢复阶段不用做undo。不过这种做法要求我们先写日志，先写日志意味着整体的策略不能做成类似Innodb的样子，即修改page的时候再写日志。
+
+目前想的决策是：
+* 2PL处理读写事务，多版本负责只读事务
+* 多版本的ReadTs不能通过简单的聚合线程wts来实现，因为当前的执行上下文是bthread。
+  * 解决的方法要么是引入epoch，要么是通过txn manager去追踪活跃事务。两个都可以试试。
+* 只允许在recovery的时候执行abort。abort的时候没有并发的读者，可以hack一下bwtree
