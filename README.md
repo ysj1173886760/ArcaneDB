@@ -15,9 +15,10 @@ Might be a graph storage engine.
 - [x] In-memory page read/write
   - [] More page type. i.e. COW page
 - [x] 1-level Btr
-- [] 2-level Btr
+- [] Versioned Btr
 - [] Transaction component
 - [] Graph interface
+- [] 2-level Btr
 - [] WAL
 - [] Recovery
 - [] Page serialization/deserialization
