@@ -1,5 +1,5 @@
 /**
- * @file txn_type.h
+ * @file txn_context.h
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
@@ -11,19 +11,16 @@
 
 #pragma once
 
-#include <cstdint>
+#include "common/status.h"
 
 namespace arcanedb {
 namespace txn {
 
-enum class LockType : int8_t {
-  RLock,
-  WLock,
-};
+class TxnContext {
+public:
+  TxnContext() = default;
 
-enum class TxnType : int8_t {
-  ReadOnlyTxn,
-  ReadWriteTxn,
+private:
 };
 
 } // namespace txn

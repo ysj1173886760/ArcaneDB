@@ -13,6 +13,7 @@
 
 #include "bthread/mutex.h"
 #include "util/lock.h"
+#include <limits>
 #include <string>
 
 namespace arcanedb {
@@ -22,7 +23,9 @@ using PageIdView = std::string_view;
 
 using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
 
-using TxnId = int32_t;
-using TxnTs = int32_t;
+using TxnId = int64_t;
+using TxnTs = uint32_t;
+
+static constexpr uint32_t kMaxTxnTs = std::numeric_limits<TxnTs>::max();
 
 } // namespace arcanedb
