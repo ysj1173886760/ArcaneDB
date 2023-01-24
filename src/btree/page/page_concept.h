@@ -9,6 +9,8 @@
  *
  */
 
+#pragma once
+
 #include "btree/btree_type.h"
 #include "btree/options.h"
 #include "common/status.h"

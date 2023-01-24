@@ -1,15 +1,15 @@
 /**
- * @file bwtree_page_test.cpp
+ * @file versioned_bwtree_page_test.cpp
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
- * @date 2023-01-20
+ * @date 2023-01-24
  *
  * @copyright Copyright (c) 2023
  *
  */
 
-#include "btree/page/bwtree_page.h"
+#include "btree/page/versioned_bwtree_page.h"
 #include "bvar/bvar.h"
 #include "common/config.h"
 #include "util/bthread_util.h"
@@ -19,7 +19,7 @@
 namespace arcanedb {
 namespace btree {
 
-class BwTreePageTest : public ::testing::Test {
+class VersionedBwTreePageTest : public ::testing::Test {
 public:
   property::Schema MakeTestSchema() noexcept {
     property::Column column1{
@@ -62,8 +62,7 @@ public:
     return func(row);
   }
 
-  void TestRead(const property::Row &row, const ValueStruct &value,
-                bool is_deleted) {
+  void TestRead(const property::Row &row, const ValueStruct &value) {
     {
       property::ValueResult res;
       EXPECT_TRUE(row.GetProp(0, &res, &schema_).ok());
@@ -74,7 +73,7 @@ public:
       EXPECT_TRUE(row.GetProp(1, &res, &schema_).ok());
       EXPECT_EQ(std::get<int32_t>(res.value), value.point_type);
     }
-    if (!is_deleted) {
+    {
       property::ValueResult res;
       EXPECT_TRUE(row.GetProp(2, &res, &schema_).ok());
       EXPECT_EQ(std::get<std::string_view>(res.value), value.value);
@@ -84,6 +83,7 @@ public:
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
+    page_ = std::make_unique<VersionedBwTreePage>();
   }
 
   void TearDown() {}
@@ -91,118 +91,72 @@ public:
   Options opts_;
   const int32_t type_ = 0;
   property::Schema schema_;
+  std::unique_ptr<VersionedBwTreePage> page_;
 };
 
-TEST_F(BwTreePageTest, BasicTest) {
-  BwTreePage page;
+TEST_F(VersionedBwTreePageTest, BasicTest) {
   // insert
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page.SetRow(row, opts_);
+      return page_->SetRow(row, 0, opts_);
     });
     EXPECT_TRUE(s.ok());
     RowView view;
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-    TestRead(view.at(0), value, false);
+    EXPECT_TRUE(page_->GetRow(sk.as_ref(), 1, opts_, &view).ok());
+    TestRead(view.at(0), value);
   }
   // update
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "world"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page.SetRow(row, opts_);
+      return page_->SetRow(row, 1, opts_);
     });
     EXPECT_TRUE(s.ok());
     RowView view;
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-    TestRead(view.at(0), value, false);
+    EXPECT_TRUE(page_->GetRow(sk.as_ref(), 1, opts_, &view).ok());
+    TestRead(view.at(0), value);
   }
   // delete
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = ""};
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    auto s = page.DeleteRow(sk.as_ref(), opts_);
+    auto s = page_->DeleteRow(sk.as_ref(), 2, opts_);
     EXPECT_TRUE(s.ok());
     RowView view;
-    EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).IsNotFound());
+    EXPECT_TRUE(page_->GetRow(sk.as_ref(), 2, opts_, &view).IsNotFound());
   }
 }
 
-TEST_F(BwTreePageTest, ConcurrentTest) {
-  int worker_count = 1000;
-  util::WaitGroup wg(worker_count);
-  BwTreePage page;
-  for (int i = 0; i < worker_count; i++) {
-    util::LaunchAsync([&, index = i]() {
-      // insert
-      {
-        ValueStruct value{.point_id = index, .point_type = 0, .value = "hello"};
-        auto s = WriteHelper(value, [&](const property::Row &row) {
-          return page.SetRow(row, opts_);
-        });
-        EXPECT_TRUE(s.ok());
-        RowView view;
-        auto sk = property::SortKeys({value.point_id, value.point_type});
-        EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-        TestRead(view.at(0), value, false);
-      }
-      // update
-      {
-        ValueStruct value{.point_id = index, .point_type = 0, .value = "world"};
-        auto s = WriteHelper(value, [&](const property::Row &row) {
-          return page.SetRow(row, opts_);
-        });
-        EXPECT_TRUE(s.ok());
-        RowView view;
-        auto sk = property::SortKeys({value.point_id, value.point_type});
-        EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).ok());
-        TestRead(view.at(0), value, false);
-      }
-      // delete
-      {
-        ValueStruct value{.point_id = index, .point_type = 0, .value = ""};
-        auto sk = property::SortKeys({value.point_id, value.point_type});
-        auto s = page.DeleteRow(sk.as_ref(), opts_);
-        EXPECT_TRUE(s.ok());
-        RowView view;
-        EXPECT_TRUE(page.GetRow(sk.as_ref(), opts_, &view).IsNotFound());
-      }
-      wg.Done();
-    });
-  }
-  wg.Wait();
-}
-
-TEST_F(BwTreePageTest, CompactionTest) {
+TEST_F(VersionedBwTreePageTest, CompactionTest) {
   auto value_list = GenerateValueList(1000);
-  BwTreePage page;
   Options opts;
   opts.disable_compaction = false;
   for (const auto &value : value_list) {
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page.SetRow(row, opts);
+      return page_->SetRow(row, 0, opts);
     });
     EXPECT_TRUE(s.ok());
   }
-  EXPECT_LE(page.TEST_GetDeltaLength(),
+  EXPECT_LE(page_->TEST_GetDeltaLength(),
             common::Config::kBwTreeDeltaChainLength);
   // test read
   for (const auto &value : value_list) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = page.GetRow(sk.as_ref(), opts_, &view);
+    auto s = page_->GetRow(sk.as_ref(), 0, opts_, &view);
     EXPECT_TRUE(s.ok());
-    TestRead(view.at(0), value, false);
+    TestRead(view.at(0), value);
   }
+  page_->TEST_ExposeBvar();
 }
 
-TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
+TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
   int worker_count = 100;
   int epoch = 10;
   util::WaitGroup wg(worker_count);
-  BwTreePage page;
   Options opts;
   opts.disable_compaction = false;
   bvar::LatencyRecorder write_latency;
@@ -214,12 +168,13 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
       for (int j = 0; j < epoch; j++) {
         util::Timer epoch_timer;
         // insert
+        TxnTs ts = j * 3;
         {
           ValueStruct value{
               .point_id = index, .point_type = 0, .value = "hello"};
           auto s = WriteHelper(value, [&](const property::Row &row) {
             util::Timer timer;
-            auto s = page.SetRow(row, opts);
+            auto s = page_->SetRow(row, ts, opts);
             write_latency << timer.GetElapsed();
             return s;
           });
@@ -228,10 +183,10 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
           auto sk = property::SortKeys({value.point_id, value.point_type});
           {
             util::Timer timer;
-            EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
+            EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts, &view).ok());
             read_latency << timer.GetElapsed();
           }
-          TestRead(view.at(0), value, false);
+          TestRead(view.at(0), value);
         }
         // update
         {
@@ -239,7 +194,7 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
               .point_id = index, .point_type = 0, .value = "world"};
           auto s = WriteHelper(value, [&](const property::Row &row) {
             util::Timer timer;
-            auto s = page.SetRow(row, opts);
+            auto s = page_->SetRow(row, ts + 1, opts);
             write_latency << timer.GetElapsed();
             return s;
           });
@@ -248,10 +203,10 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
           auto sk = property::SortKeys({value.point_id, value.point_type});
           {
             util::Timer timer;
-            EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
+            EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts + 1, opts, &view).ok());
             read_latency << timer.GetElapsed();
           }
-          TestRead(view.at(0), value, false);
+          TestRead(view.at(0), value);
         }
         // delete
         {
@@ -259,14 +214,15 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
           auto sk = property::SortKeys({value.point_id, value.point_type});
           {
             util::Timer timer;
-            auto s = page.DeleteRow(sk.as_ref(), opts);
+            auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts);
             write_latency << timer.GetElapsed();
             EXPECT_TRUE(s.ok());
           }
           {
             RowView view;
             util::Timer timer;
-            EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).IsNotFound());
+            EXPECT_TRUE(
+                page_->GetRow(sk.as_ref(), ts + 2, opts, &view).IsNotFound());
             read_null_latency << timer.GetElapsed();
           }
         }
@@ -276,7 +232,7 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
     });
   }
   wg.Wait();
-  EXPECT_LE(page.TEST_GetDeltaLength(),
+  EXPECT_LE(page_->TEST_GetDeltaLength(),
             common::Config::kBwTreeDeltaChainLength);
   ARCANEDB_INFO("read avg latency: {}, max latency: {}", read_latency.latency(),
                 read_latency.max_latency());
@@ -286,87 +242,79 @@ TEST_F(BwTreePageTest, ConcurrentCompactionTest) {
                 write_latency.latency(), write_latency.max_latency());
   ARCANEDB_INFO("epoch latency avg: {}, max latency: {}",
                 epoch_latency.latency(), epoch_latency.max_latency());
-  ARCANEDB_INFO("{}", page.TEST_GetDeltaLength());
+  ARCANEDB_INFO("{}", page_->TEST_GetDeltaLength());
 }
 
-TEST_F(BwTreePageTest, PerformanceTest) {
-  int worker_count = 1;
+TEST_F(VersionedBwTreePageTest, PerformanceTest) {
   int epoch = 1000;
-  util::WaitGroup wg(worker_count);
-  BwTreePage page;
+  util::WaitGroup wg(1);
   Options opts;
   opts.disable_compaction = false;
   bvar::LatencyRecorder write_latency;
   bvar::LatencyRecorder read_latency;
   bvar::LatencyRecorder read_null_latency;
   bvar::LatencyRecorder epoch_latency;
-  for (int i = 0; i < worker_count; i++) {
-    util::LaunchAsync([&, index = i]() {
-      for (int j = 0; j < epoch; j++) {
-        util::Timer epoch_timer;
-        // insert
-        {
-          ValueStruct value{
-              .point_id = index, .point_type = 0, .value = "hello"};
-          auto s = WriteHelper(value, [&](const property::Row &row) {
-            util::Timer timer;
-            auto s = page.SetRow(row, opts);
-            write_latency << timer.GetElapsed();
-            return s;
-          });
-          EXPECT_TRUE(s.ok());
-          RowView view;
-          auto sk = property::SortKeys({value.point_id, value.point_type});
-          {
-            util::Timer timer;
-            EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
-            read_latency << timer.GetElapsed();
-          }
-          TestRead(view.at(0), value, false);
-        }
-        // update
-        {
-          ValueStruct value{
-              .point_id = index, .point_type = 0, .value = "world"};
-          auto s = WriteHelper(value, [&](const property::Row &row) {
-            util::Timer timer;
-            auto s = page.SetRow(row, opts);
-            write_latency << timer.GetElapsed();
-            return s;
-          });
-          EXPECT_TRUE(s.ok());
-          RowView view;
-          auto sk = property::SortKeys({value.point_id, value.point_type});
-          {
-            util::Timer timer;
-            EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).ok());
-            read_latency << timer.GetElapsed();
-          }
-          TestRead(view.at(0), value, false);
-        }
-        // delete
-        {
-          ValueStruct value{.point_id = index, .point_type = 0, .value = ""};
-          auto sk = property::SortKeys({value.point_id, value.point_type});
-          {
-            util::Timer timer;
-            auto s = page.DeleteRow(sk.as_ref(), opts);
-            write_latency << timer.GetElapsed();
-            EXPECT_TRUE(s.ok());
-          }
-          {
-            RowView view;
-            util::Timer timer;
-            EXPECT_TRUE(page.GetRow(sk.as_ref(), opts, &view).IsNotFound());
-            read_null_latency << timer.GetElapsed();
-          }
-        }
-        epoch_latency << epoch_timer.GetElapsed();
+  for (int j = 0; j < epoch; j++) {
+    util::Timer epoch_timer;
+    // insert
+    TxnTs ts = 3 * j;
+    {
+      ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+      auto s = WriteHelper(value, [&](const property::Row &row) {
+        util::Timer timer;
+        auto s = page_->SetRow(row, ts, opts);
+        write_latency << timer.GetElapsed();
+        return s;
+      });
+      EXPECT_TRUE(s.ok());
+      RowView view;
+      auto sk = property::SortKeys({value.point_id, value.point_type});
+      {
+        util::Timer timer;
+        EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts, &view).ok());
+        read_latency << timer.GetElapsed();
       }
-      wg.Done();
-    });
+      TestRead(view.at(0), value);
+    }
+    // update
+    {
+      ValueStruct value{.point_id = 0, .point_type = 0, .value = "world"};
+      auto s = WriteHelper(value, [&](const property::Row &row) {
+        util::Timer timer;
+        auto s = page_->SetRow(row, ts + 1, opts);
+        write_latency << timer.GetElapsed();
+        return s;
+      });
+      EXPECT_TRUE(s.ok());
+      RowView view;
+      auto sk = property::SortKeys({value.point_id, value.point_type});
+      {
+        util::Timer timer;
+        EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts + 1, opts, &view).ok());
+        read_latency << timer.GetElapsed();
+      }
+      TestRead(view.at(0), value);
+    }
+    // delete
+    {
+      ValueStruct value{.point_id = 0, .point_type = 0, .value = ""};
+      auto sk = property::SortKeys({value.point_id, value.point_type});
+      {
+        util::Timer timer;
+        auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts);
+        write_latency << timer.GetElapsed();
+        EXPECT_TRUE(s.ok());
+      }
+      {
+        RowView view;
+        util::Timer timer;
+        auto s = page_->GetRow(sk.as_ref(), ts + 2, opts, &view);
+        EXPECT_TRUE(s.IsNotFound()) << s.ToString();
+        read_null_latency << timer.GetElapsed();
+      }
+    }
+    epoch_latency << epoch_timer.GetElapsed();
   }
-  wg.Wait();
   ARCANEDB_INFO("read avg latency: {}, max latency: {}", read_latency.latency(),
                 read_latency.max_latency());
   ARCANEDB_INFO("read null avg latency: {}, max latency: {}",
@@ -375,6 +323,7 @@ TEST_F(BwTreePageTest, PerformanceTest) {
                 write_latency.latency(), write_latency.max_latency());
   ARCANEDB_INFO("epoch latency avg: {}, max latency: {}",
                 epoch_latency.latency(), epoch_latency.max_latency());
+  page_->TEST_ExposeBvar();
 }
 
 } // namespace btree

@@ -83,7 +83,7 @@ public:
       }
       for (Entry entry : versions_[i]) {
         auto offset = GetOffset(entry);
-        auto row = property::Row(buffer_.data() + offset);
+        auto row = property::Row(version_buffer_.data() + offset);
         visitor(row, IsDeleted(entry), entry.write_ts);
       }
     }
@@ -92,7 +92,6 @@ public:
   /**
    * @brief
    * Point read.
-   * Note that caller is responsible for taking the ownership when row is found.
    * @param sort_key
    * @param view
    * @param read_ts
@@ -149,12 +148,13 @@ private:
     return read_ts >= write_ts;
   }
 
-  static Status ReadVersion_(const property::Row &row, Entry entry,
-                             RowView *view) noexcept {
+  Status ReadVersion_(const property::Row &row, Entry entry,
+                      RowView *view) const noexcept {
     if (IsDeleted(entry)) {
       return Status::Deleted();
     }
     view->PushBackRef(row);
+    view->AddOwnerPointer(shared_from_this());
     return Status::Ok();
   }
 

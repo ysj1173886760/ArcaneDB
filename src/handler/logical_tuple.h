@@ -9,6 +9,8 @@
  *
  */
 
+#pragma once
+
 #include "property/property_type.h"
 namespace arcanedb {
 namespace handler {

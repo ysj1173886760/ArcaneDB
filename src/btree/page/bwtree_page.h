@@ -8,6 +8,10 @@
  * @copyright Copyright (c) 2023
  *
  */
+
+// !! deprecated
+// !! redirect to versioned_bwtree_page
+
 #pragma once
 
 #include "btree/page/delta_node.h"

@@ -9,6 +9,8 @@
  *
  */
 
+#pragma once
+
 #include "butil/macros.h"
 #include "bvar/latency_recorder.h"
 #include "common/logger.h"

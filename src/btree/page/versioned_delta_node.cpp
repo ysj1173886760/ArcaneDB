@@ -24,7 +24,7 @@ VersionedDeltaNode::VersionedDeltaNode(const property::Row &row,
   Entry entry;
   // offset is zero
   entry.control_bit = 0;
-  // assign
+  // assign ts
   entry.write_ts = ts;
   rows_.push_back(entry);
 }
@@ -37,6 +37,7 @@ VersionedDeltaNode::VersionedDeltaNode(property::SortKeysRef sort_key,
   buffer_ = writer.Detach();
   Entry entry;
   // offset is zero
+  entry.control_bit = 0;
   MarkDeleted(&entry);
   // assign ts
   entry.write_ts = ts;

@@ -9,6 +9,11 @@
  *
  */
 
+// !! deprecated
+// !! redirect to versioned_bwtree_page
+
+#pragma once
+
 #include "btree/btree_type.h"
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"

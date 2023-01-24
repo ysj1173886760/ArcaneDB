@@ -9,6 +9,8 @@
  *
  */
 
+#pragma once
+
 #include "property/property_type.h"
 #include "property/schema.h"
 #include <unordered_map>
