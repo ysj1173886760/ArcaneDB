@@ -150,7 +150,6 @@ TEST_F(VersionedBwTreePageTest, CompactionTest) {
     EXPECT_TRUE(s.ok());
     TestRead(view.at(0), value);
   }
-  page_->TEST_ExposeBvar();
 }
 
 TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
@@ -323,7 +322,6 @@ TEST_F(VersionedBwTreePageTest, PerformanceTest) {
                 write_latency.latency(), write_latency.max_latency());
   ARCANEDB_INFO("epoch latency avg: {}, max latency: {}",
                 epoch_latency.latency(), epoch_latency.max_latency());
-  page_->TEST_ExposeBvar();
 }
 
 } // namespace btree

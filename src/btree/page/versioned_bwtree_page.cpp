@@ -39,16 +39,13 @@ void VersionedBwTreePage::MaybePerformCompaction_(
   auto total_size = current_ptr->GetTotalLength();
   if (!opts.disable_compaction &&
       total_size > common::Config::kBwTreeDeltaChainLength) {
-    util::Timer timer;
     auto new_ptr = Compaction_(current_ptr);
-    compaction_ << timer.GetElapsed();
     UpdatePtr_(new_ptr);
   }
 }
 
 Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
                                    const Options &opts) noexcept {
-  util::Timer timer;
   {
     auto delta = std::make_shared<VersionedDeltaNode>(row, write_ts);
     util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
@@ -57,14 +54,12 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
     UpdatePtr_(delta);
     MaybePerformCompaction_(opts, delta.get());
   }
-  write_ << timer.GetElapsed();
   return Status::Ok();
 }
 
 Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
                                       TxnTs write_ts,
                                       const Options &opts) noexcept {
-  util::Timer timer;
   {
     auto delta = std::make_shared<VersionedDeltaNode>(sort_key, write_ts);
     util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
@@ -73,7 +68,6 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
     UpdatePtr_(delta);
     MaybePerformCompaction_(opts, delta.get());
   }
-  write_ << timer.GetElapsed();
   return Status::Ok();
 }
 

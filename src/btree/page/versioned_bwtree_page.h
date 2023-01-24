@@ -64,13 +64,6 @@ public:
     return ptr->GetTotalLength();
   }
 
-  void TEST_ExposeBvar() noexcept {
-    ARCANEDB_INFO("compaction avg {} max {}", compaction_.latency(),
-                  compaction_.max_latency());
-    ARCANEDB_INFO("write avg {} max {}", write_.latency(),
-                  write_.max_latency());
-  }
-
 private:
   using DoublyBufferedData =
       butil::DoublyBufferedData<std::shared_ptr<VersionedDeltaNode>>;
@@ -100,9 +93,6 @@ private:
   // TODO(sheep) use group commit to optimize write performance
   mutable ArcanedbLock write_mu_{"VersionedBwTreePageWriteMutex"};
   mutable DoublyBufferedData ptr_;
-
-  bvar::LatencyRecorder compaction_;
-  bvar::LatencyRecorder write_;
 };
 
 } // namespace btree
