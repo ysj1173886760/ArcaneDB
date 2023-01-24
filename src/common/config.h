@@ -28,6 +28,8 @@ public:
   static constexpr size_t kBwTreeDeltaChainLength = 16;
 
   static constexpr size_t kCacheShardNum = 64;
+
+  static constexpr int64_t kLockTimeoutUs = 100 * util::MillSec;
 };
 
 } // namespace common

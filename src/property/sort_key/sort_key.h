@@ -12,6 +12,7 @@
 #pragma once
 
 #include "absl/container/inlined_vector.h"
+#include "absl/hash/hash.h"
 #include "common/macros.h"
 #include "property/property_type.h"
 #include "property/sort_key/comparable_buf_reader.h"
@@ -149,6 +150,12 @@ public:
 
 private:
   std::string_view bytes_ref_;
+};
+
+struct SortKeysHash {
+  size_t operator()(const SortKeys &sk) const noexcept {
+    return absl::Hash<std::string_view>()(sk.as_slice());
+  }
 };
 
 template <typename T> inline Value GetSortKeysLimitMin() noexcept {
