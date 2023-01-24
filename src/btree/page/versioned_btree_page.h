@@ -1,9 +1,9 @@
 /**
- * @file btree_page.h
+ * @file versioned_btree_page.h
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
- * @date 2023-01-22
+ * @date 2023-01-24
  *
  * @copyright Copyright (c) 2023
  *
@@ -11,13 +11,9 @@
 
 #pragma once
 
-// !! deprecated
-// !! redirect to versioned_btree_page
-
 #include "btree/btree_type.h"
-#include "btree/page/bwtree_page.h"
 #include "btree/page/internal_page.h"
-#include <atomic>
+#include "btree/page/versioned_bwtree_page.h"
 
 namespace arcanedb {
 namespace btree {
@@ -27,16 +23,15 @@ namespace btree {
  * Real page type.
  * IndexPage could either be leaf page or internal page.
  */
-class BtreePage {
-  using PageTypeContainer = butil::DoublyBufferedData<PageType>;
+class VersionedBtreePage {
 
 public:
   /**
    * @brief
    * Default ctor, construct leaf page.
    */
-  BtreePage() noexcept {
-    leaf_page_ = std::make_unique<BwTreePage>();
+  VersionedBtreePage() noexcept {
+    leaf_page_ = std::make_unique<VersionedBwTreePage>();
     ModifyPageType(PageType::LeafPage);
   }
 
@@ -74,40 +69,44 @@ public:
    * if row with same sortkey is existed, then we will overwrite that row.
    * i.e. semantic is to always perform upsert.
    * @param row
+   * @param write_ts
    * @param opts
    * @return Status
    */
-  Status SetRow(const property::Row &row, const Options &opts) noexcept {
+  Status SetRow(const property::Row &row, TxnTs write_ts,
+                const Options &opts) noexcept {
     assert(leaf_page_);
-    return leaf_page_->SetRow(row, opts);
+    return leaf_page_->SetRow(row, write_ts, opts);
   }
 
   /**
    * @brief
    * Delete a row from page
    * @param sort_key
+   * @param write_ts
    * @param opts
    * @return Status
    */
-  Status DeleteRow(property::SortKeysRef sort_key,
+  Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
                    const Options &opts) noexcept {
     assert(leaf_page_);
-    return leaf_page_->DeleteRow(sort_key, opts);
+    return leaf_page_->DeleteRow(sort_key, write_ts, opts);
   }
 
   /**
    * @brief
    * Get a row from page
    * @param tuple logical tuple that stores SortKey.
+   * @param read_ts
    * @param opts
    * @param view
    * @return Status: Ok when row has been found
    *                 NotFound.
    */
-  Status GetRow(property::SortKeysRef sort_key, const Options &opts,
-                RowView *view) const noexcept {
+  Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
+                const Options &opts, RowView *view) const noexcept {
     assert(leaf_page_);
-    return leaf_page_->GetRow(sort_key, opts, view);
+    return leaf_page_->GetRow(sort_key, read_ts, opts, view);
   }
 
   /**
@@ -150,7 +149,7 @@ public:
 private:
   // TODO(sheep): introduce Page interface
   // for different page type
-  std::unique_ptr<BwTreePage> leaf_page_;
+  std::unique_ptr<VersionedBwTreePage> leaf_page_;
   std::unique_ptr<InternalPage> internal_page_;
   std::atomic<PageType> page_type_;
 };

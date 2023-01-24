@@ -72,7 +72,7 @@ VersionedDeltaNodeBuilder::GenerateDeltaNode() noexcept {
     for (int i = 1; i < vec.size(); i++) {
       WriteRow_(versions.back(), &version_writer, vec[i]);
     }
-    has_version = vec.size() > 1;
+    has_version = has_version || vec.size() > 1;
   }
   if (!has_version) {
     versions.clear();
