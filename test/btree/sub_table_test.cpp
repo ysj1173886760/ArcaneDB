@@ -1,24 +1,22 @@
 /**
- * @file versioned_btree_test.cpp
+ * @file sub_table_test.cpp
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
- * @date 2023-01-24
+ * @date 2023-01-25
  *
  * @copyright Copyright (c) 2023
  *
  */
 
-#include "btree/versioned_btree.h"
-#include "property/schema.h"
+#include "btree/sub_table.h"
 #include "util/bthread_util.h"
-#include "util/wait_group.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
 namespace btree {
 
-class VersionedBtreeTest : public ::testing::Test {
+class SubTableTest : public ::testing::Test {
 public:
   property::Schema MakeTestSchema() noexcept {
     property::Column column1{
@@ -59,23 +57,16 @@ public:
     auto str = writer.Detach();
     property::Row row(str.data());
     Status s;
-    {
-      util::Timer tc;
-      s = func(row);
-      (*write_latency_) << tc.GetElapsed();
-    }
+    s = func(row);
     return s;
   }
 
-  void TestRead(const ValueStruct &value, TxnTs read_ts, bool is_deleted) {
+  void TestRead(SubTable *sub_table, const ValueStruct &value, TxnTs read_ts,
+                bool is_deleted) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
     Status s;
-    {
-      util::Timer tc;
-      s = btree_.GetRow(sk.as_ref(), read_ts, opts_, &view);
-      (*read_latency_) << tc.GetElapsed();
-    }
+    s = sub_table->GetRow(sk.as_ref(), read_ts, opts_, &view);
     if (is_deleted) {
       EXPECT_TRUE(s.IsNotFound());
       return;
@@ -99,86 +90,90 @@ public:
     }
   }
 
-  void PrintLatency() noexcept {
-    ARCANEDB_INFO("read avg latency: {}, max latency: {}",
-                  read_latency_->latency(), read_latency_->max_latency());
-    ARCANEDB_INFO("write latency avg: {}, max latency: {}",
-                  write_latency_->latency(), write_latency_->max_latency());
-  }
-
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
-    root_page_ = std::make_unique<VersionedBtreePage>("");
-    btree_ = VersionedBtree(root_page_.get());
-    write_latency_ = std::make_unique<bvar::LatencyRecorder>();
-    read_latency_ = std::make_unique<bvar::LatencyRecorder>();
+    bpm_ = std::make_unique<cache::BufferPool>();
+    opts_.buffer_pool = bpm_.get();
   }
 
   void TearDown() {}
 
   Options opts_;
   const int32_t type_ = 0;
+  std::unique_ptr<cache::BufferPool> bpm_;
   property::Schema schema_;
-  std::unique_ptr<VersionedBtreePage> root_page_;
-  VersionedBtree btree_{nullptr};
-  std::unique_ptr<bvar::LatencyRecorder> write_latency_;
-  std::unique_ptr<bvar::LatencyRecorder> read_latency_;
+  std::string table_key_ = "test_table";
 };
 
-TEST_F(VersionedBtreeTest, BasicTest) {
+TEST_F(SubTableTest, BasicTest) {
+  std::unique_ptr<SubTable> sub_table;
+  ASSERT_TRUE(SubTable::OpenSubTable(table_key_, opts_, &sub_table).ok());
+
   auto value_list = GenerateValueList(100);
   TxnTs ts = 0;
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
-                              return btree_.SetRow(row, ts, opts_);
+                              return sub_table->SetRow(row, ts, opts_);
                             })
                     .ok());
   }
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
-                              return btree_.DeleteRow(row.GetSortKeys(), ts + 1,
-                                                      opts_);
+                              return sub_table->DeleteRow(row.GetSortKeys(),
+                                                          ts + 1, opts_);
                             })
                     .ok());
   }
   for (const auto &value : value_list) {
     SCOPED_TRACE("");
-    TestRead(value, ts, false);
+    TestRead(sub_table.get(), value, ts, false);
   }
   for (const auto &value : value_list) {
     SCOPED_TRACE("");
-    TestRead(value, ts + 1, true);
+    TestRead(sub_table.get(), value, ts + 1, true);
+  }
+  // reopen the table, could still get the same result
+  std::unique_ptr<SubTable> table2;
+  ASSERT_TRUE(SubTable::OpenSubTable(table_key_, opts_, &table2).ok());
+  for (const auto &value : value_list) {
+    SCOPED_TRACE("");
+    TestRead(table2.get(), value, ts, false);
+  }
+  for (const auto &value : value_list) {
+    SCOPED_TRACE("");
+    TestRead(table2.get(), value, ts + 1, true);
   }
 }
 
-TEST_F(VersionedBtreeTest, ConcurrentTest) {
+TEST_F(SubTableTest, ConcurrentTest) {
   int worker_count = 100;
   int epoch_cnt = 10;
   util::WaitGroup wg(worker_count);
   TxnTs ts = 0;
   for (int i = 0; i < worker_count; i++) {
     util::LaunchAsync([&, index = i]() {
+      std::unique_ptr<SubTable> sub_table;
+      ASSERT_TRUE(SubTable::OpenSubTable(table_key_, opts_, &sub_table).ok());
       ValueStruct value{
           .point_id = index, .point_type = 0, .value = std::to_string(index)};
       for (int j = 0; j < epoch_cnt; j++) {
         EXPECT_TRUE(WriteHelper(value,
                                 [&](const property::Row &row) {
-                                  return btree_.SetRow(row, ts, opts_);
+                                  return sub_table->SetRow(row, ts, opts_);
                                 })
                         .ok());
         {
           SCOPED_TRACE("");
-          TestRead(value, ts, false);
+          TestRead(sub_table.get(), value, ts, false);
         }
       }
       wg.Done();
     });
   }
   wg.Wait();
-  PrintLatency();
 }
 
 } // namespace btree

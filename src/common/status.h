@@ -178,6 +178,8 @@ public:
     return std::forward<T>(value);
   }
 
+  Status ToStatus() noexcept { return Status(code_); }
+
 private:
   Result(Status::ErrorCode code) : code_(code) {}
 

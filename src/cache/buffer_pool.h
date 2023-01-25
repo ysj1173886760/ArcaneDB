@@ -36,22 +36,26 @@ public:
   /**
    * @brief
    * Get the page.
-   * note that T must be default constructible.
    * @tparam T
    * @param page_id
    * @return Result<CacheEntry *>
    */
   template <typename T>
-  Result<CacheEntry *> GetPage(const PageIdType &page_id) noexcept {
-    static_assert(std::is_default_constructible<T>::value,
-                  "T must be default constructible");
+  Status GetPage(const std::string &page_id, T **page) noexcept {
+    static_assert(std::is_base_of<CacheEntry, T>::value,
+                  "T must inherit from CacheEntry");
     auto alloc = [](const std::string_view &key,
                     std::unique_ptr<CacheEntry> *entry) -> Status {
       // TODO(sheep): load from store
-      *entry = std::make_unique<T>();
+      *entry = std::make_unique<T>(key);
       return Status::Ok();
     };
-    return lru_.GetEntry(page_id, alloc);
+    auto result = lru_.GetEntry(page_id, alloc);
+    if (likely(result.ok())) {
+      // sheep: really don't want to use dynamic cast.
+      *page = reinterpret_cast<T *>(result.GetValue());
+    }
+    return result.ToStatus();
   }
 
 private:

@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "cache/buffer_pool.h"
 #include "property/schema.h"
 
 namespace arcanedb {
@@ -23,6 +24,7 @@ namespace btree {
 struct Options {
   const property::Schema *schema{};
   bool disable_compaction{false};
+  cache::BufferPool *buffer_pool{};
 };
 
 } // namespace btree

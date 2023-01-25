@@ -14,6 +14,7 @@
 #include "btree/btree_type.h"
 #include "btree/page/internal_page.h"
 #include "btree/page/versioned_bwtree_page.h"
+#include "cache/cache.h"
 
 namespace arcanedb {
 namespace btree {
@@ -23,14 +24,15 @@ namespace btree {
  * Real page type.
  * IndexPage could either be leaf page or internal page.
  */
-class VersionedBtreePage {
+class VersionedBtreePage : public cache::CacheEntry {
 
 public:
   /**
    * @brief
    * Default ctor, construct leaf page.
    */
-  VersionedBtreePage() noexcept {
+  VersionedBtreePage(const std::string_view &page_id) noexcept
+      : cache::CacheEntry(page_id) {
     leaf_page_ = std::make_unique<VersionedBwTreePage>();
     ModifyPageType(PageType::LeafPage);
   }

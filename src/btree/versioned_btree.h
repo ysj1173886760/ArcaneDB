@@ -22,6 +22,8 @@ public:
   explicit VersionedBtree(VersionedBtreePage *root_page) noexcept
       : root_page_(root_page) {}
 
+  ~VersionedBtree() noexcept { root_page_->Unref(); }
+
   /**
    * @brief
    * Insert a row into page.

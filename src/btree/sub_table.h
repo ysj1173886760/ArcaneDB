@@ -12,6 +12,7 @@
 #pragma once
 
 #include "btree/versioned_btree.h"
+#include "page/versioned_btree_page.h"
 
 namespace arcanedb {
 namespace btree {
@@ -23,7 +24,8 @@ namespace btree {
  */
 class SubTable {
 public:
-  SubTable() = default;
+  SubTable(VersionedBtreePage *root_page) noexcept
+      : cluster_index_(root_page) {}
 
   /**
    * @brief
@@ -33,8 +35,7 @@ public:
    * @param sub_table
    * @return Status
    */
-  static Status OpenSubTable(const std::string_view &table_key,
-                             const Options &opts,
+  static Status OpenSubTable(const std::string &table_key, const Options &opts,
                              std::unique_ptr<SubTable> *sub_table) noexcept;
 
   /**
@@ -48,7 +49,9 @@ public:
    * @return Status
    */
   Status SetRow(const property::Row &row, TxnTs write_ts,
-                const Options &opts) noexcept;
+                const Options &opts) noexcept {
+    return cluster_index_.SetRow(row, write_ts, opts);
+  }
 
   /**
    * @brief
@@ -59,7 +62,9 @@ public:
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
-                   const Options &opts) noexcept;
+                   const Options &opts) noexcept {
+    return cluster_index_.DeleteRow(sort_key, write_ts, opts);
+  }
 
   /**
    * @brief
@@ -72,10 +77,12 @@ public:
    *                 NotFound.
    */
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
-                const Options &opts, RowView *view) const noexcept;
+                const Options &opts, RowView *view) const noexcept {
+    return cluster_index_.GetRow(sort_key, read_ts, opts, view);
+  }
 
 private:
-  VersionedBtree cluster_index;
+  VersionedBtree cluster_index_;
 };
 
 } // namespace btree
