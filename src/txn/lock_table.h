@@ -14,6 +14,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "bthread/condition_variable.h"
 #include "bthread/mutex.h"
+#include "common/config.h"
 #include "common/status.h"
 #include "common/type.h"
 #include "property/sort_key/sort_key.h"
@@ -72,6 +73,31 @@ private:
   ContainerType map_; // guarded by mu_;
   // TODO(sheep): monitor the wait latency
   bthread::Mutex mu_;
+};
+
+class ShardedLockTable {
+public:
+  explicit ShardedLockTable(size_t shard_num) noexcept : shards_(shard_num) {}
+
+  static ShardedLockTable *GetLockTable() noexcept {
+    static ShardedLockTable lock_table(common::Config::kLockTableShardNum);
+    return &lock_table;
+  }
+
+  Status Lock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
+    return GetShard_(txn_id)->Lock(sort_key, txn_id);
+  }
+
+  Status Unlock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
+    return GetShard_(txn_id)->Unlock(sort_key, txn_id);
+  }
+
+private:
+  LockTable *GetShard_(TxnId txn_id) noexcept {
+    return &shards_[absl::Hash<TxnId>()(txn_id) % shards_.size()];
+  }
+
+  std::vector<LockTable> shards_;
 };
 
 } // namespace txn

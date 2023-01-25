@@ -30,6 +30,10 @@ public:
   static constexpr size_t kCacheShardNum = 64;
 
   static constexpr int64_t kLockTimeoutUs = 100 * util::MillSec;
+
+  static constexpr size_t kSnapshotManagerShardNum = 64;
+
+  static constexpr size_t kLockTableShardNum = 64;
 };
 
 } // namespace common
