@@ -50,7 +50,7 @@ public:
   /**
    * @brief
    * Get a row from page
-   * @param tuple logical tuple that stores SortKey.
+   * @param tuple SortKey.
    * @param read_ts
    * @param opts
    * @param view

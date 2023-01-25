@@ -96,11 +96,6 @@ public:
   Result<CacheEntry *> GetEntry(const std::string &key,
                                 AllocFunc alloc) noexcept;
 
-  static ShardedLRU *GetInstance() noexcept {
-    static ShardedLRU cache(common::Config::kCacheShardNum);
-    return &cache;
-  }
-
 private:
   size_t shard_num_;
   std::vector<LruMap> shards_;

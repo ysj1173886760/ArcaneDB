@@ -1,9 +1,9 @@
 /**
- * @file versioned_btree.h
+ * @file sub_table.h
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
- * @date 2023-01-24
+ * @date 2023-01-25
  *
  * @copyright Copyright (c) 2023
  *
@@ -11,16 +11,31 @@
 
 #pragma once
 
-#include "btree/btree.h"
-#include "btree/page/versioned_btree_page.h"
+#include "btree/versioned_btree.h"
 
 namespace arcanedb {
 namespace btree {
 
-class VersionedBtree {
+/**
+ * @brief
+ * Currently just a wrapper for btree.
+ * For supporting secondary-index in the future.
+ */
+class SubTable {
 public:
-  explicit VersionedBtree(VersionedBtreePage *root_page) noexcept
-      : root_page_(root_page) {}
+  SubTable() = default;
+
+  /**
+   * @brief
+   *
+   * @param table_key
+   * @param opts
+   * @param sub_table
+   * @return Status
+   */
+  static Status OpenSubTable(const std::string_view &table_key,
+                             const Options &opts,
+                             std::unique_ptr<SubTable> *sub_table) noexcept;
 
   /**
    * @brief
@@ -59,13 +74,8 @@ public:
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
                 const Options &opts, RowView *view) const noexcept;
 
-  // TODO(sheep): support SMO interface
-
 private:
-  Status GetRowMultilevel_(property::SortKeysRef sort_key, TxnTs read_ts,
-                           const Options &opts, RowView *view) const noexcept;
-
-  VersionedBtreePage *root_page_{nullptr};
+  VersionedBtree cluster_index;
 };
 
 } // namespace btree
