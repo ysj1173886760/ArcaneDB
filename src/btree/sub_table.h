@@ -27,6 +27,10 @@ public:
   SubTable(VersionedBtreePage *root_page) noexcept
       : cluster_index_(root_page) {}
 
+  std::string_view GetTableKey() noexcept {
+    return cluster_index_.GetTableKey();
+  }
+
   /**
    * @brief
    *

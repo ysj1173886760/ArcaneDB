@@ -37,7 +37,7 @@ public:
    * @param txn_id
    * @return Status
    */
-  Status Lock(property::SortKeysRef sort_key, TxnId txn_id) noexcept;
+  Status Lock(std::string_view sort_key, TxnId txn_id) noexcept;
 
   /**
    * @brief
@@ -46,7 +46,7 @@ public:
    * @param txn_id
    * @return Status
    */
-  Status Unlock(property::SortKeysRef sort_key, TxnId txn_id) noexcept;
+  Status Unlock(std::string_view sort_key, TxnId txn_id) noexcept;
 
 private:
   struct LockEntry {
@@ -79,11 +79,11 @@ class ShardedLockTable {
 public:
   explicit ShardedLockTable(size_t shard_num) noexcept : shards_(shard_num) {}
 
-  Status Lock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
+  Status Lock(std::string_view sort_key, TxnId txn_id) noexcept {
     return GetShard_(txn_id)->Lock(sort_key, txn_id);
   }
 
-  Status Unlock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
+  Status Unlock(std::string_view sort_key, TxnId txn_id) noexcept {
     return GetShard_(txn_id)->Unlock(sort_key, txn_id);
   }
 

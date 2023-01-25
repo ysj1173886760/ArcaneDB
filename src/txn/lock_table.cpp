@@ -15,11 +15,11 @@
 namespace arcanedb {
 namespace txn {
 
-Status LockTable::Lock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
+Status LockTable::Lock(std::string_view sort_key, TxnId txn_id) noexcept {
   std::unique_lock<bthread::Mutex> guard(mu_);
   // try emplace the lock
-  auto [it, lock_succeed] = map_.emplace(std::string(sort_key.as_slice()),
-                                         std::make_unique<LockEntry>(txn_id));
+  auto [it, lock_succeed] =
+      map_.emplace(std::string(sort_key), std::make_unique<LockEntry>(txn_id));
   if (lock_succeed) {
     return Status::Ok();
   }
@@ -41,10 +41,9 @@ Status LockTable::Lock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
   return Status::Timeout();
 }
 
-Status LockTable::Unlock(property::SortKeysRef sort_key,
-                         TxnId txn_id) noexcept {
+Status LockTable::Unlock(std::string_view sort_key, TxnId txn_id) noexcept {
   std::unique_lock<bthread::Mutex> guard(mu_);
-  auto it = map_.find(sort_key.as_slice());
+  auto it = map_.find(sort_key);
   CHECK(it != map_.end());
   CHECK(it->second->txn_id == txn_id);
   // unlock

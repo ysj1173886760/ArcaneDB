@@ -32,6 +32,7 @@ public:
   void RegisterTs(TxnTs ts) noexcept {
     util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
     ts_set_.insert(ts);
+    max_ts_ = std::max(max_ts_, ts);
   }
 
   void CommitTs(TxnTs ts) noexcept {
@@ -41,12 +42,15 @@ public:
 
   TxnTs GetSnapshotTs() const noexcept {
     util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
-    return ts_set_.empty() ? kMaxTxnTs : (*ts_set_.begin() - 1);
+    // if there is no concurrent txn,
+    // we will use the max ts we have ever seen.
+    return ts_set_.empty() ? max_ts_ : (*ts_set_.begin() - 1);
   }
 
 private:
   mutable ArcanedbLock mu_;
   std::set<TxnTs> ts_set_;
+  TxnTs max_ts_{};
 };
 
 class ShardedSnapshotManager {

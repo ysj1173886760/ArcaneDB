@@ -11,6 +11,9 @@
 
 #pragma once
 
+#include "common/config.h"
+#include "txn/lock_table.h"
+#include "txn/snapshot_manager.h"
 #include "txn/tso.h"
 #include "txn/txn_context.h"
 #include "txn/txn_type.h"
@@ -26,13 +29,28 @@ namespace txn {
  */
 class TxnManager {
 public:
-  std::unique_ptr<TxnContext> BeginRoTxn() noexcept {}
+  TxnManager() noexcept
+      : snapshot_manager_(common::Config::kSnapshotManagerShardNum),
+        lock_table_(common::Config::kLockTableShardNum) {}
+
+  std::unique_ptr<TxnContext> BeginRoTxn() noexcept {
+    auto txn_id = util::GenerateUUID();
+    auto txn_ts = snapshot_manager_.GetSnapshotTs();
+    return std::make_unique<TxnContext>(txn_id, txn_ts, TxnType::ReadOnlyTxn,
+                                        &snapshot_manager_, &lock_table_);
+  }
 
   std::unique_ptr<TxnContext> BeginRwTxn() noexcept {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = Tso::RequestTs();
-    return std::make_unique<TxnContext>(txn_id, txn_ts, TxnType::ReadWriteTxn);
+    snapshot_manager_.RegisterTs(txn_ts);
+    return std::make_unique<TxnContext>(txn_id, txn_ts, TxnType::ReadWriteTxn,
+                                        &snapshot_manager_, &lock_table_);
   }
+
+private:
+  ShardedSnapshotManager snapshot_manager_;
+  ShardedLockTable lock_table_;
 };
 
 } // namespace txn
