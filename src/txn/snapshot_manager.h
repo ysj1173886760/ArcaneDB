@@ -53,12 +53,6 @@ class ShardedSnapshotManager {
 public:
   explicit ShardedSnapshotManager(size_t shard_num) : shards_(shard_num) {}
 
-  static ShardedSnapshotManager *GetSnapshotManager() noexcept {
-    static ShardedSnapshotManager snapshot_manager(
-        common::Config::kSnapshotManagerShardNum);
-    return &snapshot_manager;
-  }
-
   void RegisterTs(TxnTs ts) noexcept { GetShard_(ts)->RegisterTs(ts); }
 
   void CommitTs(TxnTs ts) noexcept { GetShard_(ts)->CommitTs(ts); }

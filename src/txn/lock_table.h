@@ -79,11 +79,6 @@ class ShardedLockTable {
 public:
   explicit ShardedLockTable(size_t shard_num) noexcept : shards_(shard_num) {}
 
-  static ShardedLockTable *GetLockTable() noexcept {
-    static ShardedLockTable lock_table(common::Config::kLockTableShardNum);
-    return &lock_table;
-  }
-
   Status Lock(property::SortKeysRef sort_key, TxnId txn_id) noexcept {
     return GetShard_(txn_id)->Lock(sort_key, txn_id);
   }
