@@ -28,8 +28,7 @@ Status LockTable::Lock(std::string_view sort_key, TxnId txn_id) noexcept {
   lock_entry->AddWaiter();
   // if failed, wait on the cv
   // don't handle suspicious wakeup since it will increase code complexity
-  bool succeed =
-      lock_entry->cv.wait_for(guard, common::Config::kLockTimeoutUs) == 0;
+  lock_entry->cv.wait_for(guard, common::Config::kLockTimeoutUs);
   // remove waiter
   lock_entry->DecWaiter();
   // suspicious wakeup might reverse the priority.
