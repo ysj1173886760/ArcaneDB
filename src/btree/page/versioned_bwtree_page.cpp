@@ -110,7 +110,7 @@ std::string VersionedBwTreePage::TEST_DumpPage() const noexcept {
     current_ptr = current_ptr->GetPrevious().get();
   }
   std::string result = "BwTreePageDump:\n";
-  for (const auto [sk, vec] : map) {
+  for (const auto &[sk, vec] : map) {
     result += sk.ToString() + ", ";
     for (const auto &entry : vec) {
       result += fmt::format("{} {}, ", entry.write_ts, entry.is_deleted);
@@ -138,7 +138,7 @@ bool VersionedBwTreePage::TEST_TsDesending() const noexcept {
         });
     current_ptr = current_ptr->GetPrevious().get();
   }
-  for (const auto [sk, vec] : map) {
+  for (const auto &[sk, vec] : map) {
     for (int i = 1; i < vec.size(); i++) {
       if (vec[i].write_ts >= vec[i - 1].write_ts) {
         return false;

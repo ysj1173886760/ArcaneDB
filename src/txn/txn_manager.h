@@ -30,8 +30,7 @@ namespace txn {
 class TxnManager {
 public:
   TxnManager() noexcept
-      : snapshot_manager_(common::Config::kSnapshotManagerShardNum),
-        lock_table_(common::Config::kLockTableShardNum) {}
+      : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum) {}
 
   std::unique_ptr<TxnContext> BeginRoTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
@@ -49,19 +48,18 @@ public:
   std::unique_ptr<TxnContext> BeginRwTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = Tso::RequestTs();
-    snapshot_manager_.RegisterTs(txn_ts);
     return std::make_unique<TxnContext>(txn_id, txn_ts, TxnType::ReadWriteTxn,
                                         &snapshot_manager_, &lock_table_);
   }
 
-  ShardedSnapshotManager *GetSnapshotManager() noexcept {
+  LinkBufSnapshotManager *GetSnapshotManager() noexcept {
     return &snapshot_manager_;
   }
 
 private:
   FRIEND_TEST(TxnContextTest, ConcurrentTest);
 
-  mutable ShardedSnapshotManager snapshot_manager_;
+  mutable LinkBufSnapshotManager snapshot_manager_;
   mutable ShardedLockTable lock_table_;
 };
 

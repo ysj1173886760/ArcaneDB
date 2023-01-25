@@ -112,7 +112,7 @@ public:
       EXPECT_TRUE(view2.at(0).GetProp(2, &res2, &schema_).ok());
       ASSERT_EQ(std::get<std::string_view>(res1.value),
                 std::get<std::string_view>(res2.value))
-          << txn_manager_->GetSnapshotManager()->TEST_DumpState() << "\n"
+          // << txn_manager_->GetSnapshotManager()->TEST_DumpState() << "\n"
           << context->GetTxnTs() << " " << view1.at(0).GetTs() << " "
           << view2.at(0).GetTs() << "\n"
           << DumpHelper(k1) << "\n"

@@ -29,11 +29,15 @@ public:
 
   static constexpr size_t kCacheShardNum = 64;
 
-  static constexpr int64_t kLockTimeoutUs = 100 * util::MillSec;
+  static constexpr int64_t kLockTimeoutUs = 150 * util::MillSec;
 
   static constexpr size_t kSnapshotManagerShardNum = 64;
 
   static constexpr size_t kLockTableShardNum = 64;
+
+  // txn ts is 4 byte
+  // 4 mb link buf
+  static constexpr size_t kLinkBufSnapshotManagerSize = 1 << 20;
 };
 
 } // namespace common

@@ -34,7 +34,7 @@ namespace txn {
 class TxnContext {
 public:
   TxnContext(TxnId txn_id, TxnTs txn_ts, TxnType txn_type,
-             ShardedSnapshotManager *snapshot_manager,
+             LinkBufSnapshotManager *snapshot_manager,
              ShardedLockTable *lock_table) noexcept
       : txn_id_(txn_id), txn_ts_(txn_ts), txn_type_(txn_type),
         snapshot_manager_(snapshot_manager), lock_table_(lock_table) {}
@@ -77,6 +77,7 @@ public:
 
   TxnTs GetTxnTs() const noexcept { return txn_ts_; }
 
+  // TODO(sheep): handle abort
   void Commit() noexcept;
 
 private:
@@ -94,7 +95,7 @@ private:
    */
   TxnTs txn_ts_;
   TxnType txn_type_;
-  ShardedSnapshotManager *snapshot_manager_;
+  LinkBufSnapshotManager *snapshot_manager_;
   ShardedLockTable *lock_table_;
   absl::flat_hash_set<std::string> lock_set_;
   absl::flat_hash_map<std::string_view, std::unique_ptr<btree::SubTable>>

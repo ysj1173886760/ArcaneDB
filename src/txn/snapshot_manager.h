@@ -15,6 +15,7 @@
 #include "common/config.h"
 #include "common/status.h"
 #include "common/type.h"
+#include "util/linkbuf.h"
 #include <optional>
 #include <set>
 
@@ -108,6 +109,23 @@ private:
   }
 
   std::vector<SnapshotManager> shards_;
+};
+
+class LinkBufSnapshotManager {
+public:
+  LinkBufSnapshotManager() noexcept
+      : link_buf_(common::Config::kLinkBufSnapshotManagerSize) {}
+
+  void CommitTs(TxnTs ts) noexcept { link_buf_.add_link(ts, ts + 1); }
+
+  TxnTs GetSnapshotTs() noexcept {
+    // TODO(sheep): cache the result
+    link_buf_.advance_tail();
+    return link_buf_.tail();
+  }
+
+private:
+  util::Link_buf<TxnTs> link_buf_;
 };
 
 } // namespace txn
