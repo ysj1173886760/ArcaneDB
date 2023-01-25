@@ -1,5 +1,5 @@
 /**
- * @file lock_table.cpp
+ * @file lock_table_test.cpp
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
@@ -34,6 +34,17 @@ TEST(LockTableTest, BasicTest) {
   EXPECT_TRUE(table.Unlock(sk1.as_ref().as_slice(), txn1).ok());
   EXPECT_TRUE(table.Unlock(sk2.as_ref().as_slice(), txn1).ok());
   future->Wait();
+}
+
+TEST(LockTableTest, TimeoutTest) {
+  LockTable table;
+  auto sk1 = property::SortKeys({1, 2, 3});
+  TxnId txn1 = 0;
+  EXPECT_TRUE(table.Lock(sk1.as_ref().as_slice(), txn1).ok());
+  TxnId txn2 = 1;
+  EXPECT_TRUE(table.Lock(sk1.as_ref().as_slice(), txn2).IsTimeout());
+  table.Unlock(sk1.as_ref().as_slice(), txn1);
+  EXPECT_TRUE(table.Lock(sk1.as_ref().as_slice(), txn2).IsOk());
 }
 
 } // namespace txn

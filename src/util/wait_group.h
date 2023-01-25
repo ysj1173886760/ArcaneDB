@@ -13,6 +13,7 @@
 
 #include "bthread/condition_variable.h"
 #include "bthread/mutex.h"
+#include <cassert>
 
 namespace arcanedb {
 namespace util {

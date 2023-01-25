@@ -242,6 +242,7 @@ TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
   ARCANEDB_INFO("epoch latency avg: {}, max latency: {}",
                 epoch_latency.latency(), epoch_latency.max_latency());
   ARCANEDB_INFO("{}", page_->TEST_GetDeltaLength());
+  page_->TEST_TsDesending();
 }
 
 TEST_F(VersionedBwTreePageTest, PerformanceTest) {

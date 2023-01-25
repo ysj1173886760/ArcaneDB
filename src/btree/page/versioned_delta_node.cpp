@@ -82,5 +82,33 @@ VersionedDeltaNodeBuilder::GenerateDeltaNode() noexcept {
       std::move(versions));
 }
 
+std::string VersionedDeltaNode::TEST_DumpChain() const noexcept {
+  struct BuildEntry {
+    const property::Row row;
+    bool is_deleted;
+    TxnTs write_ts;
+  };
+  std::map<property::SortKeysRef, std::vector<BuildEntry>> map;
+  auto current_ptr = this;
+  // traverse the delta node
+  while (current_ptr != nullptr) {
+    current_ptr->Traverse(
+        [&](const property::Row &row, bool is_deleted, TxnTs write_ts) {
+          map[row.GetSortKeys()].emplace_back(BuildEntry{
+              .row = row, .is_deleted = is_deleted, .write_ts = write_ts});
+        });
+    current_ptr = current_ptr->GetPrevious().get();
+  }
+  std::string result = "DeltaChainDump:\n";
+  for (const auto [sk, vec] : map) {
+    result += sk.ToString() + ", ";
+    for (const auto &entry : vec) {
+      result += fmt::format("{} {}, ", entry.write_ts, entry.is_deleted);
+    }
+    result += "\n";
+  }
+  return result;
+}
+
 } // namespace btree
 } // namespace arcanedb

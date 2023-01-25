@@ -75,13 +75,16 @@ public:
                 property::SortKeysRef sort_key, const Options &opts,
                 btree::RowView *view) noexcept;
 
+  TxnTs GetTxnTs() const noexcept { return txn_ts_; }
+
   void Commit() noexcept;
 
 private:
   btree::SubTable *GetSubTable_(const std::string &sub_table_key,
                                 const Options &opts) noexcept;
 
-  Status AcquireLock_(std::string_view sort_key) noexcept;
+  Status AcquireLock_(const std::string &sub_table_key,
+                      std::string_view sort_key) noexcept;
 
   TxnId txn_id_;
   /**
@@ -93,7 +96,6 @@ private:
   TxnType txn_type_;
   ShardedSnapshotManager *snapshot_manager_;
   ShardedLockTable *lock_table_;
-  // TODO(sheep): optimize lock set
   absl::flat_hash_set<std::string> lock_set_;
   absl::flat_hash_map<std::string_view, std::unique_ptr<btree::SubTable>>
       tables_;

@@ -148,6 +148,21 @@ public:
                                  std::move(new_internal_rows));
   }
 
+  /**
+   * @brief
+   * Test code below
+   */
+
+  std::string TEST_DumpPage() noexcept {
+    assert(leaf_page_);
+    return leaf_page_->TEST_DumpPage();
+  }
+
+  bool TEST_TsDesending() noexcept {
+    assert(leaf_page_);
+    return leaf_page_->TEST_TsDesending();
+  }
+
 private:
   // TODO(sheep): introduce Page interface
   // for different page type

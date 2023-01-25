@@ -64,6 +64,10 @@ public:
     return ptr->GetTotalLength();
   }
 
+  std::string TEST_DumpPage() const noexcept;
+
+  bool TEST_TsDesending() const noexcept;
+
 private:
   using DoublyBufferedData =
       butil::DoublyBufferedData<std::shared_ptr<VersionedDeltaNode>>;

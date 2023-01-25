@@ -80,6 +80,11 @@ public:
     owner_container_.insert(std::move(owner));
   }
 
+  const std::unordered_set<std::shared_ptr<const Owner>> &GetContainer() const
+      noexcept {
+    return owner_container_;
+  }
+
 private:
   ContainerType container_;
   std::unordered_set<std::shared_ptr<const Owner>> owner_container_;

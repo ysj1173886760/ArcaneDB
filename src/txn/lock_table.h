@@ -80,16 +80,16 @@ public:
   explicit ShardedLockTable(size_t shard_num) noexcept : shards_(shard_num) {}
 
   Status Lock(std::string_view sort_key, TxnId txn_id) noexcept {
-    return GetShard_(txn_id)->Lock(sort_key, txn_id);
+    return GetShard_(sort_key)->Lock(sort_key, txn_id);
   }
 
   Status Unlock(std::string_view sort_key, TxnId txn_id) noexcept {
-    return GetShard_(txn_id)->Unlock(sort_key, txn_id);
+    return GetShard_(sort_key)->Unlock(sort_key, txn_id);
   }
 
 private:
-  LockTable *GetShard_(TxnId txn_id) noexcept {
-    return &shards_[absl::Hash<TxnId>()(txn_id) % shards_.size()];
+  LockTable *GetShard_(std::string_view sort_key) noexcept {
+    return &shards_[absl::Hash<std::string_view>()(sort_key) % shards_.size()];
   }
 
   std::vector<LockTable> shards_;

@@ -52,7 +52,7 @@ public:
     previous_ = std::move(previous);
   }
 
-  std::shared_ptr<VersionedDeltaNode> GetPrevious() noexcept {
+  std::shared_ptr<VersionedDeltaNode> GetPrevious() const noexcept {
     return previous_;
   }
 
@@ -141,6 +141,8 @@ public:
 
   VersionedDeltaNode() = default;
 
+  std::string TEST_DumpChain() const noexcept;
+
 private:
   friend class VersionedDeltaNodeBuilder;
 
@@ -153,7 +155,7 @@ private:
     if (IsDeleted(entry)) {
       return Status::Deleted();
     }
-    view->PushBackRef(row);
+    view->PushBackRef(RowWithTs(row, entry.write_ts));
     view->AddOwnerPointer(shared_from_this());
     return Status::Ok();
   }

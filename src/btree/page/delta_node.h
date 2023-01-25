@@ -117,7 +117,7 @@ public:
     if (IsDeleted(entry)) {
       return Status::Deleted();
     }
-    view->PushBackRef(row);
+    view->PushBackRef(RowWithTs(row, 0));
     view->AddOwnerPointer(shared_from_this());
     return Status::Ok();
   }

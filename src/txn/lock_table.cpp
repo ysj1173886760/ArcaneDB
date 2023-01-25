@@ -11,6 +11,7 @@
 
 #include "txn/lock_table.h"
 #include "common/config.h"
+#include <asm-generic/errno.h>
 
 namespace arcanedb {
 namespace txn {
@@ -24,15 +25,18 @@ Status LockTable::Lock(std::string_view sort_key, TxnId txn_id) noexcept {
     return Status::Ok();
   }
   LockEntry *lock_entry = it->second.get();
+  // duplicated lock should be handled outside.
+  CHECK(lock_entry->txn_id != txn_id);
   // add waiter count
   lock_entry->AddWaiter();
   // if failed, wait on the cv
   // don't handle suspicious wakeup since it will increase code complexity
-  lock_entry->cv.wait_for(guard, common::Config::kLockTimeoutUs);
+  bool timeout = lock_entry->cv.wait_for(
+                     guard, common::Config::kLockTimeoutUs) == ETIMEDOUT;
   // remove waiter
   lock_entry->DecWaiter();
   // suspicious wakeup might reverse the priority.
-  if (!lock_entry->is_locked) {
+  if (!timeout && !lock_entry->is_locked) {
     lock_entry->txn_id = txn_id;
     lock_entry->is_locked = true;
     return Status::Ok();
@@ -50,6 +54,8 @@ Status LockTable::Unlock(std::string_view sort_key, TxnId txn_id) noexcept {
   if (it->second->ShouldGC()) {
     // no concurrent waiter, erase the lock entry
     map_.erase(it);
+  } else {
+    it->second->cv.notify_one();
   }
   return Status::Ok();
 }

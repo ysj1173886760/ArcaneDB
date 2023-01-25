@@ -31,7 +31,35 @@ public:
   virtual ~RowOwner() noexcept {}
 };
 
-using RowView = util::Views<property::Row, RowOwner>;
+class RowWithTs : property::RowConcept<RowWithTs> {
+public:
+  RowWithTs(const property::Row row, TxnTs ts) noexcept : row_(row), ts_(ts) {}
+
+  RowWithTs(const property::Row row) noexcept : row_(row), ts_(0) {}
+
+  const property::Row &GetRow() const noexcept { return row_; }
+
+  TxnTs GetTs() const noexcept { return ts_; }
+
+  operator const property::Row &() const { return row_; }
+
+  Status GetProp(property::ColumnId id, property::ValueResult *value,
+                 property::Schema *schema) const noexcept {
+    return row_.GetProp(id, value, schema);
+  }
+
+  // TODO(sheep): impl GetProps
+
+  property::SortKeysRef GetSortKeys() const noexcept {
+    return row_.GetSortKeys();
+  }
+
+private:
+  const property::Row row_;
+  TxnTs ts_;
+};
+
+using RowView = util::Views<RowWithTs, RowOwner>;
 
 enum class PageType : uint8_t {
   InternalPage,

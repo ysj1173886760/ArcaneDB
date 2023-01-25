@@ -33,14 +33,20 @@ public:
       : snapshot_manager_(common::Config::kSnapshotManagerShardNum),
         lock_table_(common::Config::kLockTableShardNum) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn() noexcept {
+  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContext>(txn_id, txn_ts, TxnType::ReadOnlyTxn,
                                         &snapshot_manager_, &lock_table_);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn() noexcept {
+  std::unique_ptr<TxnContext> BeginRoTxnWithTs(TxnTs ts) const noexcept {
+    auto txn_id = util::GenerateUUID();
+    return std::make_unique<TxnContext>(txn_id, ts, TxnType::ReadOnlyTxn,
+                                        &snapshot_manager_, &lock_table_);
+  }
+
+  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = Tso::RequestTs();
     snapshot_manager_.RegisterTs(txn_ts);
@@ -48,9 +54,15 @@ public:
                                         &snapshot_manager_, &lock_table_);
   }
 
+  ShardedSnapshotManager *GetSnapshotManager() noexcept {
+    return &snapshot_manager_;
+  }
+
 private:
-  ShardedSnapshotManager snapshot_manager_;
-  ShardedLockTable lock_table_;
+  FRIEND_TEST(TxnContextTest, ConcurrentTest);
+
+  mutable ShardedSnapshotManager snapshot_manager_;
+  mutable ShardedLockTable lock_table_;
 };
 
 } // namespace txn

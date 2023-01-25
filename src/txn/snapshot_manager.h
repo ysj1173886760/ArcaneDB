@@ -15,6 +15,7 @@
 #include "common/config.h"
 #include "common/status.h"
 #include "common/type.h"
+#include <optional>
 #include <set>
 
 namespace arcanedb {
@@ -38,17 +39,26 @@ public:
   void CommitTs(TxnTs ts) noexcept {
     util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
     ts_set_.erase(ts);
+    // ARCANEDB_INFO("commit ts {}", ts);
   }
 
-  TxnTs GetSnapshotTs() const noexcept {
+  std::pair<bool, TxnTs> GetSnapshotTs() const noexcept {
     util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
     // if there is no concurrent txn,
     // we will use the max ts we have ever seen.
-    return ts_set_.empty() ? max_ts_ : (*ts_set_.begin() - 1);
+    if (ts_set_.empty()) {
+      return {false, max_ts_};
+    }
+    return {true, *ts_set_.begin() - 1};
+  }
+
+  std::string TEST_DumpState() const noexcept {
+    auto [has_concurrent, ts] = GetSnapshotTs();
+    return fmt::format("{} {}", has_concurrent, ts);
   }
 
 private:
-  mutable ArcanedbLock mu_;
+  mutable ArcanedbLock mu_{"SnapshotManager"};
   std::set<TxnTs> ts_set_;
   TxnTs max_ts_{};
 };
@@ -61,12 +71,35 @@ public:
 
   void CommitTs(TxnTs ts) noexcept { GetShard_(ts)->CommitTs(ts); }
 
-  TxnTs GetSnapshotTs() noexcept {
-    TxnTs ts = kMaxTxnTs;
+  TxnTs GetSnapshotTs() const noexcept {
+    // TODO(sheep): cache result
+    TxnTs min_ts = kMaxTxnTs;
+    bool has_concurrent = false;
+    TxnTs max_ts = 0;
     for (const auto &shard : shards_) {
-      ts = std::min(ts, shard.GetSnapshotTs());
+      auto [has_concurrent_txn, ts] = shard.GetSnapshotTs();
+      if (has_concurrent_txn) {
+        has_concurrent = true;
+        min_ts = std::min(min_ts, ts);
+      } else {
+        max_ts = std::max(ts, max_ts);
+      }
     }
-    return ts;
+    return has_concurrent ? min_ts : max_ts;
+  }
+
+  void TEST_PrintSnapshotTs() noexcept {
+    for (const auto &shard : shards_) {
+      ARCANEDB_INFO("{} ", shard.GetSnapshotTs().second);
+    }
+  }
+
+  std::string TEST_DumpState() noexcept {
+    std::string result = "dump state: ";
+    for (const auto &shard : shards_) {
+      result += shard.TEST_DumpState() + ", ";
+    }
+    return result;
   }
 
 private:
