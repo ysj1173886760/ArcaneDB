@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include "btree/btree.h"
 #include "btree/page/versioned_btree_page.h"
 
 namespace arcanedb {
@@ -60,6 +59,8 @@ public:
    */
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
                 const Options &opts, RowView *view) const noexcept;
+
+  std::string_view GetTableKey() const noexcept { return root_page_->GetKey(); }
 
   // TODO(sheep): support SMO interface
 

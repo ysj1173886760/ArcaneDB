@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "btree/options.h"
+#include "common/options.h"
 #include "common/status.h"
 #include "common/type.h"
 #include "property/sort_key/sort_key.h"

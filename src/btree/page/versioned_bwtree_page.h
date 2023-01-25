@@ -12,9 +12,9 @@
 #pragma once
 
 #include "btree/btree_type.h"
-#include "btree/options.h"
 #include "btree/page/versioned_delta_node.h"
 #include "butil/containers/doubly_buffered_data.h"
+#include "common/options.h"
 #include "common/status.h"
 #include "property/row/row.h"
 

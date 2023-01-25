@@ -12,7 +12,7 @@
 #pragma once
 
 #include "btree/btree_type.h"
-#include "btree/options.h"
+#include "common/options.h"
 #include "common/status.h"
 #include "handler/logical_tuple.h"
 #include "property/row/row.h"

@@ -15,7 +15,6 @@
 #include "property/schema.h"
 
 namespace arcanedb {
-namespace btree {
 
 /**
  * @brief
@@ -27,5 +26,4 @@ struct Options {
   cache::BufferPool *buffer_pool{};
 };
 
-} // namespace btree
 } // namespace arcanedb
