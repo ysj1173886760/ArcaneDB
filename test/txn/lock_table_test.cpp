@@ -42,9 +42,11 @@ TEST(LockTableTest, TimeoutTest) {
   TxnId txn1 = 0;
   EXPECT_TRUE(table.Lock(sk1.as_ref().as_slice(), txn1).ok());
   TxnId txn2 = 1;
-  EXPECT_TRUE(table.Lock(sk1.as_ref().as_slice(), txn2).IsTimeout());
+  EXPECT_TRUE(table.LockFor(sk1.as_ref().as_slice(), txn2, 10 * util::MillSec)
+                  .IsTimeout());
   table.Unlock(sk1.as_ref().as_slice(), txn1);
-  EXPECT_TRUE(table.Lock(sk1.as_ref().as_slice(), txn2).IsOk());
+  EXPECT_TRUE(
+      table.LockFor(sk1.as_ref().as_slice(), txn2, 10 * util::MillSec).IsOk());
 }
 
 } // namespace txn

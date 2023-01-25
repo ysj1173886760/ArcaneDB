@@ -28,11 +28,6 @@ class BufferPool {
 public:
   BufferPool() noexcept : lru_(common::Config::kCacheShardNum) {}
 
-  static BufferPool *GetInstance() noexcept {
-    static BufferPool bpm;
-    return &bpm;
-  }
-
   /**
    * @brief
    * Get the page.

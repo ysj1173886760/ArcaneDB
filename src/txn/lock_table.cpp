@@ -16,6 +16,8 @@
 namespace arcanedb {
 namespace txn {
 
+// TODO(sheep): organize the code to avoid duplication
+
 Status LockTable::Lock(std::string_view sort_key, TxnId txn_id) noexcept {
   std::unique_lock<bthread::Mutex> guard(mu_);
   // try emplace the lock
@@ -30,9 +32,34 @@ Status LockTable::Lock(std::string_view sort_key, TxnId txn_id) noexcept {
   // add waiter count
   lock_entry->AddWaiter();
   // if failed, wait on the cv
+  while (lock_entry->is_locked) {
+    lock_entry->cv.wait(guard);
+  }
+  // remove waiter
+  lock_entry->DecWaiter();
+  // suspicious wakeup might reverse the priority.
+  lock_entry->txn_id = txn_id;
+  lock_entry->is_locked = true;
+  return Status::Ok();
+}
+
+Status LockTable::LockFor(std::string_view sort_key, TxnId txn_id,
+                          int64_t timeout_us) noexcept {
+  std::unique_lock<bthread::Mutex> guard(mu_);
+  // try emplace the lock
+  auto [it, lock_succeed] =
+      map_.emplace(std::string(sort_key), std::make_unique<LockEntry>(txn_id));
+  if (lock_succeed) {
+    return Status::Ok();
+  }
+  LockEntry *lock_entry = it->second.get();
+  // duplicated lock should be handled outside.
+  CHECK(lock_entry->txn_id != txn_id);
+  // add waiter count
+  lock_entry->AddWaiter();
+  // if failed, wait on the cv
   // don't handle suspicious wakeup since it will increase code complexity
-  bool timeout = lock_entry->cv.wait_for(
-                     guard, common::Config::kLockTimeoutUs) == ETIMEDOUT;
+  bool timeout = lock_entry->cv.wait_for(guard, timeout_us) == ETIMEDOUT;
   // remove waiter
   lock_entry->DecWaiter();
   // suspicious wakeup might reverse the priority.

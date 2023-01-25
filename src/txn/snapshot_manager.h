@@ -114,14 +114,20 @@ private:
 class LinkBufSnapshotManager {
 public:
   LinkBufSnapshotManager() noexcept
-      : link_buf_(common::Config::kLinkBufSnapshotManagerSize) {}
+      : link_buf_(common::Config::kLinkBufSnapshotManagerSize) {
+    // valid ts starts from 1.
+    // so we add link manually here.
+    link_buf_.add_link(0, 1);
+    link_buf_.advance_tail();
+    CHECK(link_buf_.tail() == 1);
+  }
 
   void CommitTs(TxnTs ts) noexcept { link_buf_.add_link(ts, ts + 1); }
 
   TxnTs GetSnapshotTs() noexcept {
     // TODO(sheep): cache the result
     link_buf_.advance_tail();
-    return link_buf_.tail();
+    return link_buf_.tail() - 1;
   }
 
 private:

@@ -35,9 +35,20 @@ public:
    *
    * @param sort_key
    * @param txn_id
-   * @return Status
+   * @return Status always be ok
    */
   Status Lock(std::string_view sort_key, TxnId txn_id) noexcept;
+
+  /**
+   * @brief
+   *
+   * @param sort_key
+   * @param txn_id
+   * @param timeout_us
+   * @return Status
+   */
+  Status LockFor(std::string_view sort_key, TxnId txn_id,
+                 int64_t timeout_us) noexcept;
 
   /**
    * @brief
@@ -85,6 +96,11 @@ public:
 
   Status Unlock(std::string_view sort_key, TxnId txn_id) noexcept {
     return GetShard_(sort_key)->Unlock(sort_key, txn_id);
+  }
+
+  Status LockFor(std::string_view sort_key, TxnId txn_id,
+                 int64_t timeout_us) noexcept {
+    return GetShard_(sort_key)->LockFor(sort_key, txn_id, timeout_us);
   }
 
 private:

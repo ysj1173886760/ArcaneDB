@@ -47,7 +47,7 @@ public:
 
   std::unique_ptr<TxnContext> BeginRwTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
-    auto txn_ts = Tso::RequestTs();
+    auto txn_ts = tso_.RequestTs();
     return std::make_unique<TxnContext>(txn_id, txn_ts, TxnType::ReadWriteTxn,
                                         &snapshot_manager_, &lock_table_);
   }
@@ -61,6 +61,7 @@ private:
 
   mutable LinkBufSnapshotManager snapshot_manager_;
   mutable ShardedLockTable lock_table_;
+  mutable Tso tso_;
 };
 
 } // namespace txn

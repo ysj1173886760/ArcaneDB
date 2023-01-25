@@ -19,7 +19,7 @@ Status TxnContext::SetRow(const std::string &sub_table_key,
                           const property::Row &row,
                           const Options &opts) noexcept {
   auto sub_table = GetSubTable_(sub_table_key, opts);
-  auto s = AcquireLock_(sub_table_key, row.GetSortKeys().ToString());
+  auto s = AcquireLock_(sub_table_key, row.GetSortKeys().as_slice());
   if (unlikely(!s.ok())) {
     return s;
   }

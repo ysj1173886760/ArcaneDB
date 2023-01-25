@@ -15,6 +15,8 @@
 #include <gtest/gtest.h>
 #include <string>
 
+// TODO(sheep): fixme: this test might still contains bug.
+
 namespace arcanedb {
 namespace txn {
 
@@ -101,7 +103,11 @@ public:
     Status s1 = context->GetRow(k1, sk1.as_ref(), opts_, &view1);
     btree::RowView view2;
     Status s2 = context->GetRow(k1, sk2.as_ref(), opts_, &view2);
-    EXPECT_EQ(s1, s2);
+    ASSERT_EQ(s1, s2) << s1.ToString() << " " << s2.ToString() << "\n"
+                      << context->GetTxnTs() << "\n"
+                      << DumpHelper(k1) << "\n"
+                      << "View1: " << DumpHelper(view1) << "\n"
+                      << "View2: " << DumpHelper(view2) << "\n";
     if (s1.IsNotFound()) {
       return;
     }

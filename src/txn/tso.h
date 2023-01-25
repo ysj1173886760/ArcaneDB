@@ -17,15 +17,18 @@
 namespace arcanedb {
 namespace txn {
 
+/**
+ * @brief
+ * TSO start from 1.
+ */
 class Tso {
 public:
-  static TxnTs RequestTs() noexcept {
-    static Tso tso;
-    return tso.ts_.fetch_add(1, std::memory_order_relaxed);
+  TxnTs RequestTs() noexcept {
+    return ts_.fetch_add(1, std::memory_order_relaxed);
   }
 
 private:
-  std::atomic<TxnTs> ts_{0};
+  std::atomic<TxnTs> ts_{1};
 };
 
 } // namespace txn
