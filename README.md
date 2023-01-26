@@ -17,6 +17,7 @@ Might be a graph storage engine.
 - [x] 1-level Btr
 - [x] Versioned Btr
 - [x] Transaction component
+  - [] More concurrency control protocol
 - [] Graph interface
 - [] 2-level Btr
 - [] WAL
