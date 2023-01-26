@@ -134,9 +134,16 @@ public:
     // only newest version can be locked
     // relaxed here is ok since we will acquire lock outside, which has the
     // acquire semantic.
-    if (!opts.ignore_lock &&
-        IsLocked(entry.write_ts.load(std::memory_order_relaxed))) {
-      return Status::Retry();
+    if (auto write_ts = entry.write_ts.load(std::memory_order_relaxed);
+        IsLocked(write_ts)) {
+      if (opts.ignore_lock) {
+        // skip the intent, since we are read-only txn
+      } else if (opts.owner_ts.has_value() &&
+                 *opts.owner_ts == GetTs(write_ts)) {
+        // ignore, since we are the owner.
+      } else {
+        return Status::Retry();
+      }
     }
 
     // try read newest version

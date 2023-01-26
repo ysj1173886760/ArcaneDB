@@ -83,7 +83,7 @@ btree::SubTable *TxnContext2PL::GetSubTable_(const std::string &sub_table_key,
   return new_it->second.get();
 }
 
-Status TxnContext2PL::CommitOrAbort() noexcept {
+Status TxnContext2PL::CommitOrAbort(const Options &opts) noexcept {
   if (txn_type_ == TxnType::ReadOnlyTxn) {
     return Status::Commit();
   }

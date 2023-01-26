@@ -85,6 +85,19 @@ public:
     return cluster_index_.GetRow(sort_key, read_ts, opts, view);
   }
 
+  /**
+   * @brief
+   * Set ts of the newest version with "sort_key" to "target_ts"
+   * @param sort_key
+   * @param target_ts
+   * @param opts
+   * @return Status
+   */
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+               const Options &opts) noexcept {
+    return cluster_index_.SetTs(sort_key, target_ts, opts);
+  }
+
 private:
   VersionedBtree cluster_index_;
 };

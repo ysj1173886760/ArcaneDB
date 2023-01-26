@@ -13,6 +13,7 @@
 
 #include "cache/buffer_pool.h"
 #include "property/schema.h"
+#include <optional>
 
 namespace arcanedb {
 
@@ -22,9 +23,12 @@ namespace arcanedb {
  */
 struct Options {
   const property::Schema *schema{};
+  cache::BufferPool *buffer_pool{};
+  // we will skip the lock when lock ts is the same as
+  // owner ts.
+  std::optional<TxnTs> owner_ts{};
   bool disable_compaction{false};
   bool ignore_lock{false};
-  cache::BufferPool *buffer_pool{};
 };
 
 } // namespace arcanedb

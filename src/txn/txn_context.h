@@ -74,11 +74,16 @@ public:
    * @brief
    * Commit or abort current txn.
    * return the txn state.
+   * @param opts
    * @return Status
    */
-  virtual Status CommitOrAbort() noexcept = 0;
+  virtual Status CommitOrAbort(const Options &opts) noexcept = 0;
 
-  virtual TxnTs GetTxnTs() const noexcept = 0;
+  virtual TxnTs GetReadTs() const noexcept = 0;
+
+  virtual TxnTs GetWriteTs() const noexcept = 0;
+
+  virtual TxnType GetTxnType() const noexcept = 0;
 
   virtual ~TxnContext() noexcept {}
 };

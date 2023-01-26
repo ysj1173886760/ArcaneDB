@@ -159,6 +159,12 @@ struct SortKeysHash {
   }
 };
 
+struct SortKeysRefHash {
+  size_t operator()(const SortKeysRef &sk) const noexcept {
+    return absl::Hash<std::string_view>()(sk.as_slice());
+  }
+};
+
 template <typename T> inline Value GetSortKeysLimitMin() noexcept {
   return Value(std::numeric_limits<std::decay_t<T>>::min());
 }

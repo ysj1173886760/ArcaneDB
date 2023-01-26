@@ -34,4 +34,6 @@ inline bool IsLocked(TxnTs ts) { return (ts >> 31) & 1; }
 
 inline TxnTs MarkLocked(TxnTs ts) { return ts | (1 << kLockBitOffset); }
 
+inline TxnTs GetTs(TxnTs ts) { return ts & kMaxTxnTs; }
+
 } // namespace arcanedb

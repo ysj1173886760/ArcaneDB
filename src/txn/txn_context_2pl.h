@@ -72,7 +72,9 @@ public:
                 property::SortKeysRef sort_key, const Options &opts,
                 btree::RowView *view) noexcept override;
 
-  TxnTs GetTxnTs() const noexcept override { return txn_ts_; }
+  TxnTs GetReadTs() const noexcept override { return txn_ts_; }
+
+  TxnTs GetWriteTs() const noexcept override { return txn_ts_; }
 
   /**
    * @brief
@@ -80,7 +82,9 @@ public:
    * return the txn state.
    * @return Status
    */
-  Status CommitOrAbort() noexcept override;
+  Status CommitOrAbort(const Options &opts) noexcept override;
+
+  TxnType GetTxnType() const noexcept override { return txn_type_; }
 
 private:
   btree::SubTable *GetSubTable_(const std::string &sub_table_key,

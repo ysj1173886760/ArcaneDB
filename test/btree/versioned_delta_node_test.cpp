@@ -231,5 +231,19 @@ TEST_F(VersionedDeltaNodeTest, IgnoreLockTest) {
   TestRead(&view, value);
 }
 
+TEST_F(VersionedDeltaNodeTest, LockOwnerTest) {
+  TxnTs ts = 1;
+  ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+  auto delta = MakeDelta(value, false, MarkLocked(ts));
+  auto sk = property::SortKeys({value.point_id, value.point_type});
+  RowView view;
+  Options tmp_opt = opts_;
+  tmp_opt.owner_ts = ts;
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, tmp_opt, &view).IsNotFound());
+  EXPECT_TRUE(delta->SetTs(sk.as_ref(), ts).ok());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).ok());
+  TestRead(&view, value);
+}
+
 } // namespace btree
 } // namespace arcanedb
