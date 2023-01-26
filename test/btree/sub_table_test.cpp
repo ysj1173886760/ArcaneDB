@@ -111,7 +111,7 @@ TEST_F(SubTableTest, BasicTest) {
   ASSERT_TRUE(SubTable::OpenSubTable(table_key_, opts_, &sub_table).ok());
 
   auto value_list = GenerateValueList(100);
-  TxnTs ts = 0;
+  TxnTs ts = 1;
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
@@ -152,7 +152,7 @@ TEST_F(SubTableTest, ConcurrentTest) {
   int worker_count = 100;
   int epoch_cnt = 10;
   util::WaitGroup wg(worker_count);
-  TxnTs ts = 0;
+  TxnTs ts = 1;
   for (int i = 0; i < worker_count; i++) {
     util::LaunchAsync([&, index = i]() {
       std::unique_ptr<SubTable> sub_table;

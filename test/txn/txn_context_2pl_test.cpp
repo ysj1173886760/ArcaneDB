@@ -1,26 +1,24 @@
 /**
- * @file txn_context_test.cpp
+ * @file txn_context_2pl_test.cpp
  * @author sheep (ysj1173886760@gmail.com)
  * @brief
  * @version 0.1
- * @date 2023-01-25
+ * @date 2023-01-26
  *
  * @copyright Copyright (c) 2023
  *
  */
 
 #include "txn/txn_context.h"
-#include "txn/txn_manager.h"
+#include "txn/txn_manager_2pl.h"
 #include "util/bthread_util.h"
 #include <gtest/gtest.h>
 #include <string>
 
-// TODO(sheep): fixme: this test might still contains bug.
-
 namespace arcanedb {
 namespace txn {
 
-class TxnContextTest : public ::testing::Test {
+class TxnContext2PLTest : public ::testing::Test {
 public:
   property::Schema MakeTestSchema() noexcept {
     property::Column column1{
@@ -157,7 +155,7 @@ public:
     opts_.schema = &schema_;
     bpm_ = std::make_unique<cache::BufferPool>();
     opts_.buffer_pool = bpm_.get();
-    txn_manager_ = std::make_unique<TxnManager>();
+    txn_manager_ = std::make_unique<TxnManager2PL>();
   }
 
   void TearDown() {}
@@ -167,10 +165,10 @@ public:
   std::unique_ptr<cache::BufferPool> bpm_;
   property::Schema schema_;
   std::string table_key_ = "test_table";
-  std::unique_ptr<TxnManager> txn_manager_;
+  std::unique_ptr<TxnManager2PL> txn_manager_;
 };
 
-TEST_F(TxnContextTest, BasicTest) {
+TEST_F(TxnContext2PLTest, BasicTest) {
   auto value_list = GenerateValueList(100);
   TxnTs ts;
   {
@@ -183,14 +181,14 @@ TEST_F(TxnContextTest, BasicTest) {
                       .ok());
     }
     ts = context->GetTxnTs();
-    context->Commit();
+    context->CommitOrAbort();
   }
   {
     auto context = txn_manager_->BeginRoTxnWithTs(ts);
     for (const auto &value : value_list) {
       TestRead(context.get(), table_key_, value, false);
     }
-    context->Commit();
+    context->CommitOrAbort();
   }
   {
     auto context = txn_manager_->BeginRwTxn();
@@ -203,7 +201,7 @@ TEST_F(TxnContextTest, BasicTest) {
                       .ok());
     }
     ts = context->GetTxnTs();
-    context->Commit();
+    context->CommitOrAbort();
   }
   {
     auto context = txn_manager_->BeginRoTxnWithTs(ts);
@@ -213,7 +211,7 @@ TEST_F(TxnContextTest, BasicTest) {
   }
 }
 
-TEST_F(TxnContextTest, ConcurrentTest) {
+TEST_F(TxnContext2PLTest, ConcurrentTest) {
   std::vector<std::string> table_list;
   for (int i = 0; i < 10; i++) {
     table_list.push_back("test_table" + std::to_string(i));
@@ -245,7 +243,7 @@ TEST_F(TxnContextTest, ConcurrentTest) {
                                         table_list[table_index], row, opts_);
                                   })
                           .ok());
-          context->Commit();
+          context->CommitOrAbort();
           // TestTsAsending(table_list[table_index]);
         }
         wg.Done();
@@ -264,7 +262,7 @@ TEST_F(TxnContextTest, ConcurrentTest) {
               .point_id = 1, .point_type = 0, .value = std::to_string(k)};
           TestConsistentRead(context.get(), table_list[table_index], value1,
                              value2);
-          context->Commit();
+          context->CommitOrAbort();
         }
         wg.Done();
       });
