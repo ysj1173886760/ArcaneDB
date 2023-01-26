@@ -27,8 +27,8 @@ public:
 
   std::unique_ptr<TxnContext> BeginRoTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
-    auto txn_ts = snapshot_manager_.GetSnapshotTs();
-    return std::make_unique<TxnContextOCC>(txn_id, txn_ts, TxnType::ReadOnlyTxn,
+    auto read_ts = snapshot_manager_.GetSnapshotTs();
+    return std::make_unique<TxnContextOCC>(txn_id, read_ts, TxnType::ReadOnlyTxn,
                                            &lock_table_, this);
   }
 
@@ -40,12 +40,18 @@ public:
 
   std::unique_ptr<TxnContext> BeginRwTxn() const noexcept {
     auto txn_id = util::GenerateUUID();
-    auto txn_ts = tso_.RequestTs();
+    auto read_ts = tso_.RequestTs();
+    // commit this read ts immediately.
+    snapshot_manager_.CommitTs(read_ts);
     return std::make_unique<TxnContextOCC>(
-        txn_id, txn_ts, TxnType::ReadWriteTxn, &lock_table_, this);
+        txn_id, read_ts, TxnType::ReadWriteTxn, &lock_table_, this);
   }
 
   TxnTs RequestTs() const noexcept { return tso_.RequestTs(); }
+
+  void Commit(TxnContext *txn_context) const noexcept {
+    snapshot_manager_.CommitTs(txn_context->GetWriteTs());
+  }
 
   LinkBufSnapshotManager *GetSnapshotManager() noexcept {
     return &snapshot_manager_;

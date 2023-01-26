@@ -118,6 +118,8 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
         txn_id_, read_ts_, commit_ts_, s.ToString());
     return Status::Abort();
   }
+  // commit ts
+  txn_manager_->Commit(this);
   return Status::Commit();
 }
 
