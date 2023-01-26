@@ -59,7 +59,8 @@ public:
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
                 const Options &opts, RowView *view) const noexcept;
 
-  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts) noexcept;
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+               const Options &opts) noexcept;
 
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();
@@ -79,6 +80,9 @@ private:
 
   void MaybePerformCompaction_(const Options &opts,
                                VersionedDeltaNode *current_ptr) noexcept;
+
+  Status GetRowOnce_(property::SortKeysRef sort_key, TxnTs read_ts,
+                     const Options &opts, RowView *view) const noexcept;
 
   std::shared_ptr<VersionedDeltaNode> GetPtr_() const noexcept {
     DoublyBufferedData::ScopedPtr scoped_ptr;

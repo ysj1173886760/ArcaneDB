@@ -10,6 +10,7 @@
  */
 
 #include "btree/page/versioned_bwtree_page.h"
+#include "bthread/bthread.h"
 #include "common/config.h"
 
 namespace arcanedb {
@@ -74,6 +75,20 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
 Status VersionedBwTreePage::GetRow(property::SortKeysRef sort_key,
                                    TxnTs read_ts, const Options &opts,
                                    RowView *view) const noexcept {
+  while (true) {
+    auto s = GetRowOnce_(sort_key, read_ts, opts, view);
+    if (!s.IsRetry()) {
+      return s;
+    }
+    // sleep 20 microseconds
+    bthread_usleep(20);
+  }
+  UNREACHABLE();
+}
+
+Status VersionedBwTreePage::GetRowOnce_(property::SortKeysRef sort_key,
+                                        TxnTs read_ts, const Options &opts,
+                                        RowView *view) const noexcept {
   auto shared_ptr = GetPtr_();
   auto current_ptr = shared_ptr.get();
   // traverse the delta node
@@ -81,9 +96,10 @@ Status VersionedBwTreePage::GetRow(property::SortKeysRef sort_key,
     auto s = current_ptr->GetRow(sort_key, read_ts, view);
     if (s.ok()) {
       return Status::Ok();
-    }
-    if (s.IsDeleted()) {
+    } else if (s.IsDeleted()) {
       return Status::NotFound();
+    } else if (s.IsRetry()) {
+      return Status::Retry();
     }
     current_ptr = current_ptr->GetPrevious().get();
   }
@@ -91,7 +107,8 @@ Status VersionedBwTreePage::GetRow(property::SortKeysRef sort_key,
 }
 
 Status VersionedBwTreePage::SetTs(property::SortKeysRef sort_key,
-                                  TxnTs target_ts) noexcept {
+                                  TxnTs target_ts,
+                                  const Options &opts) noexcept {
   // acquire write lock
   util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
   auto shared_ptr = GetPtr_();

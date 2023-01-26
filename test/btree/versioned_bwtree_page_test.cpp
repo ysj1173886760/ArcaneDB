@@ -96,37 +96,38 @@ public:
 
 TEST_F(VersionedBwTreePageTest, BasicTest) {
   // insert
+  TxnTs ts = 1;
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page_->SetRow(row, 0, opts_);
+      return page_->SetRow(row, ts, opts_);
     });
     EXPECT_TRUE(s.ok());
     RowView view;
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    EXPECT_TRUE(page_->GetRow(sk.as_ref(), 1, opts_, &view).ok());
+    EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts_, &view).ok());
     TestRead(view.at(0), value);
   }
   // update
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "world"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page_->SetRow(row, 1, opts_);
+      return page_->SetRow(row, ts + 1, opts_);
     });
     EXPECT_TRUE(s.ok());
     RowView view;
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    EXPECT_TRUE(page_->GetRow(sk.as_ref(), 1, opts_, &view).ok());
+    EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts + 1, opts_, &view).ok());
     TestRead(view.at(0), value);
   }
   // delete
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = ""};
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    auto s = page_->DeleteRow(sk.as_ref(), 2, opts_);
+    auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts_);
     EXPECT_TRUE(s.ok());
     RowView view;
-    EXPECT_TRUE(page_->GetRow(sk.as_ref(), 2, opts_, &view).IsNotFound());
+    EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts + 2, opts_, &view).IsNotFound());
   }
 }
 
@@ -136,7 +137,7 @@ TEST_F(VersionedBwTreePageTest, CompactionTest) {
   opts.disable_compaction = false;
   for (const auto &value : value_list) {
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page_->SetRow(row, 0, opts);
+      return page_->SetRow(row, 1, opts);
     });
     EXPECT_TRUE(s.ok());
   }
@@ -146,7 +147,7 @@ TEST_F(VersionedBwTreePageTest, CompactionTest) {
   for (const auto &value : value_list) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = page_->GetRow(sk.as_ref(), 0, opts_, &view);
+    auto s = page_->GetRow(sk.as_ref(), 1, opts_, &view);
     EXPECT_TRUE(s.ok());
     TestRead(view.at(0), value);
   }
@@ -167,7 +168,7 @@ TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
       for (int j = 0; j < epoch; j++) {
         util::Timer epoch_timer;
         // insert
-        TxnTs ts = j * 3;
+        TxnTs ts = (j * 3) + 1;
         {
           ValueStruct value{
               .point_id = index, .point_type = 0, .value = "hello"};
@@ -257,7 +258,7 @@ TEST_F(VersionedBwTreePageTest, PerformanceTest) {
   for (int j = 0; j < epoch; j++) {
     util::Timer epoch_timer;
     // insert
-    TxnTs ts = 3 * j;
+    TxnTs ts = 3 * j + 1;
     {
       ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
       auto s = WriteHelper(value, [&](const property::Row &row) {
@@ -323,6 +324,67 @@ TEST_F(VersionedBwTreePageTest, PerformanceTest) {
                 write_latency.latency(), write_latency.max_latency());
   ARCANEDB_INFO("epoch latency avg: {}, max latency: {}",
                 epoch_latency.latency(), epoch_latency.max_latency());
+}
+
+TEST_F(VersionedBwTreePageTest, SetTsTest) {
+  Options opts;
+  TxnTs ts = 1;
+  ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+  EXPECT_TRUE(WriteHelper(value,
+                          [&](const property::Row &row) {
+                            auto s = page_->SetRow(row, MarkLocked(ts), opts);
+                            return s;
+                          })
+                  .ok());
+  EXPECT_TRUE(WriteHelper(value,
+                          [&](const property::Row &row) {
+                            auto s = page_->SetTs(row.GetSortKeys(), ts, opts);
+                            return s;
+                          })
+                  .ok());
+  auto sk = property::SortKeys({value.point_id, value.point_type});
+  RowView view;
+  EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts, &view).ok());
+  TestRead(view.at(0), value);
+}
+
+TEST_F(VersionedBwTreePageTest, ConcurrentLockCommitTest) {
+  int worker_count = 100;
+  int epoch = 10;
+  util::WaitGroup wg(worker_count);
+  Options opts;
+  opts.disable_compaction = false;
+  for (int i = 0; i < worker_count; i++) {
+    util::LaunchAsync([&, index = i]() {
+      for (int j = 0; j < epoch; j++) {
+        util::Timer epoch_timer;
+        // lock
+        TxnTs ts = (j * 3) + 1;
+        ValueStruct value{.point_id = index, .point_type = 0, .value = "hello"};
+        {
+          auto s = WriteHelper(value, [&](const property::Row &row) {
+            auto s = page_->SetRow(row, MarkLocked(ts), opts);
+            return s;
+          });
+          EXPECT_TRUE(s.ok());
+        }
+        // commit
+        {
+          auto s = WriteHelper(value, [&](const property::Row &row) {
+            auto s = page_->SetTs(row.GetSortKeys(), ts, opts);
+            return s;
+          });
+          EXPECT_TRUE(s.ok());
+          RowView view;
+          auto sk = property::SortKeys({value.point_id, value.point_type});
+          EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts, &view).ok());
+          TestRead(view.at(0), value);
+        }
+      }
+      wg.Done();
+    });
+  }
+  wg.Wait();
 }
 
 } // namespace btree
