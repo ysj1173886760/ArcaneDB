@@ -59,6 +59,8 @@ public:
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
                 const Options &opts, RowView *view) const noexcept;
 
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts) noexcept;
+
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();
     return ptr->GetTotalLength();
@@ -88,8 +90,14 @@ private:
     ptr_.Modify(UpdateFn_, new_node);
   }
 
+  void DummyUpdate_() const noexcept { ptr_.Modify(DummyFn_); }
+
+  static bool DummyFn_(std::shared_ptr<VersionedDeltaNode> &old_node) noexcept {
+    return true;
+  }
+
   static bool UpdateFn_(std::shared_ptr<VersionedDeltaNode> &old_node,
-                        std::shared_ptr<VersionedDeltaNode> new_node) {
+                        std::shared_ptr<VersionedDeltaNode> new_node) noexcept {
     old_node = new_node;
     return true;
   }

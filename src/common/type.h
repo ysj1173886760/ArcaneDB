@@ -26,6 +26,12 @@ using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
 using TxnId = int64_t;
 using TxnTs = uint32_t;
 
-static constexpr uint32_t kMaxTxnTs = std::numeric_limits<TxnTs>::max();
+static constexpr uint32_t kMaxTxnTs = std::numeric_limits<int32_t>::max();
+static constexpr uint32_t kAbortedTxnTs = 0;
+static constexpr size_t kLockBitOffset = 31;
+
+inline bool IsLocked(TxnTs ts) { return (ts >> 31) & 1; }
+
+inline TxnTs MarkLocked(TxnTs ts) { return ts | (1 << kLockBitOffset); }
 
 } // namespace arcanedb

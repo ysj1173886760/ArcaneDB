@@ -13,6 +13,7 @@
 #include "btree/btree_type.h"
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"
+#include <atomic>
 #include <memory>
 #include <string>
 
@@ -23,8 +24,15 @@ class VersionedDeltaNode : public RowOwner {
   struct Entry {
     // highest bit stores whether row is deleted.
     // 31 bit stores offset
-    uint32_t control_bit;
-    TxnTs write_ts;
+    uint32_t control_bit{};
+    // TODO(sheep): 16 entry per cache line. false sharing might hurt
+    // performance
+    std::atomic<TxnTs> write_ts{};
+
+    Entry() = default;
+    Entry(const Entry &rhs) noexcept
+        : control_bit(rhs.control_bit),
+          write_ts(rhs.write_ts.load(std::memory_order_relaxed)) {}
   };
 
   static constexpr size_t kDefaultVersionChainLength = 8;
@@ -74,17 +82,19 @@ public:
   template <typename Visitor> void Traverse(Visitor visitor) const noexcept {
     for (size_t i = 0; i < rows_.size(); i++) {
       {
-        auto offset = GetOffset(rows_[i]);
+        auto offset = GetOffset(rows_[i].control_bit);
         auto row = property::Row(buffer_.data() + offset);
-        visitor(row, IsDeleted(rows_[i]), rows_[i].write_ts);
+        visitor(row, IsDeleted(rows_[i].control_bit),
+                rows_[i].write_ts.load(std::memory_order_relaxed));
       }
       if (version_buffer_.empty()) {
         continue;
       }
-      for (Entry entry : versions_[i]) {
-        auto offset = GetOffset(entry);
+      for (const Entry &entry : versions_[i]) {
+        auto offset = GetOffset(entry.control_bit);
         auto row = property::Row(version_buffer_.data() + offset);
-        visitor(row, IsDeleted(entry), entry.write_ts);
+        visitor(row, IsDeleted(entry.control_bit),
+                entry.write_ts.load(std::memory_order_relaxed));
       }
     }
   }
@@ -103,40 +113,79 @@ public:
     auto it = std::lower_bound(
         rows_.begin(), rows_.end(), sort_key,
         [&](const Entry &entry, const property::SortKeysRef &sort_key) {
-          auto offset = GetOffset(entry);
+          auto offset = GetOffset(entry.control_bit);
           auto row = property::Row(buffer_.data() + offset);
           return row.GetSortKeys() < sort_key;
         });
     if (it == rows_.end()) {
       return Status::NotFound();
     }
-    auto entry = *it;
-    auto offset = GetOffset(entry);
+
+    auto &entry = *it;
+    auto offset = GetOffset(entry.control_bit);
     auto row = property::Row(buffer_.data() + offset);
     if (row.GetSortKeys() != sort_key) {
       // sk not match
       return Status::NotFound();
     }
+
+    // only newest version can be locked
+    // relaxed here is ok since we will acquire lock outside, which has the
+    // acquire semantic.
+    if (IsLocked(entry.write_ts.load(std::memory_order_relaxed))) {
+      return Status::Retry();
+    }
+
     // try read newest version
-    if (IsVisible_(read_ts, entry.write_ts)) {
+    if (IsVisible_(read_ts, entry.write_ts.load(std::memory_order_relaxed))) {
       return ReadVersion_(row, entry, view);
     }
+
     // no old version
     if (versions_.empty()) {
       return Status::NotFound();
     }
+
     // try old versions
     auto index = std::distance(rows_.begin(), it);
-    // copy is fine here, since Entry only has 8 byte
-    static_assert(sizeof(Entry) == 8, "use reference instead of copying value");
-    for (Entry version : versions_[index]) {
+    for (const Entry &version : versions_[index]) {
       if (IsVisible_(read_ts, version.write_ts)) {
-        auto offset = GetOffset(version);
+        auto offset = GetOffset(version.control_bit);
         auto row = property::Row(version_buffer_.data() + offset);
         return ReadVersion_(row, version, view);
       }
     }
     return Status::NotFound();
+  }
+
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts) noexcept {
+    // first locate sort_key
+    auto it = std::lower_bound(
+        rows_.begin(), rows_.end(), sort_key,
+        [&](const Entry &entry, const property::SortKeysRef &sort_key) {
+          auto offset = GetOffset(entry.control_bit);
+          auto row = property::Row(buffer_.data() + offset);
+          return row.GetSortKeys() < sort_key;
+        });
+    if (it == rows_.end()) {
+      return Status::NotFound();
+    }
+
+    auto &entry = *it;
+    auto offset = GetOffset(entry.control_bit);
+    auto row = property::Row(buffer_.data() + offset);
+    if (row.GetSortKeys() != sort_key) {
+      // sk not match
+      return Status::NotFound();
+    }
+
+    // must be locked
+    if (IsLocked(entry.write_ts.load(std::memory_order_relaxed))) {
+      entry.write_ts.store(target_ts, std::memory_order_relaxed);
+      return Status::Ok();
+    }
+    // first entry is not locked, logical error might happens
+    return Status::Err();
   }
 
   VersionedDeltaNode() = default;
@@ -146,16 +195,22 @@ public:
 private:
   friend class VersionedDeltaNodeBuilder;
 
-  static bool IsVisible_(TxnTs read_ts, TxnTs write_ts) noexcept {
+  inline static bool IsVisible_(TxnTs read_ts, TxnTs write_ts) noexcept {
+    // aborted version is not visible
+    if (write_ts == kAbortedTxnTs) {
+      return false;
+    }
     return read_ts >= write_ts;
   }
 
-  Status ReadVersion_(const property::Row &row, Entry entry,
-                      RowView *view) const noexcept {
-    if (IsDeleted(entry)) {
+  // hope to inline
+  inline Status ReadVersion_(const property::Row &row, const Entry &entry,
+                             RowView *view) const noexcept {
+    if (IsDeleted(entry.control_bit)) {
       return Status::Deleted();
     }
-    view->PushBackRef(RowWithTs(row, entry.write_ts));
+    view->PushBackRef(
+        RowWithTs(row, entry.write_ts.load(std::memory_order_relaxed)));
     view->AddOwnerPointer(shared_from_this());
     return Status::Ok();
   }
@@ -164,12 +219,12 @@ private:
   static constexpr size_t kOffsetMask = 0x7fffffff;
   static constexpr size_t kMaximumOffset = kOffsetMask;
 
-  static bool IsDeleted(Entry entry) noexcept {
-    return (entry.control_bit >> kStateOffset) & 1;
+  static bool IsDeleted(uint32_t control_bit) noexcept {
+    return (control_bit >> kStateOffset) & 1;
   }
 
-  static size_t GetOffset(Entry entry) noexcept {
-    return entry.control_bit & kOffsetMask;
+  static size_t GetOffset(uint32_t control_bit) noexcept {
+    return control_bit & kOffsetMask;
   }
 
   static void MarkDeleted(Entry *entry) noexcept {
@@ -208,7 +263,7 @@ private:
                         const BuildEntry &build_entry) noexcept {
     VersionedDeltaNode::Entry entry;
     entry.control_bit = writer->Offset();
-    entry.write_ts = build_entry.write_ts;
+    entry.write_ts.store(build_entry.write_ts, std::memory_order_relaxed);
     if (build_entry.is_deleted) {
       VersionedDeltaNode::MarkDeleted(&entry);
     }

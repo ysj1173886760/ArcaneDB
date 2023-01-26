@@ -77,7 +77,6 @@ Status VersionedBwTreePage::GetRow(property::SortKeysRef sort_key,
   auto shared_ptr = GetPtr_();
   auto current_ptr = shared_ptr.get();
   // traverse the delta node
-  view->AddOwnerPointer(shared_ptr);
   while (current_ptr != nullptr) {
     auto s = current_ptr->GetRow(sort_key, read_ts, view);
     if (s.ok()) {
@@ -85,6 +84,28 @@ Status VersionedBwTreePage::GetRow(property::SortKeysRef sort_key,
     }
     if (s.IsDeleted()) {
       return Status::NotFound();
+    }
+    current_ptr = current_ptr->GetPrevious().get();
+  }
+  return Status::NotFound();
+}
+
+Status VersionedBwTreePage::SetTs(property::SortKeysRef sort_key,
+                                  TxnTs target_ts) noexcept {
+  // acquire write lock
+  util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+  auto shared_ptr = GetPtr_();
+  auto current_ptr = shared_ptr.get();
+  while (current_ptr != nullptr) {
+    auto s = current_ptr->SetTs(sort_key, target_ts);
+    if (likely(s.ok())) {
+      // need to perform dummy update,
+      // so that readers afterward will see our update.
+      DummyUpdate_();
+      return s;
+    }
+    if (unlikely(!s.IsNotFound())) {
+      return s;
     }
     current_ptr = current_ptr->GetPrevious().get();
   }

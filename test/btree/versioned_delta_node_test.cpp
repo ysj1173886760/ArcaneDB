@@ -92,7 +92,7 @@ public:
 
 TEST_F(VersionedDeltaNodeTest, BasicTest) {
   // read single node write and read
-  TxnTs ts = 0;
+  TxnTs ts = 1;
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto delta = MakeDelta(value, false, ts);
@@ -115,7 +115,7 @@ TEST_F(VersionedDeltaNodeTest, CompactionTest) {
   VersionedDeltaNodeBuilder builder;
   auto value_list = GenerateValueList(100);
   std::vector<std::shared_ptr<VersionedDeltaNode>> deltas;
-  TxnTs ts = 0;
+  TxnTs ts = 1;
   for (const auto &value : value_list) {
     auto node = MakeDelta(value, false, ts);
     deltas.push_back(node);
@@ -138,7 +138,7 @@ TEST_F(VersionedDeltaNodeTest, MultiVersionTest) {
   for (int i = 99; i >= 0; i--) {
     value_list[i] =
         ValueStruct{.point_id = 0, .point_type = 0, .value = std::to_string(i)};
-    auto node = MakeDelta(value_list[i], false, i);
+    auto node = MakeDelta(value_list[i], false, i + 1);
     deltas.push_back(node);
     builder.AddDeltaNode(node.get());
   }
@@ -147,7 +147,7 @@ TEST_F(VersionedDeltaNodeTest, MultiVersionTest) {
       property::SortKeys({value_list[0].point_id, value_list[0].point_type});
   for (int i = 0; i < 100; i++) {
     RowView view;
-    auto s = compacted->GetRow(sk.as_ref(), i, &view);
+    auto s = compacted->GetRow(sk.as_ref(), i + 1, &view);
     ASSERT_TRUE(s.ok()) << i << s.ToString();
     TestRead(&view, value_list[i]);
   }
@@ -157,7 +157,7 @@ TEST_F(VersionedDeltaNodeTest, PointReadTest) {
   VersionedDeltaNodeBuilder builder;
   auto value_list = GenerateValueList(100);
   std::vector<std::shared_ptr<VersionedDeltaNode>> deltas;
-  TxnTs ts = 0;
+  TxnTs ts = 1;
   for (const auto &value : value_list) {
     std::shared_ptr<VersionedDeltaNode> node;
     if (value.point_id % 2 == 0) {
@@ -179,6 +179,38 @@ TEST_F(VersionedDeltaNodeTest, PointReadTest) {
     } else {
       EXPECT_TRUE(s.IsDeleted());
     }
+  }
+}
+
+TEST_F(VersionedDeltaNodeTest, LockTest) {
+  TxnTs ts = 1;
+  ts = MarkLocked(ts);
+  ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+  auto delta = MakeDelta(value, false, ts);
+  auto sk = property::SortKeys({value.point_id, value.point_type});
+  RowView view;
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, &view).IsRetry());
+  EXPECT_TRUE(delta->SetTs(sk.as_ref(), 1).ok());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), 1, &view).ok());
+  TestRead(&view, value);
+}
+
+TEST_F(VersionedDeltaNodeTest, CompactionAbortedVersionTest) {
+  VersionedDeltaNodeBuilder builder;
+  auto value_list = GenerateValueList(100);
+  std::vector<std::shared_ptr<VersionedDeltaNode>> deltas;
+  TxnTs ts = 1;
+  for (const auto &value : value_list) {
+    auto node = MakeDelta(value, false, 0);
+    deltas.push_back(node);
+    builder.AddDeltaNode(node.get());
+  }
+  auto compacted = builder.GenerateDeltaNode();
+  for (const auto &value : value_list) {
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    RowView view;
+    auto s = compacted->GetRow(sk.as_ref(), ts, &view);
+    EXPECT_TRUE(s.IsNotFound());
   }
 }
 

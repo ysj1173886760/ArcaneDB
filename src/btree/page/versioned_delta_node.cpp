@@ -48,6 +48,10 @@ void VersionedDeltaNodeBuilder::AddDeltaNode(
     const VersionedDeltaNode *node) noexcept {
   node->Traverse([&](const property::Row &row, bool is_deleted,
                      TxnTs write_ts) {
+    // skip aborted version
+    if (write_ts == kAbortedTxnTs) {
+      return;
+    }
     // TODO(sheep): remove old version
     map_[row.GetSortKeys()].emplace_back(
         BuildEntry{.row = row, .is_deleted = is_deleted, .write_ts = write_ts});
@@ -100,7 +104,7 @@ std::string VersionedDeltaNode::TEST_DumpChain() const noexcept {
     current_ptr = current_ptr->GetPrevious().get();
   }
   std::string result = "DeltaChainDump:\n";
-  for (const auto [sk, vec] : map) {
+  for (const auto &[sk, vec] : map) {
     result += sk.ToString() + ", ";
     for (const auto &entry : vec) {
       result += fmt::format("{} {}, ", entry.write_ts, entry.is_deleted);
