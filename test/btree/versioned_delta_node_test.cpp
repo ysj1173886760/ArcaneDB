@@ -88,6 +88,7 @@ public:
 
   const int32_t type_ = 0;
   property::Schema schema_;
+  const Options opts_;
 };
 
 TEST_F(VersionedDeltaNodeTest, BasicTest) {
@@ -98,7 +99,7 @@ TEST_F(VersionedDeltaNodeTest, BasicTest) {
     auto delta = MakeDelta(value, false, ts);
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, &view).ok());
+    EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).ok());
     TestRead(&view, value);
   }
   {
@@ -106,7 +107,7 @@ TEST_F(VersionedDeltaNodeTest, BasicTest) {
     auto delta = MakeDelta(value, true, ts);
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = delta->GetRow(sk.as_ref(), ts, &view);
+    auto s = delta->GetRow(sk.as_ref(), ts, opts_, &view);
     EXPECT_EQ(s, Status::Deleted()) << s.ToString();
   }
 }
@@ -125,7 +126,7 @@ TEST_F(VersionedDeltaNodeTest, CompactionTest) {
   for (const auto &value : value_list) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = compacted->GetRow(sk.as_ref(), ts, &view);
+    auto s = compacted->GetRow(sk.as_ref(), ts, opts_, &view);
     EXPECT_TRUE(s.ok());
     TestRead(&view, value);
   }
@@ -147,7 +148,7 @@ TEST_F(VersionedDeltaNodeTest, MultiVersionTest) {
       property::SortKeys({value_list[0].point_id, value_list[0].point_type});
   for (int i = 0; i < 100; i++) {
     RowView view;
-    auto s = compacted->GetRow(sk.as_ref(), i + 1, &view);
+    auto s = compacted->GetRow(sk.as_ref(), i + 1, opts_, &view);
     ASSERT_TRUE(s.ok()) << i << s.ToString();
     TestRead(&view, value_list[i]);
   }
@@ -172,7 +173,7 @@ TEST_F(VersionedDeltaNodeTest, PointReadTest) {
   for (const auto &value : value_list) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = compacted->GetRow(sk.as_ref(), ts, &view);
+    auto s = compacted->GetRow(sk.as_ref(), ts, opts_, &view);
     if (value.point_id % 2 == 0) {
       ASSERT_TRUE(s.ok()) << s.ToString();
       TestRead(&view, value);
@@ -189,9 +190,9 @@ TEST_F(VersionedDeltaNodeTest, LockTest) {
   auto delta = MakeDelta(value, false, ts);
   auto sk = property::SortKeys({value.point_id, value.point_type});
   RowView view;
-  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, &view).IsRetry());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRetry());
   EXPECT_TRUE(delta->SetTs(sk.as_ref(), 1).ok());
-  EXPECT_TRUE(delta->GetRow(sk.as_ref(), 1, &view).ok());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), 1, opts_, &view).ok());
   TestRead(&view, value);
 }
 
@@ -209,9 +210,25 @@ TEST_F(VersionedDeltaNodeTest, CompactionAbortedVersionTest) {
   for (const auto &value : value_list) {
     auto sk = property::SortKeys({value.point_id, value.point_type});
     RowView view;
-    auto s = compacted->GetRow(sk.as_ref(), ts, &view);
+    auto s = compacted->GetRow(sk.as_ref(), ts, opts_, &view);
     EXPECT_TRUE(s.IsNotFound());
   }
+}
+
+TEST_F(VersionedDeltaNodeTest, IgnoreLockTest) {
+  TxnTs ts = 1;
+  ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+  auto delta = MakeDelta(value, false, MarkLocked(ts));
+  auto sk = property::SortKeys({value.point_id, value.point_type});
+  RowView view;
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRetry());
+  Options opts;
+  opts.ignore_lock = true;
+  auto s = delta->GetRow(sk.as_ref(), ts, opts, &view);
+  EXPECT_TRUE(s.IsNotFound()) << s.ToString();
+  EXPECT_TRUE(delta->SetTs(sk.as_ref(), ts).ok());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).ok());
+  TestRead(&view, value);
 }
 
 } // namespace btree

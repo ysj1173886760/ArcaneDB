@@ -23,6 +23,7 @@ namespace arcanedb {
 struct Options {
   const property::Schema *schema{};
   bool disable_compaction{false};
+  bool ignore_lock{false};
   cache::BufferPool *buffer_pool{};
 };
 

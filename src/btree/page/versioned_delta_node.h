@@ -11,6 +11,7 @@
 #pragma once
 
 #include "btree/btree_type.h"
+#include "common/options.h"
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"
 #include <atomic>
@@ -101,14 +102,15 @@ public:
 
   /**
    * @brief
-   * Point read.
+   * Point read
    * @param sort_key
-   * @param view
    * @param read_ts
+   * @param opts
+   * @param view
    * @return Status
    */
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
-                RowView *view) const noexcept {
+                const Options &opts, RowView *view) const noexcept {
     // first locate sort_key
     auto it = std::lower_bound(
         rows_.begin(), rows_.end(), sort_key,
@@ -132,7 +134,8 @@ public:
     // only newest version can be locked
     // relaxed here is ok since we will acquire lock outside, which has the
     // acquire semantic.
-    if (IsLocked(entry.write_ts.load(std::memory_order_relaxed))) {
+    if (!opts.ignore_lock &&
+        IsLocked(entry.write_ts.load(std::memory_order_relaxed))) {
       return Status::Retry();
     }
 
@@ -158,6 +161,13 @@ public:
     return Status::NotFound();
   }
 
+  /**
+   * @brief
+   * Set ts of the newest version with "sort_key" to "target_ts"
+   * @param sort_key
+   * @param target_ts
+   * @return Status
+   */
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts) noexcept {
     // first locate sort_key
     auto it = std::lower_bound(

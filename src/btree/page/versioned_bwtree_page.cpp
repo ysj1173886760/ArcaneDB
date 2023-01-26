@@ -93,7 +93,7 @@ Status VersionedBwTreePage::GetRowOnce_(property::SortKeysRef sort_key,
   auto current_ptr = shared_ptr.get();
   // traverse the delta node
   while (current_ptr != nullptr) {
-    auto s = current_ptr->GetRow(sort_key, read_ts, view);
+    auto s = current_ptr->GetRow(sort_key, read_ts, opts, view);
     if (s.ok()) {
       return Status::Ok();
     } else if (s.IsDeleted()) {
