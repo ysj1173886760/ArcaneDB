@@ -113,6 +113,20 @@ public:
 
   /**
    * @brief
+   * Set ts of the newest version with "sort_key" to "target_ts"
+   * @param sort_key
+   * @param target_ts
+   * @param opts
+   * @return Status
+   */
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+               const Options &opts) noexcept {
+    assert(leaf_page_);
+    return leaf_page_->SetTs(sort_key, target_ts, opts);
+  }
+
+  /**
+   * @brief
    * Interfaces for internal page type
    */
 

@@ -49,6 +49,23 @@ Status VersionedBtree::DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
   return s;
 }
 
+Status VersionedBtree::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+                             const Options &opts) noexcept {
+  auto page_type = root_page_->GetPageType();
+  Status s;
+  switch (page_type) {
+  case PageType::LeafPage: {
+    s = root_page_->SetTs(sort_key, target_ts, opts);
+    break;
+  }
+  case PageType::InternalPage: {
+    NOTIMPLEMENTED();
+    break;
+  }
+  }
+  return s;
+}
+
 Status VersionedBtree::GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
                               const Options &opts, RowView *view) const
     noexcept {

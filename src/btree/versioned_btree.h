@@ -60,6 +60,17 @@ public:
   Status GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
                 const Options &opts, RowView *view) const noexcept;
 
+  /**
+   * @brief
+   * Set ts of the newest version with "sort_key" to "target_ts"
+   * @param sort_key
+   * @param target_ts
+   * @param opts
+   * @return Status
+   */
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+               const Options &opts) noexcept;
+
   std::string_view GetTableKey() const noexcept { return root_page_->GetKey(); }
 
   // TODO(sheep): support SMO interface
