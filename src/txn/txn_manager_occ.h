@@ -16,16 +16,17 @@
 #include "txn/tso.h"
 #include "txn/txn_context_occ.h"
 #include "util/uuid.h"
+#include "txn/txn_manager.h"
 
 namespace arcanedb {
 namespace txn {
 
-class TxnManagerOCC {
+class TxnManagerOCC : public TxnManager {
 public:
   TxnManagerOCC() noexcept
       : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept {
+  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContextOCC>(txn_id, read_ts, TxnType::ReadOnlyTxn,
@@ -38,7 +39,7 @@ public:
                                            &lock_table_, this);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept {
+  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = tso_.RequestTs();
     // commit this read ts immediately.

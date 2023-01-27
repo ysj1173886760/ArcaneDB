@@ -11,7 +11,6 @@
 
 #include "txn/lock_table.h"
 #include "common/config.h"
-#include <asm-generic/errno.h>
 
 namespace arcanedb {
 namespace txn {

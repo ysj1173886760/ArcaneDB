@@ -14,7 +14,6 @@
 #include "btree/btree_type.h"
 #include "common/options.h"
 #include "common/status.h"
-#include "handler/logical_tuple.h"
 #include "property/row/row.h"
 #include "property/schema.h"
 

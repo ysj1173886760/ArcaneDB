@@ -19,6 +19,7 @@
 #include "txn/txn_context_2pl.h"
 #include "txn/txn_type.h"
 #include "util/uuid.h"
+#include "txn/txn_manager.h"
 
 namespace arcanedb {
 namespace txn {
@@ -28,12 +29,12 @@ namespace txn {
  * Currently just a dummy wrapper.
  * could used to implement read view to support mvcc in the future.
  */
-class TxnManager2PL {
+class TxnManager2PL : public TxnManager {
 public:
   TxnManager2PL() noexcept
       : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept {
+  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContext2PL>(txn_id, txn_ts, TxnType::ReadOnlyTxn,
@@ -46,7 +47,7 @@ public:
                                            &snapshot_manager_, &lock_table_);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept {
+  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = tso_.RequestTs();
     return std::make_unique<TxnContext2PL>(txn_id, txn_ts,
