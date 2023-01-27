@@ -13,14 +13,15 @@
 #include <cstddef>
 #include <limits>
 #include <random>
+#include <gflags/gflags.h>
 
 #include "util/bthread_util.h"
 #include "graph/weighted_graph.h"
 #include "bvar/bvar.h"
 
-static constexpr size_t kConcurrency = 16;
-static constexpr size_t kPointPerThread = 100000;
-static constexpr size_t kEdgePerPoint = 100;
+DEFINE_int64(benchmark_concurrency, 16, "");
+DEFINE_int64(benchmark_point_per_thread, 10000, "");
+DEFINE_int64(benchmark_edge_per_point, 100, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -42,9 +43,9 @@ void Work() {
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
   arcanedb::Options opts;
-  for (int i = 0; i < kPointPerThread; i++) {
+  for (int i = 0; i < FLAGS_benchmark_point_per_thread; i++) {
     auto vertex_id = GetRandom(min, max);
-    for (int j = 0; j < kEdgePerPoint; j++) {
+    for (int j = 0; j < FLAGS_benchmark_edge_per_point; j++) {
       auto target_id = GetRandom(min, max);
       arcanedb::util::Timer timer;
       auto context = db->BeginRwTxn(opts);
@@ -61,11 +62,12 @@ void Work() {
   }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  google::ParseCommandLineFlags(&argc, &argv, true);
   bthread_setconcurrency(16);
-  arcanedb::util::WaitGroup wg(kConcurrency + 1);
+  arcanedb::util::WaitGroup wg(FLAGS_benchmark_concurrency + 1);
   std::atomic<bool> stopped(false);
-  for (int i = 0; i < kConcurrency; i++) {
+  for (int i = 0; i < FLAGS_benchmark_concurrency; i++) {
     arcanedb::util::LaunchAsync([&]() {
       Work();
       wg.Done();
