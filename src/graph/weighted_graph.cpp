@@ -59,7 +59,7 @@ Status WeightedGraphDB::Transaction::InsertVertex(VertexId vertex_id,
 }
 
 Status WeightedGraphDB::Transaction::DeleteVertex(VertexId vertex_id) noexcept {
-  property::SortKeys sk({vertex_id});
+  property::SortKeys sk(vertex_id);
   auto s =
       txn_context_->DeleteRow(VertexEncoding(vertex_id), sk.as_ref(), opts_);
   return s;
@@ -83,14 +83,14 @@ Status WeightedGraphDB::Transaction::InsertEdge(VertexId src, VertexId dst,
 
 Status WeightedGraphDB::Transaction::DeleteEdge(VertexId src,
                                                 VertexId dst) noexcept {
-  property::SortKeys sk({dst});
+  property::SortKeys sk(dst);
   auto s = txn_context_->DeleteRow(EdgeEncoding(src), sk.as_ref(), opts_);
   return s;
 }
 
 Status WeightedGraphDB::Transaction::GetVertex(VertexId vertex_id,
                                                std::string *value) noexcept {
-  property::SortKeys sk({vertex_id});
+  property::SortKeys sk(vertex_id);
   btree::RowView view;
   auto s = txn_context_->GetRow(VertexEncoding(vertex_id), sk.as_ref(), opts_,
                                 &view);
@@ -109,7 +109,7 @@ Status WeightedGraphDB::Transaction::GetVertex(VertexId vertex_id,
 
 Status WeightedGraphDB::Transaction::GetEdge(VertexId src, VertexId dst,
                                              std::string *value) noexcept {
-  property::SortKeys sk({dst});
+  property::SortKeys sk(dst);
   btree::RowView view;
   auto s = txn_context_->GetRow(EdgeEncoding(src), sk.as_ref(), opts_, &view);
   if (!s.ok()) {

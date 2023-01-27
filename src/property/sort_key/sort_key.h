@@ -129,6 +129,12 @@ public:
     bytes_ = writer.Detach();
   }
 
+  explicit SortKeys(const Value &value) noexcept {
+    ComparableBufWriter writer;
+    writer.WriteValue(value);
+    bytes_ = writer.Detach();
+  }
+
   explicit SortKeys(std::string_view ref) : bytes_(ref.data(), ref.size()) {}
 
   std::string_view as_slice() const noexcept { return bytes_; }

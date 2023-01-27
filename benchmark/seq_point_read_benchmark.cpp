@@ -9,6 +9,7 @@
  * 
  */
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 #include <limits>
@@ -35,6 +36,8 @@ inline int64_t GetRandom(int64_t min, int64_t max) noexcept {
   return distribution(generator);
 }
 
+std::atomic<bool> flag{true};
+
 void PrepareEdge() {
   arcanedb::Options opts_normal;
   arcanedb::Options opts_last;
@@ -60,30 +63,23 @@ void PrepareEdge() {
 }
 
 void Work() {
-  auto min = std::numeric_limits<int64_t>::min();
-  auto max = std::numeric_limits<int64_t>::max();
   arcanedb::Options opts;
   opts.ignore_lock = true;
+  auto min = std::numeric_limits<int64_t>::min();
+  auto max = std::numeric_limits<int64_t>::max();
+  auto context = db->BeginRoTxn(opts);
   for (int i = 0; i < FLAGS_iterations; i++) {
     for (int j = 0; j < FLAGS_point_num; j++) {
       for (int k = 0; k < FLAGS_edge_per_point; k++) {
-        arcanedb::util::Timer timer;
-        auto context = db->BeginRoTxn(opts);
         std::string res;
         auto s = context->GetEdge(j, k, &res);
-        if (!s.ok()) {
-          ARCANEDB_INFO("Failed to read edge");
-        }
-        s = context->Commit();
-        if (!s.IsCommit()) {
-          ARCANEDB_INFO("Failed to commit");
-        }
-        if (k % 100 == 0) {
-          latency_recorder << timer.GetElapsed();
-        }
+      }
+      if (j == 0) {
+        latency_recorder << 1;
       }
     }
   }
+  auto s = context->Commit();
 }
 
 int main(int argc, char* argv[]) {
@@ -108,7 +104,7 @@ int main(int argc, char* argv[]) {
     while (!stopped.load()) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("max latency {}", latency_recorder.max_latency());
-      ARCANEDB_INFO("qps {}", latency_recorder.qps() * 100);
+      ARCANEDB_INFO("qps {}", latency_recorder.qps() * FLAGS_edge_per_point * FLAGS_point_num);
       bthread_usleep(1 * arcanedb::util::Second);
     }
     wg.Done();

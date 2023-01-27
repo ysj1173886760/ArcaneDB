@@ -90,6 +90,10 @@ public:
 
     Status Commit() noexcept;
 
+    TxnTs GetReadTs() const noexcept { return txn_context_->GetReadTs(); }
+
+    TxnTs GetWriteTs() const noexcept { return txn_context_->GetWriteTs(); }
+
   private:
     friend class WeightedGraphDB;
 
