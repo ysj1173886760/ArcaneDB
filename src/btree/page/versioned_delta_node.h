@@ -15,6 +15,7 @@
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"
 #include <atomic>
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -55,9 +56,7 @@ public:
         rows_(std::move(rows)), versions_(std::move(versions)) {}
 
   void SetPrevious(std::shared_ptr<VersionedDeltaNode> previous) noexcept {
-    if (previous != nullptr) {
-      total_length_ = previous->GetTotalLength() + 1;
-    }
+    total_length_ = (previous == nullptr ? 0 : previous->GetTotalLength()) + 1;
     previous_ = std::move(previous);
   }
 

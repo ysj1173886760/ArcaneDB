@@ -38,8 +38,9 @@ void VersionedBwTreePage::MaybePerformCompaction_(
     const Options &opts, VersionedDeltaNode *current_ptr) noexcept {
   write_mu_.AssertHeld();
   auto total_size = current_ptr->GetTotalLength();
-  if (!opts.disable_compaction &&
-      total_size > common::Config::kBwTreeDeltaChainLength) {
+  if ((!opts.disable_compaction &&
+       total_size > common::Config::kBwTreeDeltaChainLength) ||
+      opts.force_compaction) {
     auto new_ptr = Compaction_(current_ptr);
     UpdatePtr_(new_ptr);
   }

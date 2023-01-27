@@ -29,6 +29,7 @@ struct Options {
   std::optional<TxnTs> owner_ts{};
   bool disable_compaction{false};
   bool ignore_lock{false};
+  bool force_compaction{false};
 };
 
 } // namespace arcanedb

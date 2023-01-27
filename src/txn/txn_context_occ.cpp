@@ -53,10 +53,6 @@ Status TxnContextOCC::GetRow(const std::string &sub_table_key,
                              btree::RowView *view) noexcept {
   // try read
   auto sub_table = GetSubTable_(sub_table_key, opts);
-  if (opts.ignore_lock) {
-    // only read only txn can ignore lock
-    CHECK(txn_type_ == TxnType::ReadOnlyTxn);
-  }
   if (txn_type_ == TxnType::ReadOnlyTxn) {
     return sub_table->GetRow(sort_key, read_ts_, opts, view);
   }
