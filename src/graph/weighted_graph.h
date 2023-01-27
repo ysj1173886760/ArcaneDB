@@ -97,6 +97,14 @@ public:
     Options opts_;
   };
 
+  static std::string VertexEncoding(VertexId vertex) noexcept {
+    return std::to_string(vertex) + "V";
+  }
+
+  static std::string EdgeEncoding(VertexId src) noexcept {
+    return std::to_string(src) + "E";
+  }
+
   std::unique_ptr<Transaction> BeginRoTxn() noexcept;
 
   std::unique_ptr<Transaction> BeginRwTxn() noexcept;

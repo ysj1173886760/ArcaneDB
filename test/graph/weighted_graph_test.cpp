@@ -10,6 +10,7 @@
  */
 
 #include "graph/weighted_graph.h"
+#include "util/bthread_util.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
@@ -85,6 +86,49 @@ TEST_F(WeightedGraphDBTest, EdgeTest) {
       EXPECT_TRUE(txn->Commit().IsCommit());
     }
   }
+}
+
+TEST_F(WeightedGraphDBTest, ConcurrentTest) {
+  // 10 worker insert vertex
+  // 10 worker insert edge
+  util::WaitGroup wg(20);
+  for (int i = 0; i < 10; i++) {
+    util::LaunchAsync([&, index = i]() {
+      for (int j = 0; j < 10; j++) {
+        auto id = index * 10 + j;
+        auto txn = db_->BeginRwTxn();
+        EXPECT_TRUE(txn->InsertVertex(id, std::to_string(id)).ok());
+        EXPECT_TRUE(txn->Commit().IsCommit());
+      }
+      for (int j = 0; j < 10; j++) {
+        auto id = index * 10 + j;
+        auto txn = db_->BeginRoTxn();
+        std::string value;
+        EXPECT_TRUE(txn->GetVertex(id, &value).ok());
+        EXPECT_EQ(value, std::to_string(id));
+        EXPECT_TRUE(txn->Commit().IsCommit());
+      }
+      wg.Done();
+    });
+  }
+  for (int i = 0; i < 10; i++) {
+    util::LaunchAsync([&, index = i]() {
+      for (int j = 0; j < 10; j++) {
+        auto txn = db_->BeginRwTxn();
+        EXPECT_TRUE(txn->InsertEdge(index, j, std::to_string(index + j)).ok());
+        EXPECT_TRUE(txn->Commit().IsCommit());
+      }
+      for (int j = 0; j < 10; j++) {
+        auto txn = db_->BeginRoTxn();
+        std::string value;
+        EXPECT_TRUE(txn->GetEdge(index, j, &value).ok());
+        EXPECT_EQ(value, std::to_string(index + j));
+        EXPECT_TRUE(txn->Commit().IsCommit());
+      }
+      wg.Done();
+    });
+  }
+  wg.Wait();
 }
 
 } // namespace graph

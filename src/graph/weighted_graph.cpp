@@ -54,14 +54,14 @@ Status WeightedGraphDB::Transaction::InsertVertex(VertexId vertex_id,
   }
   auto buffer = writer.Detach();
   property::Row row(buffer.data());
-  s = txn_context_->SetRow(std::to_string(vertex_id), row, opts_);
+  s = txn_context_->SetRow(VertexEncoding(vertex_id), row, opts_);
   return s;
 }
 
 Status WeightedGraphDB::Transaction::DeleteVertex(VertexId vertex_id) noexcept {
   property::SortKeys sk({vertex_id});
   auto s =
-      txn_context_->DeleteRow(std::to_string(vertex_id), sk.as_ref(), opts_);
+      txn_context_->DeleteRow(VertexEncoding(vertex_id), sk.as_ref(), opts_);
   return s;
 }
 
@@ -77,14 +77,14 @@ Status WeightedGraphDB::Transaction::InsertEdge(VertexId src, VertexId dst,
   }
   auto buffer = writer.Detach();
   property::Row row(buffer.data());
-  s = txn_context_->SetRow(std::to_string(src), row, opts_);
+  s = txn_context_->SetRow(EdgeEncoding(src), row, opts_);
   return s;
 }
 
 Status WeightedGraphDB::Transaction::DeleteEdge(VertexId src,
                                                 VertexId dst) noexcept {
   property::SortKeys sk({dst});
-  auto s = txn_context_->DeleteRow(std::to_string(src), sk.as_ref(), opts_);
+  auto s = txn_context_->DeleteRow(EdgeEncoding(src), sk.as_ref(), opts_);
   return s;
 }
 
@@ -92,7 +92,7 @@ Status WeightedGraphDB::Transaction::GetVertex(VertexId vertex_id,
                                                std::string *value) noexcept {
   property::SortKeys sk({vertex_id});
   btree::RowView view;
-  auto s = txn_context_->GetRow(std::to_string(vertex_id), sk.as_ref(), opts_,
+  auto s = txn_context_->GetRow(VertexEncoding(vertex_id), sk.as_ref(), opts_,
                                 &view);
   if (!s.ok()) {
     return s;
@@ -111,7 +111,7 @@ Status WeightedGraphDB::Transaction::GetEdge(VertexId src, VertexId dst,
                                              std::string *value) noexcept {
   property::SortKeys sk({dst});
   btree::RowView view;
-  auto s = txn_context_->GetRow(std::to_string(src), sk.as_ref(), opts_, &view);
+  auto s = txn_context_->GetRow(EdgeEncoding(src), sk.as_ref(), opts_, &view);
   if (!s.ok()) {
     return s;
   }
