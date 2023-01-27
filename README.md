@@ -19,7 +19,7 @@ Might be a graph storage engine.
 - [x] Transaction component
   - [x] Implement Hekaton style occ
   - [] More concurrency control protocol
-- [] Graph interface
+- [x] Graph interface
 - [] 2-level Btr
 - [] WAL
 - [] Recovery
