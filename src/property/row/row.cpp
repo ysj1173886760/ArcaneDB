@@ -9,7 +9,7 @@
 namespace arcanedb {
 namespace property {
 
-Status Row::GetProp(ColumnId id, ValueResult *value, Schema *schema) const
+Status Row::GetProp(ColumnId id, ValueResult *value, const Schema *schema) const
     noexcept {
   auto index = schema->GetColumnIndex(id);
   if (index < schema->GetSortKeyCount()) {
@@ -24,7 +24,8 @@ SortKeysRef Row::GetSortKeys() const noexcept {
 }
 
 Status Row::Serialize(const ValueRefVec &value_ref_vec,
-                      util::BufWriter *buf_writer, Schema *schema) noexcept {
+                      util::BufWriter *buf_writer,
+                      const Schema *schema) noexcept {
   CHECK(value_ref_vec.size() == schema->GetColumnNum());
   // first generate sort keys
   auto sort_key_cnt = schema->GetSortKeyCount();
@@ -103,7 +104,7 @@ void Row::SerializeOnlySortKey(SortKeysRef sort_key,
 }
 
 Status Row::GetPropNormalValue_(size_t index, ValueResult *value,
-                                Schema *schema) const noexcept {
+                                const Schema *schema) const noexcept {
   DCHECK(ptr_ != nullptr);
   auto sort_key_length = util::DecodeFixed16(ptr_ + kRowSortKeyLengthOffset);
   auto offset = schema->GetColumnOffsetForRow(index) + sort_key_length +
@@ -156,7 +157,7 @@ Status Row::GetPropNormalValue_(size_t index, ValueResult *value,
 }
 
 Status Row::GetPropSortKey_(size_t index, ValueResult *value,
-                            Schema *schema) const noexcept {
+                            const Schema *schema) const noexcept {
   auto sort_key_length = util::DecodeFixed16(ptr_ + kRowSortKeyLengthOffset);
   ComparableBufReader reader(
       std::string_view(ptr_ + kRowSortKeyOffset, sort_key_length));

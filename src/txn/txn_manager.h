@@ -1,12 +1,12 @@
 /**
  * @file txn_manager.h
  * @author sheep (ysj1173886760@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2023-01-27
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
  */
 
 #pragma once
@@ -27,5 +27,5 @@ public:
   virtual ~TxnManager() noexcept {}
 };
 
-}
-}
+} // namespace txn
+} // namespace arcanedb

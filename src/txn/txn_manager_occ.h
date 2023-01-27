@@ -15,8 +15,8 @@
 #include "txn/lock_table.h"
 #include "txn/tso.h"
 #include "txn/txn_context_occ.h"
-#include "util/uuid.h"
 #include "txn/txn_manager.h"
+#include "util/uuid.h"
 
 namespace arcanedb {
 namespace txn {
@@ -29,8 +29,8 @@ public:
   std::unique_ptr<TxnContext> BeginRoTxn() const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = snapshot_manager_.GetSnapshotTs();
-    return std::make_unique<TxnContextOCC>(txn_id, read_ts, TxnType::ReadOnlyTxn,
-                                           &lock_table_, this);
+    return std::make_unique<TxnContextOCC>(
+        txn_id, read_ts, TxnType::ReadOnlyTxn, &lock_table_, this);
   }
 
   std::unique_ptr<TxnContext> BeginRoTxnWithTs(TxnTs ts) const noexcept {

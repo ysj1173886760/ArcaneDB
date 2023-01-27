@@ -17,9 +17,9 @@
 #include "txn/tso.h"
 #include "txn/txn_context.h"
 #include "txn/txn_context_2pl.h"
+#include "txn/txn_manager.h"
 #include "txn/txn_type.h"
 #include "util/uuid.h"
-#include "txn/txn_manager.h"
 
 namespace arcanedb {
 namespace txn {

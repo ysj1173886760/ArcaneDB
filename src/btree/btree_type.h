@@ -44,7 +44,7 @@ public:
   operator const property::Row &() const { return row_; }
 
   Status GetProp(property::ColumnId id, property::ValueResult *value,
-                 property::Schema *schema) const noexcept {
+                 const property::Schema *schema) const noexcept {
     return row_.GetProp(id, value, schema);
   }
 

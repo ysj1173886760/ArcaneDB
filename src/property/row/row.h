@@ -45,7 +45,7 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) const
+  Status GetProp(ColumnId id, ValueResult *value, const Schema *schema) const
       noexcept;
 
   SortKeysRef GetSortKeys() const noexcept;
@@ -62,17 +62,18 @@ public:
    * @return Status
    */
   static Status Serialize(const ValueRefVec &value_ref_vec,
-                          util::BufWriter *buf_writer, Schema *schema) noexcept;
+                          util::BufWriter *buf_writer,
+                          const Schema *schema) noexcept;
 
   static void SerializeOnlySortKey(SortKeysRef sort_key,
                                    util::BufWriter *buf_writer) noexcept;
 
 private:
   Status GetPropNormalValue_(size_t index, ValueResult *value,
-                             Schema *schema) const noexcept;
+                             const Schema *schema) const noexcept;
 
-  Status GetPropSortKey_(size_t index, ValueResult *value, Schema *schema) const
-      noexcept;
+  Status GetPropSortKey_(size_t index, ValueResult *value,
+                         const Schema *schema) const noexcept;
 
   static size_t GetTypeLength_(ValueType type) noexcept;
 
