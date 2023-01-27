@@ -114,6 +114,7 @@ include_directories(BEFORE src)
 
 add_subdirectory(src)
 add_subdirectory(test)
+add_subdirectory(benchmark)
 
 # clang-format
 find_program(CLANG_FORMAT_BIN
