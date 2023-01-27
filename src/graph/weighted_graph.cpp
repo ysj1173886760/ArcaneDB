@@ -130,8 +130,9 @@ Status WeightedGraphDB::Transaction::Commit() noexcept {
 }
 
 std::unique_ptr<WeightedGraphDB::Transaction>
-WeightedGraphDB::BeginRoTxn() noexcept {
+WeightedGraphDB::BeginRoTxn(const Options &opts) noexcept {
   auto txn = std::make_unique<WeightedGraphDB::Transaction>();
+  txn->opts_ = opts;
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->opts_.ignore_lock = true;
   txn->txn_context_ = txn_manager_->BeginRoTxn();
@@ -139,8 +140,9 @@ WeightedGraphDB::BeginRoTxn() noexcept {
 }
 
 std::unique_ptr<WeightedGraphDB::Transaction>
-WeightedGraphDB::BeginRwTxn() noexcept {
+WeightedGraphDB::BeginRwTxn(const Options &opts) noexcept {
   auto txn = std::make_unique<WeightedGraphDB::Transaction>();
+  txn->opts_ = opts;
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->txn_context_ = txn_manager_->BeginRwTxn();
   return txn;

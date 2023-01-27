@@ -105,9 +105,9 @@ public:
     return std::to_string(src) + "E";
   }
 
-  std::unique_ptr<Transaction> BeginRoTxn() noexcept;
+  std::unique_ptr<Transaction> BeginRoTxn(const Options &opts) noexcept;
 
-  std::unique_ptr<Transaction> BeginRwTxn() noexcept;
+  std::unique_ptr<Transaction> BeginRwTxn(const Options &opts) noexcept;
 
 private:
   std::unique_ptr<txn::TxnManager> txn_manager_;

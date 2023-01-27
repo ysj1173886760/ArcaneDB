@@ -26,28 +26,29 @@ public:
   void TearDown() {}
 
   std::unique_ptr<WeightedGraphDB> db_;
+  Options opts_;
 };
 
 TEST_F(WeightedGraphDBTest, VertexTest) {
   for (int i = 0; i < 100; i++) {
-    auto txn = db_->BeginRwTxn();
+    auto txn = db_->BeginRwTxn(opts_);
     EXPECT_TRUE(txn->InsertVertex(i, std::to_string(i)).ok());
     EXPECT_TRUE(txn->Commit().IsCommit());
   }
   for (int i = 0; i < 100; i++) {
-    auto txn = db_->BeginRoTxn();
+    auto txn = db_->BeginRoTxn(opts_);
     std::string value;
     EXPECT_TRUE(txn->GetVertex(i, &value).ok());
     EXPECT_EQ(value, std::to_string(i));
     EXPECT_TRUE(txn->Commit().IsCommit());
   }
   for (int i = 0; i < 100; i++) {
-    auto txn = db_->BeginRwTxn();
+    auto txn = db_->BeginRwTxn(opts_);
     EXPECT_TRUE(txn->DeleteVertex(i).ok());
     EXPECT_TRUE(txn->Commit().IsCommit());
   }
   for (int i = 0; i < 100; i++) {
-    auto txn = db_->BeginRoTxn();
+    auto txn = db_->BeginRoTxn(opts_);
     std::string value;
     EXPECT_TRUE(txn->GetVertex(i, &value).IsNotFound());
     EXPECT_TRUE(txn->Commit().IsCommit());
@@ -57,14 +58,14 @@ TEST_F(WeightedGraphDBTest, VertexTest) {
 TEST_F(WeightedGraphDBTest, EdgeTest) {
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++) {
-      auto txn = db_->BeginRwTxn();
+      auto txn = db_->BeginRwTxn(opts_);
       EXPECT_TRUE(txn->InsertEdge(i, j, std::to_string(i + j)).ok());
       EXPECT_TRUE(txn->Commit().IsCommit());
     }
   }
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++) {
-      auto txn = db_->BeginRoTxn();
+      auto txn = db_->BeginRoTxn(opts_);
       std::string value;
       EXPECT_TRUE(txn->GetEdge(i, j, &value).ok());
       EXPECT_EQ(value, std::to_string(i + j));
@@ -73,14 +74,14 @@ TEST_F(WeightedGraphDBTest, EdgeTest) {
   }
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++) {
-      auto txn = db_->BeginRwTxn();
+      auto txn = db_->BeginRwTxn(opts_);
       EXPECT_TRUE(txn->DeleteEdge(i, j).ok());
       EXPECT_TRUE(txn->Commit().IsCommit());
     }
   }
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++) {
-      auto txn = db_->BeginRoTxn();
+      auto txn = db_->BeginRoTxn(opts_);
       std::string value;
       EXPECT_TRUE(txn->GetEdge(i, j, &value).IsNotFound());
       EXPECT_TRUE(txn->Commit().IsCommit());
@@ -96,13 +97,13 @@ TEST_F(WeightedGraphDBTest, ConcurrentTest) {
     util::LaunchAsync([&, index = i]() {
       for (int j = 0; j < 10; j++) {
         auto id = index * 10 + j;
-        auto txn = db_->BeginRwTxn();
+        auto txn = db_->BeginRwTxn(opts_);
         EXPECT_TRUE(txn->InsertVertex(id, std::to_string(id)).ok());
         EXPECT_TRUE(txn->Commit().IsCommit());
       }
       for (int j = 0; j < 10; j++) {
         auto id = index * 10 + j;
-        auto txn = db_->BeginRoTxn();
+        auto txn = db_->BeginRoTxn(opts_);
         std::string value;
         EXPECT_TRUE(txn->GetVertex(id, &value).ok());
         EXPECT_EQ(value, std::to_string(id));
@@ -114,12 +115,12 @@ TEST_F(WeightedGraphDBTest, ConcurrentTest) {
   for (int i = 0; i < 10; i++) {
     util::LaunchAsync([&, index = i]() {
       for (int j = 0; j < 10; j++) {
-        auto txn = db_->BeginRwTxn();
+        auto txn = db_->BeginRwTxn(opts_);
         EXPECT_TRUE(txn->InsertEdge(index, j, std::to_string(index + j)).ok());
         EXPECT_TRUE(txn->Commit().IsCommit());
       }
       for (int j = 0; j < 10; j++) {
-        auto txn = db_->BeginRoTxn();
+        auto txn = db_->BeginRoTxn(opts_);
         std::string value;
         EXPECT_TRUE(txn->GetEdge(index, j, &value).ok());
         EXPECT_EQ(value, std::to_string(index + j));
