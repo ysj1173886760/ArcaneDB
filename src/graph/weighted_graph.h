@@ -102,11 +102,12 @@ public:
   };
 
   static std::string VertexEncoding(VertexId vertex) noexcept {
-    return std::to_string(vertex) + "V";
+    // cast to uint is more faster since it doesn't need to handle minus mark
+    return fmt::format_int(static_cast<uint64_t>(vertex)).str() + "V";
   }
 
-  static std::string EdgeEncoding(VertexId src) noexcept {
-    return std::to_string(src) + "E";
+  static std::string EdgeEncoding(VertexId vertex) noexcept {
+    return fmt::format_int(static_cast<uint64_t>(vertex)).str() + "E";
   }
 
   std::unique_ptr<Transaction> BeginRoTxn(const Options &opts) noexcept;
