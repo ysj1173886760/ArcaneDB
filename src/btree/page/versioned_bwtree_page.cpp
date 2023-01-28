@@ -11,6 +11,7 @@
 
 #include "btree/page/versioned_bwtree_page.h"
 #include "bthread/bthread.h"
+#include "btree/wal/bwtree_log_writer.h"
 #include "common/config.h"
 
 namespace arcanedb {
@@ -49,28 +50,58 @@ void VersionedBwTreePage::MaybePerformCompaction_(
 Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
                                    const Options &opts,
                                    WriteInfo *info) noexcept {
-  {
-    auto delta = std::make_shared<VersionedDeltaNode>(row, write_ts);
-    util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
-    auto current_ptr = GetPtr_();
-    delta->SetPrevious(std::move(current_ptr));
-    UpdatePtr_(delta);
-    MaybePerformCompaction_(opts, delta.get());
+  // make delta
+  auto delta = std::make_shared<VersionedDeltaNode>(row, write_ts);
+
+  // write log
+  wal::BwTreeLogWriter log_writer;
+  if (opts.log_store != nullptr) {
+    log_writer.WriteSetRow(write_ts, row);
   }
+
+  util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+  // prepend delta
+  auto current_ptr = GetPtr_();
+  delta->SetPrevious(std::move(current_ptr));
+  UpdatePtr_(delta);
+
+  // append log
+  if (opts.log_store != nullptr) {
+    log_store::LogStore::LogResultContainer result;
+    opts.log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
+  }
+
+  // perform compaction
+  MaybePerformCompaction_(opts, delta.get());
   return Status::Ok();
 }
 
 Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
                                       TxnTs write_ts, const Options &opts,
                                       WriteInfo *info) noexcept {
-  {
-    auto delta = std::make_shared<VersionedDeltaNode>(sort_key, write_ts);
-    util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
-    auto current_ptr = GetPtr_();
-    delta->SetPrevious(std::move(current_ptr));
-    UpdatePtr_(delta);
-    MaybePerformCompaction_(opts, delta.get());
+  // make delta
+  auto delta = std::make_shared<VersionedDeltaNode>(sort_key, write_ts);
+
+  // write log
+  wal::BwTreeLogWriter log_writer;
+  if (opts.log_store != nullptr) {
+    log_writer.WriteDeleteRow(write_ts, sort_key);
   }
+
+  util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+  // prepend delta
+  auto current_ptr = GetPtr_();
+  delta->SetPrevious(std::move(current_ptr));
+  UpdatePtr_(delta);
+
+  // append log
+  if (opts.log_store != nullptr) {
+    log_store::LogStore::LogResultContainer result;
+    opts.log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
+  }
+
+  // compaction
+  MaybePerformCompaction_(opts, delta.get());
   return Status::Ok();
 }
 

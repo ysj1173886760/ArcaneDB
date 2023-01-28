@@ -39,11 +39,15 @@ public:
     CHECK(ptr_ + s <= end_);
     memcpy(ptr_, &val, s);
     ptr_ += s;
+    offset_ += s;
   }
+
+  size_t Offset() const noexcept { return offset_; }
 
 private:
   char *ptr_;
   char *end_;
+  size_t offset_;
 };
 
 // TODO(sheep): more elegant way to implement template specification.

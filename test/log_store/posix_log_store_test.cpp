@@ -93,8 +93,7 @@ TEST(PosixLogStoreTest, BasicTest) {
   auto store = GenerateLogStore();
   LogStore::LogRecordContainer log_records = {"123", "456", "789"};
   LogStore::LogResultContainer result;
-  auto s = store->AppendLogRecord(log_records, &result);
-  EXPECT_EQ(s, Status::Ok());
+  store->AppendLogRecord(log_records, &result);
   EXPECT_EQ(result.size(), log_records.size());
   auto lsn = 0;
   {
@@ -118,8 +117,7 @@ TEST(PosixLogStoreTest, LogReaderTest) {
   auto store = GenerateLogStore();
   LogStore::LogRecordContainer log_records = {"123", "456", "789"};
   LogStore::LogResultContainer result;
-  auto s = store->AppendLogRecord(log_records, &result);
-  EXPECT_EQ(s, Status::Ok());
+  store->AppendLogRecord(log_records, &result);
 
   // wait log records to be persisted
   WaitLsn(store, result.back().end_lsn);
@@ -137,15 +135,14 @@ TEST(PosixLogStoreTest, LogReaderTest) {
 
 TEST(PosixLogStoreTest, SwitchLogSegmentTest) {
   auto store = GenerateLogStore(32);
-  std::vector<std::string> owner = {
-      std::string(15, 'a'), std::string(15, 'b'), std::string(15, 'c')};
+  std::vector<std::string> owner = {std::string(15, 'a'), std::string(15, 'b'),
+                                    std::string(15, 'c')};
   LsnType lsn = 0;
   for (int i = 0; i < 3; i++) {
     LogStore::LogRecordContainer log_records(1);
     log_records[0] = owner[i];
     LogStore::LogResultContainer result;
-    auto s = store->AppendLogRecord(log_records, &result);
-    EXPECT_EQ(s, Status::Ok());
+    store->AppendLogRecord(log_records, &result);
     lsn = std::max(lsn, result.back().end_lsn);
   }
 
@@ -177,7 +174,7 @@ TEST(PosixLogStoreTest, ConcurrentAppendLogTest) {
         LogStore::LogRecordContainer log_records(1);
         LogStore::LogResultContainer result;
         log_records[0] = data;
-        EXPECT_TRUE(store->AppendLogRecord(log_records, &result).ok());
+        store->AppendLogRecord(log_records, &result);
         local_lsn = result.back().end_lsn;
       }
       mu.lock();

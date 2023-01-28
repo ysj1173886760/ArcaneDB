@@ -12,6 +12,7 @@
 #pragma once
 
 #include "cache/buffer_pool.h"
+#include "log_store/log_store.h"
 #include "property/schema.h"
 #include <optional>
 
@@ -24,6 +25,7 @@ namespace arcanedb {
 struct Options {
   const property::Schema *schema{};
   cache::BufferPool *buffer_pool{};
+  log_store::LogStore *log_store{};
   // we will skip the lock when lock ts is the same as
   // owner ts.
   std::optional<TxnTs> owner_ts{};

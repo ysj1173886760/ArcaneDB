@@ -90,8 +90,8 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
   return Status::Ok();
 }
 
-Status PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
-                                      LogResultContainer *result) noexcept {
+void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
+                                    LogResultContainer *result) noexcept {
   // first calc the size we need to occupy
   size_t total_size = LogRecord::kHeaderSize * log_records.size();
   for (const auto &record : log_records) {
@@ -119,7 +119,7 @@ Status PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
         result->emplace_back(
             LsnRange{.start_lsn = start_lsn, .end_lsn = current_lsn});
       }
-      return Status::Ok();
+      return;
     }
     // check whether we should seal
     if (should_seal && SealAndOpen(segment)) {
@@ -130,7 +130,7 @@ Status PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
     bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
   } while (true);
 
-  return Status::Ok();
+  return;
 }
 
 void ControlGuard::OnExit_() noexcept { segment_->OnWriterExit(); }

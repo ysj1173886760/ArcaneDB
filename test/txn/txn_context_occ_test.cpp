@@ -9,6 +9,7 @@
  *
  */
 
+#include "log_store/posix_log_store/posix_log_store.h"
 #include "txn/txn_context_occ.h"
 #include "txn/txn_manager_occ.h"
 #include "util/bthread_util.h"
@@ -260,6 +261,83 @@ TEST_F(TxnContextOCCTest, AbortTest) {
 }
 
 TEST_F(TxnContextOCCTest, ConcurrentTest) {
+  std::vector<std::string> table_list;
+  for (int i = 0; i < 10; i++) {
+    table_list.push_back("test_table" + std::to_string(i));
+  }
+  // 10 table, 10 worker each table
+  // 3 writer, 7 reader
+  int worker_count = 100;
+  int epoch_cnt = 20;
+  util::WaitGroup wg(worker_count);
+  // launch writer
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 3; j++) {
+      util::LaunchAsync([&, table_index = i]() {
+        for (int k = 0; k < epoch_cnt; k++) {
+          auto context = txn_manager_->BeginRwTxn();
+          ValueStruct value1{
+              .point_id = 0, .point_type = 0, .value = std::to_string(k)};
+          ValueStruct value2{
+              .point_id = 1, .point_type = 0, .value = std::to_string(k)};
+          EXPECT_TRUE(WriteHelper(value1,
+                                  [&](const property::Row &row) {
+                                    return context->SetRow(
+                                        table_list[table_index], row, opts_);
+                                  })
+                          .ok());
+          EXPECT_TRUE(WriteHelper(value2,
+                                  [&](const property::Row &row) {
+                                    return context->SetRow(
+                                        table_list[table_index], row, opts_);
+                                  })
+                          .ok());
+          EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+        }
+        wg.Done();
+      });
+    }
+  }
+  // launch reader
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 7; j++) {
+      util::LaunchAsync([&, table_index = i]() {
+        for (int k = 0; k < epoch_cnt; k++) {
+          auto context = txn_manager_->BeginRoTxn();
+          ValueStruct value1{
+              .point_id = 0, .point_type = 0, .value = std::to_string(k)};
+          ValueStruct value2{
+              .point_id = 1, .point_type = 0, .value = std::to_string(k)};
+          TestConsistentRead(context.get(), table_list[table_index], value1,
+                             value2);
+          context->CommitOrAbort(opts_);
+        }
+        wg.Done();
+      });
+    }
+  }
+  wg.Wait();
+  for (int i = 0; i < 10; i++) {
+    TestTsAsending(table_list[i]);
+  }
+}
+
+std::shared_ptr<log_store::LogStore> GenerateLogStore() {
+  auto log_store_name = "txn_context_occ_log_store";
+  std::shared_ptr<log_store::LogStore> store;
+  log_store::Options options;
+  auto s = log_store::PosixLogStore::Destory(log_store_name);
+  EXPECT_EQ(s, Status::Ok());
+  s = log_store::PosixLogStore::Open(log_store_name, options, &store);
+  EXPECT_EQ(s, Status::Ok());
+  return store;
+}
+
+TEST_F(TxnContextOCCTest, ConcurrentTestWithLog) {
+  Options opts = opts_;
+  std::shared_ptr<log_store::LogStore> log_store = GenerateLogStore();
+  opts.log_store = log_store.get();
+
   std::vector<std::string> table_list;
   for (int i = 0; i < 10; i++) {
     table_list.push_back("test_table" + std::to_string(i));

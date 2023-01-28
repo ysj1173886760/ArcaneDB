@@ -38,7 +38,6 @@ private:
   friend class PosixLogStore;
   void PeekNext_() noexcept;
 
-  size_t current_offset_{0};
   leveldb::Env *env_;
   leveldb::SequentialFile *file_{nullptr};
   bool has_next_{false};
@@ -72,8 +71,8 @@ public:
     delete log_file_;
   }
 
-  Status AppendLogRecord(const LogRecordContainer &log_records,
-                         LogResultContainer *result) noexcept override;
+  void AppendLogRecord(const LogRecordContainer &log_records,
+                       LogResultContainer *result) noexcept override;
 
   LsnType GetPersistentLsn() noexcept override {
     return persistent_lsn_.load(std::memory_order_relaxed);
