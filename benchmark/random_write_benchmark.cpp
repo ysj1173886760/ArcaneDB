@@ -18,10 +18,12 @@
 #include "util/bthread_util.h"
 #include "graph/weighted_graph.h"
 #include "bvar/bvar.h"
+#include "log_store/posix_log_store/posix_log_store.h"
 
-DEFINE_int64(benchmark_concurrency, 16, "");
-DEFINE_int64(benchmark_point_per_thread, 10000, "");
-DEFINE_int64(benchmark_edge_per_point, 100, "");
+DEFINE_int64(concurrency, 4, "");
+DEFINE_int64(point_per_thread, 1000000, "");
+DEFINE_int64(edge_per_point, 100, "");
+DEFINE_bool(enable_wal, false, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -34,18 +36,22 @@ inline int64_t GetRandom(int64_t min, int64_t max) noexcept {
 
 void Work() {
   std::unique_ptr<arcanedb::graph::WeightedGraphDB> db;
-  auto s = arcanedb::graph::WeightedGraphDB::Open(&db);
-  if (!s.ok()) {
-    ARCANEDB_INFO("Failed to open db");
-    return;
+  {
+    arcanedb::graph::WeightedGraphOptions opts;
+    opts.enable_wal = FLAGS_enable_wal;
+    auto s = arcanedb::graph::WeightedGraphDB::Open("random_write_benchmark", &db, opts);
+    if (!s.ok()) {
+      ARCANEDB_INFO("Failed to open db");
+      return;
+    }
   }
   auto min = std::numeric_limits<int64_t>::min();
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
   arcanedb::Options opts;
-  for (int i = 0; i < FLAGS_benchmark_point_per_thread; i++) {
+  for (int i = 0; i < FLAGS_point_per_thread; i++) {
     auto vertex_id = GetRandom(min, max);
-    for (int j = 0; j < FLAGS_benchmark_edge_per_point; j++) {
+    for (int j = 0; j < FLAGS_edge_per_point; j++) {
       auto target_id = GetRandom(min, max);
       arcanedb::util::Timer timer;
       auto context = db->BeginRwTxn(opts);
@@ -64,10 +70,11 @@ void Work() {
 
 int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
-  bthread_setconcurrency(16);
-  arcanedb::util::WaitGroup wg(FLAGS_benchmark_concurrency + 1);
+  bthread_setconcurrency(4);
+  ARCANEDB_INFO("worker cnt {} ", bthread_getconcurrency());
+  arcanedb::util::WaitGroup wg(FLAGS_concurrency + 1);
   std::atomic<bool> stopped(false);
-  for (int i = 0; i < FLAGS_benchmark_concurrency; i++) {
+  for (int i = 0; i < FLAGS_concurrency; i++) {
     arcanedb::util::LaunchAsync([&]() {
       Work();
       wg.Done();

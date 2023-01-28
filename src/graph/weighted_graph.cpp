@@ -11,6 +11,7 @@
 
 #include "graph/weighted_graph.h"
 #include "cache/buffer_pool.h"
+#include "log_store/posix_log_store/posix_log_store.h"
 #include "txn/txn_manager_occ.h"
 #include <memory>
 
@@ -33,8 +34,18 @@ static const property::RawSchema kWeightedGraphRawSchema{
     .sort_key_count = 1};
 static const property::Schema kWeightedGraphSchema(kWeightedGraphRawSchema);
 
-Status WeightedGraphDB::Open(std::unique_ptr<WeightedGraphDB> *db) noexcept {
+Status WeightedGraphDB::Open(const std::string &db_name,
+                             std::unique_ptr<WeightedGraphDB> *db,
+                             const WeightedGraphOptions &opts) noexcept {
   auto res = std::make_unique<WeightedGraphDB>();
+  if (opts.enable_wal) {
+    log_store::Options opts;
+    auto s = log_store::PosixLogStore::Open(db_name + "_log", opts,
+                                            &res->log_store_);
+    if (!s.ok()) {
+      return s;
+    }
+  }
   res->buffer_pool_ = std::make_unique<cache::BufferPool>();
   res->txn_manager_ = std::make_unique<txn::TxnManagerOCC>();
   *db = std::move(res);
@@ -133,6 +144,7 @@ std::unique_ptr<WeightedGraphDB::Transaction>
 WeightedGraphDB::BeginRoTxn(const Options &opts) noexcept {
   auto txn = std::make_unique<WeightedGraphDB::Transaction>();
   txn->opts_ = opts;
+  txn->opts_.log_store = log_store_.get();
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->opts_.ignore_lock = true;
   txn->txn_context_ = txn_manager_->BeginRoTxn();
@@ -143,6 +155,7 @@ std::unique_ptr<WeightedGraphDB::Transaction>
 WeightedGraphDB::BeginRwTxn(const Options &opts) noexcept {
   auto txn = std::make_unique<WeightedGraphDB::Transaction>();
   txn->opts_ = opts;
+  txn->opts_.log_store = log_store_.get();
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->txn_context_ = txn_manager_->BeginRwTxn();
   return txn;

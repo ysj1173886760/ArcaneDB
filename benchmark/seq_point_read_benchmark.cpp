@@ -85,7 +85,8 @@ void Work() {
 int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   bthread_setconcurrency(4);
-  auto s = arcanedb::graph::WeightedGraphDB::Open(&db);
+  ARCANEDB_INFO("worker cnt {} ", bthread_getconcurrency());
+  auto s = arcanedb::graph::WeightedGraphDB::Open("seq_point_read_benchmark", &db);
   if (!s.ok()) {
     ARCANEDB_INFO("Failed to open db");
     return 0;

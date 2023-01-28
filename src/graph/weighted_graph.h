@@ -12,11 +12,16 @@
 #pragma once
 
 #include "cache/buffer_pool.h"
+#include "log_store/log_store.h"
 #include "txn/txn_context.h"
 #include "txn/txn_manager.h"
 
 namespace arcanedb {
 namespace graph {
+
+struct WeightedGraphOptions {
+  bool enable_wal{false};
+};
 
 /**
  * @brief
@@ -29,7 +34,9 @@ public:
   using VertexId = int64_t;
   using Value = std::string_view;
 
-  static Status Open(std::unique_ptr<WeightedGraphDB> *db) noexcept;
+  static Status
+  Open(const std::string &db_name, std::unique_ptr<WeightedGraphDB> *db,
+       const WeightedGraphOptions &opts = WeightedGraphOptions()) noexcept;
 
   class Transaction {
   public:
@@ -117,6 +124,7 @@ public:
 private:
   std::unique_ptr<txn::TxnManager> txn_manager_;
   std::unique_ptr<cache::BufferPool> buffer_pool_;
+  std::shared_ptr<log_store::LogStore> log_store_;
 };
 
 } // namespace graph

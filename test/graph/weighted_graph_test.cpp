@@ -19,7 +19,7 @@ namespace graph {
 class WeightedGraphDBTest : public ::testing::Test {
 public:
   void SetUp() {
-    auto s = WeightedGraphDB::Open(&db_);
+    auto s = WeightedGraphDB::Open("test_db", &db_);
     EXPECT_TRUE(s.ok());
   }
 
