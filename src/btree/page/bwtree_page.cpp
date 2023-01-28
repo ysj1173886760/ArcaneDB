@@ -47,7 +47,7 @@ Status BwTreePage::SetRow(const property::Row &row,
                           const Options &opts) noexcept {
   {
     auto delta = std::make_shared<DeltaNode>(row);
-    util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+    ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
     auto current_ptr = GetPtr_();
     delta->SetPrevious(std::move(current_ptr));
     UpdatePtr_(delta);
@@ -60,7 +60,7 @@ Status BwTreePage::DeleteRow(property::SortKeysRef sort_key,
                              const Options &opts) noexcept {
   {
     auto delta = std::make_shared<DeltaNode>(sort_key);
-    util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+    ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
     auto current_ptr = GetPtr_();
     delta->SetPrevious(std::move(current_ptr));
     UpdatePtr_(delta);

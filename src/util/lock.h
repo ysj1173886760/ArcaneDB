@@ -17,6 +17,7 @@
 #include "util/time.h"
 #include <cassert>
 #include <string>
+#include <type_traits>
 
 namespace arcanedb {
 namespace util {

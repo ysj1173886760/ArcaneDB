@@ -22,6 +22,8 @@ using PageIdType = std::string;
 using PageIdView = std::string_view;
 
 using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
+template <typename Mutex>
+using ArcanedbLockGuard = util::InstrumentedLockGuard<Mutex>;
 
 using TxnId = int64_t;
 using TxnTs = uint32_t;

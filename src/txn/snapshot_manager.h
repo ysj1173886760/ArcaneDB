@@ -32,19 +32,19 @@ public:
   SnapshotManager() = default;
 
   void RegisterTs(TxnTs ts) noexcept {
-    util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
+    ArcanedbLockGuard<ArcanedbLock> guard(mu_);
     ts_set_.insert(ts);
     max_ts_ = std::max(max_ts_, ts);
   }
 
   void CommitTs(TxnTs ts) noexcept {
-    util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
+    ArcanedbLockGuard<ArcanedbLock> guard(mu_);
     ts_set_.erase(ts);
     // ARCANEDB_INFO("commit ts {}", ts);
   }
 
   std::pair<bool, TxnTs> GetSnapshotTs() const noexcept {
-    util::InstrumentedLockGuard<ArcanedbLock> guard(mu_);
+    ArcanedbLockGuard<ArcanedbLock> guard(mu_);
     // if there is no concurrent txn,
     // we will use the max ts we have ever seen.
     if (ts_set_.empty()) {

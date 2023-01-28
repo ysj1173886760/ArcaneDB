@@ -60,7 +60,7 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
     log_writer.WriteSetRow(write_ts, row);
   }
 
-  util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+  ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
   // prepend delta
   auto current_ptr = GetPtr_();
   delta->SetPrevious(std::move(current_ptr));
@@ -91,7 +91,7 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
     log_writer.WriteDeleteRow(write_ts, sort_key);
   }
 
-  util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+  ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
   // prepend delta
   auto current_ptr = GetPtr_();
   delta->SetPrevious(std::move(current_ptr));
@@ -146,7 +146,7 @@ Status VersionedBwTreePage::SetTs(property::SortKeysRef sort_key,
                                   TxnTs target_ts, const Options &opts,
                                   WriteInfo *info) noexcept {
   // acquire write lock
-  util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
+  ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
   auto shared_ptr = GetPtr_();
   auto current_ptr = shared_ptr.get();
   while (current_ptr != nullptr) {
