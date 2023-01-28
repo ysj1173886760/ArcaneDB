@@ -38,6 +38,8 @@ public:
   Open(const std::string &db_name, std::unique_ptr<WeightedGraphDB> *db,
        const WeightedGraphOptions &opts = WeightedGraphOptions()) noexcept;
 
+  static Status Destroy(const std::string &db_name) noexcept;
+
   class Transaction {
   public:
     /**

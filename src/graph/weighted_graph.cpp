@@ -52,6 +52,10 @@ Status WeightedGraphDB::Open(const std::string &db_name,
   return Status::Ok();
 }
 
+Status WeightedGraphDB::Destroy(const std::string &db_name) noexcept {
+  return log_store::PosixLogStore::Destory(db_name + "_log");
+}
+
 // TODO(sheep): check duplicate
 Status WeightedGraphDB::Transaction::InsertVertex(VertexId vertex_id,
                                                   Value data) noexcept {

@@ -34,17 +34,9 @@ inline int64_t GetRandom(int64_t min, int64_t max) noexcept {
   return distribution(generator);
 }
 
-void Work() {
-  std::unique_ptr<arcanedb::graph::WeightedGraphDB> db;
-  {
-    arcanedb::graph::WeightedGraphOptions opts;
-    opts.enable_wal = FLAGS_enable_wal;
-    auto s = arcanedb::graph::WeightedGraphDB::Open("random_write_benchmark", &db, opts);
-    if (!s.ok()) {
-      ARCANEDB_INFO("Failed to open db");
-      return;
-    }
-  }
+static const std::string db_name = "random_write_benchmark";
+
+void Work(arcanedb::graph::WeightedGraphDB *db) {
   auto min = std::numeric_limits<int64_t>::min();
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
@@ -74,9 +66,20 @@ int main(int argc, char* argv[]) {
   ARCANEDB_INFO("worker cnt {} ", bthread_getconcurrency());
   arcanedb::util::WaitGroup wg(FLAGS_concurrency + 1);
   std::atomic<bool> stopped(false);
+  std::unique_ptr<arcanedb::graph::WeightedGraphDB> db;
+  {
+    arcanedb::graph::WeightedGraphDB::Destroy(db_name);
+    arcanedb::graph::WeightedGraphOptions opts;
+    opts.enable_wal = FLAGS_enable_wal;
+    auto s = arcanedb::graph::WeightedGraphDB::Open(db_name, &db, opts);
+    if (!s.ok()) {
+      ARCANEDB_INFO("Failed to open db");
+      return 0;
+    }
+  }
   for (int i = 0; i < FLAGS_concurrency; i++) {
     arcanedb::util::LaunchAsync([&]() {
-      Work();
+      Work(db.get());
       wg.Done();
       stopped.store(true);
     });
