@@ -13,6 +13,7 @@
 
 #include "btree/btree_type.h"
 #include "btree/page/versioned_delta_node.h"
+#include "btree/write_info.h"
 #include "butil/containers/doubly_buffered_data.h"
 #include "common/options.h"
 #include "common/status.h"
@@ -31,10 +32,11 @@ public:
    * @param row
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
-  Status SetRow(const property::Row &row, TxnTs write_ts,
-                const Options &opts) noexcept;
+  Status SetRow(const property::Row &row, TxnTs write_ts, const Options &opts,
+                WriteInfo *info) noexcept;
 
   /**
    * @brief
@@ -42,10 +44,11 @@ public:
    * @param sort_key
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
-                   const Options &opts) noexcept;
+                   const Options &opts, WriteInfo *info) noexcept;
 
   /**
    * @brief
@@ -65,10 +68,11 @@ public:
    * @param sort_key
    * @param target_ts
    * @param opts
+   * @param info
    * @return Status
    */
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts) noexcept;
+               const Options &opts, WriteInfo *info) noexcept;
 
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();

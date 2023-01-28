@@ -13,6 +13,7 @@
 
 #include "txn/txn_context_occ.h"
 #include "absl/cleanup/cleanup.h"
+#include "btree/write_info.h"
 #include "txn/txn_manager_occ.h"
 #include <optional>
 
@@ -121,13 +122,14 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
 
 Status TxnContextOCC::WriteIntents_(const Options &opts) noexcept {
   // iterate write sets
+  btree::WriteInfo info;
   for (const auto &[k, v] : write_set_) {
     auto sub_table = GetSubTable_(k.first, opts);
     Status s;
     if (v.has_value()) {
-      s = sub_table->SetRow(v.value(), MarkLocked(read_ts_), opts);
+      s = sub_table->SetRow(v.value(), MarkLocked(read_ts_), opts, &info);
     } else {
-      s = sub_table->DeleteRow(k.second, MarkLocked(read_ts_), opts);
+      s = sub_table->DeleteRow(k.second, MarkLocked(read_ts_), opts, &info);
     }
     if (!s.ok()) {
       return s;
@@ -166,9 +168,10 @@ bool TxnContextOCC::ValidateRead_(const Options &opts) noexcept {
 }
 
 Status TxnContextOCC::CommitIntents_(const Options &opts) noexcept {
+  btree::WriteInfo info;
   for (const auto &[k, v] : write_set_) {
     auto sub_table = GetSubTable_(k.first, opts);
-    auto s = sub_table->SetTs(k.second, commit_ts_, opts);
+    auto s = sub_table->SetTs(k.second, commit_ts_, opts, &info);
     if (!s.ok()) {
       return s;
     }

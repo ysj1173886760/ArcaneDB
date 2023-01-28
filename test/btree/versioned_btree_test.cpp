@@ -129,10 +129,11 @@ public:
 TEST_F(VersionedBtreeTest, BasicTest) {
   auto value_list = GenerateValueList(100);
   TxnTs ts = 1;
+  WriteInfo info;
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
-                              return btree_.SetRow(row, ts, opts_);
+                              return btree_.SetRow(row, ts, opts_, &info);
                             })
                     .ok());
   }
@@ -140,7 +141,7 @@ TEST_F(VersionedBtreeTest, BasicTest) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
                               return btree_.DeleteRow(row.GetSortKeys(), ts + 1,
-                                                      opts_);
+                                                      opts_, &info);
                             })
                     .ok());
   }
@@ -164,9 +165,10 @@ TEST_F(VersionedBtreeTest, ConcurrentTest) {
       ValueStruct value{
           .point_id = index, .point_type = 0, .value = std::to_string(index)};
       for (int j = 0; j < epoch_cnt; j++) {
+        WriteInfo info;
         EXPECT_TRUE(WriteHelper(value,
                                 [&](const property::Row &row) {
-                                  return btree_.SetRow(row, ts, opts_);
+                                  return btree_.SetRow(row, ts, opts_, &info);
                                 })
                         .ok());
         {

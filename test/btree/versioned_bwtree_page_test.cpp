@@ -96,11 +96,12 @@ public:
 
 TEST_F(VersionedBwTreePageTest, BasicTest) {
   // insert
+  WriteInfo info;
   TxnTs ts = 1;
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page_->SetRow(row, ts, opts_);
+      return page_->SetRow(row, ts, opts_, &info);
     });
     EXPECT_TRUE(s.ok());
     RowView view;
@@ -112,7 +113,7 @@ TEST_F(VersionedBwTreePageTest, BasicTest) {
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = "world"};
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page_->SetRow(row, ts + 1, opts_);
+      return page_->SetRow(row, ts + 1, opts_, &info);
     });
     EXPECT_TRUE(s.ok());
     RowView view;
@@ -124,7 +125,7 @@ TEST_F(VersionedBwTreePageTest, BasicTest) {
   {
     ValueStruct value{.point_id = 0, .point_type = 0, .value = ""};
     auto sk = property::SortKeys({value.point_id, value.point_type});
-    auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts_);
+    auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts_, &info);
     EXPECT_TRUE(s.ok());
     RowView view;
     EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts + 2, opts_, &view).IsNotFound());
@@ -135,9 +136,10 @@ TEST_F(VersionedBwTreePageTest, CompactionTest) {
   auto value_list = GenerateValueList(1000);
   Options opts;
   opts.disable_compaction = false;
+  WriteInfo info;
   for (const auto &value : value_list) {
     auto s = WriteHelper(value, [&](const property::Row &row) {
-      return page_->SetRow(row, 1, opts);
+      return page_->SetRow(row, 1, opts, &info);
     });
     EXPECT_TRUE(s.ok());
   }
@@ -170,11 +172,12 @@ TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
         // insert
         TxnTs ts = (j * 3) + 1;
         {
+          WriteInfo info;
           ValueStruct value{
               .point_id = index, .point_type = 0, .value = "hello"};
           auto s = WriteHelper(value, [&](const property::Row &row) {
             util::Timer timer;
-            auto s = page_->SetRow(row, ts, opts);
+            auto s = page_->SetRow(row, ts, opts, &info);
             write_latency << timer.GetElapsed();
             return s;
           });
@@ -190,11 +193,12 @@ TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
         }
         // update
         {
+          WriteInfo info;
           ValueStruct value{
               .point_id = index, .point_type = 0, .value = "world"};
           auto s = WriteHelper(value, [&](const property::Row &row) {
             util::Timer timer;
-            auto s = page_->SetRow(row, ts + 1, opts);
+            auto s = page_->SetRow(row, ts + 1, opts, &info);
             write_latency << timer.GetElapsed();
             return s;
           });
@@ -210,11 +214,12 @@ TEST_F(VersionedBwTreePageTest, ConcurrentCompactionTest) {
         }
         // delete
         {
+          WriteInfo info;
           ValueStruct value{.point_id = index, .point_type = 0, .value = ""};
           auto sk = property::SortKeys({value.point_id, value.point_type});
           {
             util::Timer timer;
-            auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts);
+            auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts, &info);
             write_latency << timer.GetElapsed();
             EXPECT_TRUE(s.ok());
           }
@@ -260,10 +265,11 @@ TEST_F(VersionedBwTreePageTest, PerformanceTest) {
     // insert
     TxnTs ts = 3 * j + 1;
     {
+      WriteInfo info;
       ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
       auto s = WriteHelper(value, [&](const property::Row &row) {
         util::Timer timer;
-        auto s = page_->SetRow(row, ts, opts);
+        auto s = page_->SetRow(row, ts, opts, &info);
         write_latency << timer.GetElapsed();
         return s;
       });
@@ -279,10 +285,11 @@ TEST_F(VersionedBwTreePageTest, PerformanceTest) {
     }
     // update
     {
+      WriteInfo info;
       ValueStruct value{.point_id = 0, .point_type = 0, .value = "world"};
       auto s = WriteHelper(value, [&](const property::Row &row) {
         util::Timer timer;
-        auto s = page_->SetRow(row, ts + 1, opts);
+        auto s = page_->SetRow(row, ts + 1, opts, &info);
         write_latency << timer.GetElapsed();
         return s;
       });
@@ -298,11 +305,12 @@ TEST_F(VersionedBwTreePageTest, PerformanceTest) {
     }
     // delete
     {
+      WriteInfo info;
       ValueStruct value{.point_id = 0, .point_type = 0, .value = ""};
       auto sk = property::SortKeys({value.point_id, value.point_type});
       {
         util::Timer timer;
-        auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts);
+        auto s = page_->DeleteRow(sk.as_ref(), ts + 2, opts, &info);
         write_latency << timer.GetElapsed();
         EXPECT_TRUE(s.ok());
       }
@@ -330,15 +338,18 @@ TEST_F(VersionedBwTreePageTest, SetTsTest) {
   Options opts;
   TxnTs ts = 1;
   ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+  WriteInfo info;
   EXPECT_TRUE(WriteHelper(value,
                           [&](const property::Row &row) {
-                            auto s = page_->SetRow(row, MarkLocked(ts), opts);
+                            auto s =
+                                page_->SetRow(row, MarkLocked(ts), opts, &info);
                             return s;
                           })
                   .ok());
   EXPECT_TRUE(WriteHelper(value,
                           [&](const property::Row &row) {
-                            auto s = page_->SetTs(row.GetSortKeys(), ts, opts);
+                            auto s = page_->SetTs(row.GetSortKeys(), ts, opts,
+                                                  &info);
                             return s;
                           })
                   .ok());
@@ -362,16 +373,18 @@ TEST_F(VersionedBwTreePageTest, ConcurrentLockCommitTest) {
         TxnTs ts = (j * 3) + 1;
         ValueStruct value{.point_id = index, .point_type = 0, .value = "hello"};
         {
+          WriteInfo info;
           auto s = WriteHelper(value, [&](const property::Row &row) {
-            auto s = page_->SetRow(row, MarkLocked(ts), opts);
+            auto s = page_->SetRow(row, MarkLocked(ts), opts, &info);
             return s;
           });
           EXPECT_TRUE(s.ok());
         }
         // commit
         {
+          WriteInfo info;
           auto s = WriteHelper(value, [&](const property::Row &row) {
-            auto s = page_->SetTs(row.GetSortKeys(), ts, opts);
+            auto s = page_->SetTs(row.GetSortKeys(), ts, opts, &info);
             return s;
           });
           EXPECT_TRUE(s.ok());

@@ -10,7 +10,8 @@
  */
 
 #include "txn/txn_context_2pl.h"
-#include "txn_type.h"
+#include "btree/sub_table.h"
+#include "txn/txn_type.h"
 
 namespace arcanedb {
 namespace txn {
@@ -23,7 +24,8 @@ Status TxnContext2PL::SetRow(const std::string &sub_table_key,
   if (unlikely(!s.ok())) {
     return s;
   }
-  return sub_table->SetRow(row, txn_ts_, opts);
+  btree::WriteInfo info;
+  return sub_table->SetRow(row, txn_ts_, opts, &info);
 }
 
 Status TxnContext2PL::DeleteRow(const std::string &sub_table_key,
@@ -34,7 +36,8 @@ Status TxnContext2PL::DeleteRow(const std::string &sub_table_key,
   if (unlikely(!s.ok())) {
     return s;
   }
-  return sub_table->DeleteRow(sort_key, txn_ts_, opts);
+  btree::WriteInfo info;
+  return sub_table->DeleteRow(sort_key, txn_ts_, opts, &info);
 }
 
 Status TxnContext2PL::GetRow(const std::string &sub_table_key,

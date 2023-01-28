@@ -12,6 +12,7 @@
 #pragma once
 
 #include "btree/page/versioned_btree_page.h"
+#include "btree/write_info.h"
 
 namespace arcanedb {
 namespace btree {
@@ -31,10 +32,11 @@ public:
    * @param row
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
-  Status SetRow(const property::Row &row, TxnTs write_ts,
-                const Options &opts) noexcept;
+  Status SetRow(const property::Row &row, TxnTs write_ts, const Options &opts,
+                WriteInfo *info) noexcept;
 
   /**
    * @brief
@@ -42,10 +44,11 @@ public:
    * @param sort_key
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
-                   const Options &opts) noexcept;
+                   const Options &opts, WriteInfo *info) noexcept;
 
   /**
    * @brief
@@ -66,10 +69,11 @@ public:
    * @param sort_key
    * @param target_ts
    * @param opts
+   * @param info
    * @return Status
    */
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts) noexcept;
+               const Options &opts, WriteInfo *info) noexcept;
 
   std::string_view GetTableKey() const noexcept { return root_page_->GetKey(); }
 

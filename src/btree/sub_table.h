@@ -12,6 +12,7 @@
 #pragma once
 
 #include "btree/versioned_btree.h"
+#include "btree/write_info.h"
 #include "page/versioned_btree_page.h"
 
 namespace arcanedb {
@@ -50,11 +51,12 @@ public:
    * @param row
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
-  Status SetRow(const property::Row &row, TxnTs write_ts,
-                const Options &opts) noexcept {
-    return cluster_index_.SetRow(row, write_ts, opts);
+  Status SetRow(const property::Row &row, TxnTs write_ts, const Options &opts,
+                WriteInfo *info) noexcept {
+    return cluster_index_.SetRow(row, write_ts, opts, info);
   }
 
   /**
@@ -66,8 +68,8 @@ public:
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
-                   const Options &opts) noexcept {
-    return cluster_index_.DeleteRow(sort_key, write_ts, opts);
+                   const Options &opts, WriteInfo *info) noexcept {
+    return cluster_index_.DeleteRow(sort_key, write_ts, opts, info);
   }
 
   /**
@@ -94,8 +96,8 @@ public:
    * @return Status
    */
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts) noexcept {
-    return cluster_index_.SetTs(sort_key, target_ts, opts);
+               const Options &opts, WriteInfo *info) noexcept {
+    return cluster_index_.SetTs(sort_key, target_ts, opts, info);
   }
 
 private:

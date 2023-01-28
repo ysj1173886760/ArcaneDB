@@ -14,6 +14,7 @@
 #include "btree/btree_type.h"
 #include "btree/page/internal_page.h"
 #include "btree/page/versioned_bwtree_page.h"
+#include "btree/write_info.h"
 #include "cache/cache.h"
 
 namespace arcanedb {
@@ -73,12 +74,13 @@ public:
    * @param row
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
-  Status SetRow(const property::Row &row, TxnTs write_ts,
-                const Options &opts) noexcept {
+  Status SetRow(const property::Row &row, TxnTs write_ts, const Options &opts,
+                WriteInfo *info) noexcept {
     assert(leaf_page_);
-    return leaf_page_->SetRow(row, write_ts, opts);
+    return leaf_page_->SetRow(row, write_ts, opts, info);
   }
 
   /**
@@ -87,12 +89,13 @@ public:
    * @param sort_key
    * @param write_ts
    * @param opts
+   * @param info
    * @return Status
    */
   Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
-                   const Options &opts) noexcept {
+                   const Options &opts, WriteInfo *info) noexcept {
     assert(leaf_page_);
-    return leaf_page_->DeleteRow(sort_key, write_ts, opts);
+    return leaf_page_->DeleteRow(sort_key, write_ts, opts, info);
   }
 
   /**
@@ -117,12 +120,13 @@ public:
    * @param sort_key
    * @param target_ts
    * @param opts
+   * @param info
    * @return Status
    */
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts) noexcept {
+               const Options &opts, WriteInfo *info) noexcept {
     assert(leaf_page_);
-    return leaf_page_->SetTs(sort_key, target_ts, opts);
+    return leaf_page_->SetTs(sort_key, target_ts, opts, info);
   }
 
   /**

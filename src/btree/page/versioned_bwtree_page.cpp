@@ -47,7 +47,8 @@ void VersionedBwTreePage::MaybePerformCompaction_(
 }
 
 Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
-                                   const Options &opts) noexcept {
+                                   const Options &opts,
+                                   WriteInfo *info) noexcept {
   {
     auto delta = std::make_shared<VersionedDeltaNode>(row, write_ts);
     util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
@@ -60,8 +61,8 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
 }
 
 Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
-                                      TxnTs write_ts,
-                                      const Options &opts) noexcept {
+                                      TxnTs write_ts, const Options &opts,
+                                      WriteInfo *info) noexcept {
   {
     auto delta = std::make_shared<VersionedDeltaNode>(sort_key, write_ts);
     util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
@@ -108,8 +109,8 @@ Status VersionedBwTreePage::GetRowOnce_(property::SortKeysRef sort_key,
 }
 
 Status VersionedBwTreePage::SetTs(property::SortKeysRef sort_key,
-                                  TxnTs target_ts,
-                                  const Options &opts) noexcept {
+                                  TxnTs target_ts, const Options &opts,
+                                  WriteInfo *info) noexcept {
   // acquire write lock
   util::InstrumentedLockGuard<ArcanedbLock> guard(write_mu_);
   auto shared_ptr = GetPtr_();

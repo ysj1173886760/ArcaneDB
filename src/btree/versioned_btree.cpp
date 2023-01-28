@@ -16,12 +16,12 @@ namespace arcanedb {
 namespace btree {
 
 Status VersionedBtree::SetRow(const property::Row &row, TxnTs write_ts,
-                              const Options &opts) noexcept {
+                              const Options &opts, WriteInfo *info) noexcept {
   auto page_type = root_page_->GetPageType();
   Status s;
   switch (page_type) {
   case PageType::LeafPage: {
-    s = root_page_->SetRow(row, write_ts, opts);
+    s = root_page_->SetRow(row, write_ts, opts, info);
     break;
   }
   case PageType::InternalPage: {
@@ -33,12 +33,13 @@ Status VersionedBtree::SetRow(const property::Row &row, TxnTs write_ts,
 }
 
 Status VersionedBtree::DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
-                                 const Options &opts) noexcept {
+                                 const Options &opts,
+                                 WriteInfo *info) noexcept {
   auto page_type = root_page_->GetPageType();
   Status s;
   switch (page_type) {
   case PageType::LeafPage: {
-    s = root_page_->DeleteRow(sort_key, write_ts, opts);
+    s = root_page_->DeleteRow(sort_key, write_ts, opts, info);
     break;
   }
   case PageType::InternalPage: {
@@ -50,12 +51,12 @@ Status VersionedBtree::DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
 }
 
 Status VersionedBtree::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-                             const Options &opts) noexcept {
+                             const Options &opts, WriteInfo *info) noexcept {
   auto page_type = root_page_->GetPageType();
   Status s;
   switch (page_type) {
   case PageType::LeafPage: {
-    s = root_page_->SetTs(sort_key, target_ts, opts);
+    s = root_page_->SetTs(sort_key, target_ts, opts, info);
     break;
   }
   case PageType::InternalPage: {

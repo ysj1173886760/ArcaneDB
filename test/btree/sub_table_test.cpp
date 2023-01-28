@@ -110,12 +110,13 @@ TEST_F(SubTableTest, BasicTest) {
   std::unique_ptr<SubTable> sub_table;
   ASSERT_TRUE(SubTable::OpenSubTable(table_key_, opts_, &sub_table).ok());
 
+  WriteInfo info;
   auto value_list = GenerateValueList(100);
   TxnTs ts = 1;
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
-                              return sub_table->SetRow(row, ts, opts_);
+                              return sub_table->SetRow(row, ts, opts_, &info);
                             })
                     .ok());
   }
@@ -123,7 +124,7 @@ TEST_F(SubTableTest, BasicTest) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
                               return sub_table->DeleteRow(row.GetSortKeys(),
-                                                          ts + 1, opts_);
+                                                          ts + 1, opts_, &info);
                             })
                     .ok());
   }
@@ -160,9 +161,11 @@ TEST_F(SubTableTest, ConcurrentTest) {
       ValueStruct value{
           .point_id = index, .point_type = 0, .value = std::to_string(index)};
       for (int j = 0; j < epoch_cnt; j++) {
+        WriteInfo info;
         EXPECT_TRUE(WriteHelper(value,
                                 [&](const property::Row &row) {
-                                  return sub_table->SetRow(row, ts, opts_);
+                                  return sub_table->SetRow(row, ts, opts_,
+                                                           &info);
                                 })
                         .ok());
         {
