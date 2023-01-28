@@ -103,6 +103,9 @@ include_directories(third_party/abseil-cpp)
 link_directories(${PROJECT_BINARY_DIR}/third_party/abseil-cpp/absl)
 
 set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
+                  jemalloc)
+
+set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
                   absl::base
                   absl::hash
                   absl::raw_hash_set)
