@@ -22,6 +22,7 @@
 #include "util/monitor.h"
 
 DEFINE_int64(concurrency, 4, "");
+DEFINE_int64(pthread_concurrency, 4, "");
 DEFINE_int64(point_per_thread, 1000000, "");
 DEFINE_int64(edge_per_point, 100, "");
 DEFINE_bool(enable_wal, false, "");
@@ -63,7 +64,7 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
 
 int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
-  bthread_setconcurrency(4);
+  bthread_setconcurrency(FLAGS_pthread_concurrency);
   ARCANEDB_INFO("worker cnt {} ", bthread_getconcurrency());
   arcanedb::util::WaitGroup wg(FLAGS_concurrency + 1);
   std::atomic<bool> stopped(false);
@@ -90,11 +91,11 @@ int main(int argc, char* argv[]) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("max latency {}", latency_recorder.max_latency());
       ARCANEDB_INFO("qps {}", latency_recorder.qps());
-      arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
       bthread_usleep(1 * arcanedb::util::Second);
     }
     wg.Done();
