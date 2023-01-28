@@ -12,6 +12,7 @@
 #include "btree/page/versioned_bwtree_page.h"
 #include "bthread/bthread.h"
 #include "btree/wal/bwtree_log_writer.h"
+#include "butil/object_pool.h"
 #include "common/config.h"
 #include "util/monitor.h"
 
@@ -20,14 +21,17 @@ namespace btree {
 
 std::shared_ptr<VersionedDeltaNode>
 VersionedBwTreePage::Compaction_(VersionedDeltaNode *current_ptr) noexcept {
-  write_mu_.AssertHeld();
+  // write_mu_.AssertHeld();
   auto current = current_ptr->GetPrevious();
   VersionedDeltaNodeBuilder builder;
   builder.AddDeltaNode(current_ptr);
   // simple stragty
   // TODO(sheep): optimize compaction stragty
   // currently write amplification is too much.
-  while (current != nullptr) {
+  while (current != nullptr &&
+         (current->GetSize() == 1 ||
+          builder.GetRowSize() * common::Config::kBwTreeCompactionFactor >
+              current->GetSize())) {
     builder.AddDeltaNode(current.get());
     current = current->GetPrevious();
   }
@@ -38,7 +42,7 @@ VersionedBwTreePage::Compaction_(VersionedDeltaNode *current_ptr) noexcept {
 
 void VersionedBwTreePage::MaybePerformCompaction_(
     const Options &opts, VersionedDeltaNode *current_ptr) noexcept {
-  write_mu_.AssertHeld();
+  // write_mu_.AssertHeld();
   auto total_size = current_ptr->GetTotalLength();
   if ((!opts.disable_compaction &&
        total_size > common::Config::kBwTreeDeltaChainLength) ||

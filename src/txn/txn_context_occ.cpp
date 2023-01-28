@@ -9,8 +9,6 @@
  *
  */
 
-#pragma once
-
 #include "txn/txn_context_occ.h"
 #include "absl/cleanup/cleanup.h"
 #include "btree/write_info.h"

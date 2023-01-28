@@ -21,9 +21,12 @@ namespace arcanedb {
 using PageIdType = std::string;
 using PageIdView = std::string_view;
 
-using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
+// using ArcanedbLock = util::ArcaneMutex<bthread::Mutex>;
+// template <typename Mutex>
+// using ArcanedbLockGuard = util::InstrumentedLockGuard<Mutex>;
+using ArcanedbLock = bthread::Mutex;
 template <typename Mutex>
-using ArcanedbLockGuard = util::InstrumentedLockGuard<Mutex>;
+using ArcanedbLockGuard = std::lock_guard<Mutex>;
 
 using TxnId = int64_t;
 using TxnTs = uint32_t;

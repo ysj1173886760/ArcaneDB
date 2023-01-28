@@ -18,7 +18,7 @@ namespace btree {
 
 std::shared_ptr<DeltaNode>
 BwTreePage::Compaction_(DeltaNode *current_ptr) noexcept {
-  write_mu_.AssertHeld();
+  // write_mu_.AssertHeld();
   auto current = current_ptr->GetPrevious();
   DeltaNodeBuilder builder;
   builder.AddDeltaNode(current_ptr);
@@ -34,7 +34,7 @@ BwTreePage::Compaction_(DeltaNode *current_ptr) noexcept {
 
 void BwTreePage::MaybePerformCompaction_(const Options &opts,
                                          DeltaNode *current_ptr) noexcept {
-  write_mu_.AssertHeld();
+  // write_mu_.AssertHeld();
   auto total_size = current_ptr->GetTotalLength();
   if (!opts.disable_compaction &&
       total_size > common::Config::kBwTreeDeltaChainLength) {

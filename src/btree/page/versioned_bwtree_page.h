@@ -119,7 +119,8 @@ private:
   }
 
   // TODO(sheep) use group commit to optimize write performance
-  mutable ArcanedbLock write_mu_{"VersionedBwTreePageWriteMutex"};
+  // mutable ArcanedbLock write_mu_{"VersionedBwTreePageWriteMutex"};
+  mutable ArcanedbLock write_mu_;
   mutable DoublyBufferedData ptr_;
 };
 

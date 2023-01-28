@@ -59,7 +59,8 @@ public:
   }
 
 private:
-  mutable ArcanedbLock mu_{"SnapshotManager"};
+  // mutable ArcanedbLock mu_{"SnapshotManager"};
+  mutable ArcanedbLock mu_;
   std::set<TxnTs> ts_set_;
   TxnTs max_ts_{};
 };
