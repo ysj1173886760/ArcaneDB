@@ -360,16 +360,16 @@ TEST_F(TxnContextOCCTest, ConcurrentTestWithLog) {
           EXPECT_TRUE(WriteHelper(value1,
                                   [&](const property::Row &row) {
                                     return context->SetRow(
-                                        table_list[table_index], row, opts_);
+                                        table_list[table_index], row, opts);
                                   })
                           .ok());
           EXPECT_TRUE(WriteHelper(value2,
                                   [&](const property::Row &row) {
                                     return context->SetRow(
-                                        table_list[table_index], row, opts_);
+                                        table_list[table_index], row, opts);
                                   })
                           .ok());
-          EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+          EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
         }
         wg.Done();
       });
@@ -387,7 +387,7 @@ TEST_F(TxnContextOCCTest, ConcurrentTestWithLog) {
               .point_id = 1, .point_type = 0, .value = std::to_string(k)};
           TestConsistentRead(context.get(), table_list[table_index], value1,
                              value2);
-          context->CommitOrAbort(opts_);
+          context->CommitOrAbort(opts);
         }
         wg.Done();
       });

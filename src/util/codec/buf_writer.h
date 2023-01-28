@@ -39,6 +39,7 @@ public:
     CHECK(ptr_ + s <= end_);
     memcpy(ptr_, val.data(), s);
     ptr_ += s;
+    offset_ += s;
   }
 
   void WriteBytes(const std::string_view &val) noexcept {
@@ -46,6 +47,7 @@ public:
     CHECK(ptr_ + s <= end_);
     memcpy(ptr_, val.data(), s);
     ptr_ += s;
+    offset_ += s;
   }
 
   template <typename T> void WriteBytes(T val) noexcept {
@@ -62,7 +64,7 @@ public:
 private:
   char *ptr_;
   char *end_;
-  size_t offset_;
+  size_t offset_{0};
 };
 
 class BufWriter {

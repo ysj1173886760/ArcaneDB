@@ -32,7 +32,7 @@ public:
     DeleteRow,
   };
 
-  BwTreeLogWriter() noexcept : writer_(&block_[0], kDefaultBlockSize) {}
+  BwTreeLogWriter() noexcept : writer_(block_, kDefaultBlockSize) {}
 
   void WriteSetRow(TxnTs write_ts, const property::Row &row) noexcept {
     auto offset = writer_.Offset();
