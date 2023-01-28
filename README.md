@@ -26,3 +26,11 @@ Might be a graph storage engine.
 - [] Page serialization/deserialization
 - [] Flush dirty page
 - [] Multi-level Btr
+
+# Dependency
+
+Jemalloc is required.
+
+```
+sudo apt install libjemalloc-dev
+```
