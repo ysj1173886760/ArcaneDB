@@ -13,6 +13,7 @@
 #include "bthread/bthread.h"
 #include "btree/wal/bwtree_log_writer.h"
 #include "common/config.h"
+#include "util/monitor.h"
 
 namespace arcanedb {
 namespace btree {
@@ -67,8 +68,10 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
 
   // append log
   if (opts.log_store != nullptr) {
+    util::Timer timer;
     log_store::LogStore::LogResultContainer result;
     opts.log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
+    util::Monitor::GetInstance()->RecordAppendLogLatency(timer.GetElapsed());
   }
 
   // perform compaction

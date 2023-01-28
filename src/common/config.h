@@ -22,7 +22,7 @@ public:
   static constexpr size_t kThreadPoolDefaultNum = 2;
 
   static constexpr size_t kLogSegmentDefaultNum = 16;
-  static constexpr size_t kLogSegmentDefaultSize = 4 << 10;
+  static constexpr size_t kLogSegmentDefaultSize = 4 << 20;
   static constexpr size_t kLogStoreFlushInterval = 10 * util::MillSec;
 
   static constexpr size_t kBwTreeDeltaChainLength = 16;

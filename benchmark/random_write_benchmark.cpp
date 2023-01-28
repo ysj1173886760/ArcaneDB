@@ -19,6 +19,7 @@
 #include "graph/weighted_graph.h"
 #include "bvar/bvar.h"
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "util/monitor.h"
 
 DEFINE_int64(concurrency, 4, "");
 DEFINE_int64(point_per_thread, 1000000, "");
@@ -42,9 +43,9 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
   auto value = "arcane";
   arcanedb::Options opts;
   for (int i = 0; i < FLAGS_point_per_thread; i++) {
-    auto vertex_id = GetRandom(min, max);
+    auto vertex_id = GetRandom(0, max);
     for (int j = 0; j < FLAGS_edge_per_point; j++) {
-      auto target_id = GetRandom(min, max);
+      auto target_id = GetRandom(0, max);
       arcanedb::util::Timer timer;
       auto context = db->BeginRwTxn(opts);
       auto s = context->InsertEdge(vertex_id, target_id, value);
@@ -89,6 +90,11 @@ int main(int argc, char* argv[]) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("max latency {}", latency_recorder.max_latency());
       ARCANEDB_INFO("qps {}", latency_recorder.qps());
+      arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
       bthread_usleep(1 * arcanedb::util::Second);
     }
     wg.Done();

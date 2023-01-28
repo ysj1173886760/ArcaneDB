@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(C_FLAG_COMMON "")
 set(CMAKE_CXX_FLAGS_DEBUG "${C_FLAG_COMMON}")
-set(CMAKE_CXX_FLAGS "${C_FLAG_COMMON} -O3 -g -fPIC")
+set(CMAKE_CXX_FLAGS "${C_FLAG_COMMON} -O3 -g -fPIC -fno-omit-frame-pointer -fno-optimize-sibling-calls")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wno-unused-parameter -Wno-attributes")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")

@@ -18,6 +18,7 @@
 #include "util/bthread_util.h"
 #include "util/codec/buf_reader.h"
 #include "util/codec/buf_writer.h"
+#include "util/monitor.h"
 #include "util/time.h"
 #include <atomic>
 #include <memory>
@@ -98,12 +99,17 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
     total_size += record.size();
   }
 
+  int cnt = 0;
   util::BackOff bo;
   do {
     // first acquire the guard
     auto *segment = GetCurrentLogSegment_();
+    util::Timer timer;
     auto [succeed, should_seal, raw_lsn] =
         segment->TryReserveLogBuffer(total_size);
+    util::Monitor::GetInstance()->RecordReserveLogBufferLatency(
+        timer.GetElapsed());
+    timer.Reset();
     if (succeed) {
       auto guard = ControlGuard(segment);
       result->clear();
@@ -119,15 +125,22 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
         result->emplace_back(
             LsnRange{.start_lsn = start_lsn, .end_lsn = current_lsn});
       }
+      util::Monitor::GetInstance()->RecordSerializeLogLatency(
+          timer.GetElapsed());
+      util::Monitor::GetInstance()->RecordLogStoreRetryCntLatency(cnt);
       return;
     }
+    timer.Reset();
     // check whether we should seal
     if (should_seal && SealAndOpen(segment)) {
       // start next round immediately.
+      util::Monitor::GetInstance()->RecordSealAndOpenLatency(
+          timer.GetElapsed());
       continue;
     }
     // innodb will sleep 20 microseconds, so do we.
     bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
+    cnt += 1;
   } while (true);
 
   return;
