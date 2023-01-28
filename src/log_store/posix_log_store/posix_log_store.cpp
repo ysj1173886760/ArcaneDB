@@ -90,8 +90,8 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
   return Status::Ok();
 }
 
-Status PosixLogStore::AppendLogRecord(std::vector<std::string> log_records,
-                                      std::vector<LsnRange> *result) noexcept {
+Status PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
+                                      LogResultContainer *result) noexcept {
   // first calc the size we need to occupy
   size_t total_size = LogRecord::kHeaderSize * log_records.size();
   for (const auto &record : log_records) {

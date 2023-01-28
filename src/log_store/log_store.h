@@ -13,6 +13,7 @@
 
 #include "common/status.h"
 #include "log_store/options.h"
+#include "absl/container/inlined_vector.h"
 #include <limits>
 #include <vector>
 
@@ -42,14 +43,19 @@ public:
 // TODO: impl checkpoint & truncate logs
 class LogStore {
 public:
+  static constexpr size_t kDefaultLogNum = 1;
+  using LogRecordContainer = absl::InlinedVector<std::string_view, kDefaultLogNum>;
+  using LogResultContainer = absl::InlinedVector<LsnRange, kDefaultLogNum>;
+
   /**
    * @brief
    * Append a batch of logs.
    * @param log_records
+   * @param result
    * @return Status
    */
-  virtual Status AppendLogRecord(std::vector<std::string> log_records,
-                                 std::vector<LsnRange> *result) noexcept = 0;
+  virtual Status AppendLogRecord(const LogRecordContainer &log_records,
+                                 LogResultContainer *result) noexcept = 0;
 
   /**
    * @brief persistent lsn indicates that up to which lsn, data has been

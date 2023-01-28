@@ -91,8 +91,8 @@ void WaitLsn(std::shared_ptr<LogStore> store, LsnType lsn) noexcept {
 
 TEST(PosixLogStoreTest, BasicTest) {
   auto store = GenerateLogStore();
-  std::vector<std::string> log_records = {"123", "456", "789"};
-  std::vector<LsnRange> result;
+  LogStore::LogRecordContainer log_records = {"123", "456", "789"};
+  LogStore::LogResultContainer result;
   auto s = store->AppendLogRecord(log_records, &result);
   EXPECT_EQ(s, Status::Ok());
   EXPECT_EQ(result.size(), log_records.size());
@@ -116,8 +116,8 @@ TEST(PosixLogStoreTest, BasicTest) {
 
 TEST(PosixLogStoreTest, LogReaderTest) {
   auto store = GenerateLogStore();
-  std::vector<std::string> log_records = {"123", "456", "789"};
-  std::vector<LsnRange> result;
+  LogStore::LogRecordContainer log_records = {"123", "456", "789"};
+  LogStore::LogResultContainer result;
   auto s = store->AppendLogRecord(log_records, &result);
   EXPECT_EQ(s, Status::Ok());
 
@@ -137,14 +137,14 @@ TEST(PosixLogStoreTest, LogReaderTest) {
 
 TEST(PosixLogStoreTest, SwitchLogSegmentTest) {
   auto store = GenerateLogStore(32);
-  std::vector<std::string> log_records = {
+  std::vector<std::string> owner = {
       std::string(15, 'a'), std::string(15, 'b'), std::string(15, 'c')};
   LsnType lsn = 0;
   for (int i = 0; i < 3; i++) {
-    std::vector<std::string> log(1);
-    log[0] = log_records[i];
-    std::vector<LsnRange> result;
-    auto s = store->AppendLogRecord(log, &result);
+    LogStore::LogRecordContainer log_records(1);
+    log_records[0] = owner[i];
+    LogStore::LogResultContainer result;
+    auto s = store->AppendLogRecord(log_records, &result);
     EXPECT_EQ(s, Status::Ok());
     lsn = std::max(lsn, result.back().end_lsn);
   }
@@ -158,7 +158,7 @@ TEST(PosixLogStoreTest, SwitchLogSegmentTest) {
     EXPECT_TRUE(log_reader->HasNext());
     std::string bytes;
     log_reader->GetNextLogRecord(&bytes);
-    EXPECT_EQ(bytes, log_records[i]);
+    EXPECT_EQ(bytes, owner[i]);
   }
   EXPECT_EQ(log_reader->HasNext(), false);
 }
@@ -174,10 +174,10 @@ TEST(PosixLogStoreTest, ConcurrentAppendLogTest) {
     util::LaunchAsync([&]() {
       auto local_lsn = 0;
       for (int j = 0; j < 100; j++) {
-        std::vector<std::string> log(1);
-        std::vector<LsnRange> result;
-        log[0] = data;
-        EXPECT_TRUE(store->AppendLogRecord(log, &result).ok());
+        LogStore::LogRecordContainer log_records(1);
+        LogStore::LogResultContainer result;
+        log_records[0] = data;
+        EXPECT_TRUE(store->AppendLogRecord(log_records, &result).ok());
         local_lsn = result.back().end_lsn;
       }
       mu.lock();

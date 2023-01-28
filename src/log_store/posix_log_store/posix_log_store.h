@@ -72,8 +72,8 @@ public:
     delete log_file_;
   }
 
-  Status AppendLogRecord(std::vector<std::string> log_records,
-                         std::vector<LsnRange> *result) noexcept override;
+  Status AppendLogRecord(const LogRecordContainer &log_records,
+                         LogResultContainer *result) noexcept override;
 
   LsnType GetPersistentLsn() noexcept override {
     return persistent_lsn_.load(std::memory_order_relaxed);

@@ -26,7 +26,7 @@ namespace log_store {
  */
 class LogRecord {
 public:
-  LogRecord(LsnType lsn, const std::string &data) : lsn_(lsn), data_(data) {}
+  LogRecord(LsnType lsn, std::string_view data) : lsn_(lsn), data_(data) {}
 
   void SerializeTo(util::NonOwnershipBufWriter *writer) noexcept {
     writer->WriteBytes(static_cast<uint64_t>(lsn_));
@@ -41,7 +41,7 @@ public:
 
 private:
   LsnType lsn_;
-  const std::string &data_;
+  std::string_view data_;
 };
 
 } // namespace log_store
