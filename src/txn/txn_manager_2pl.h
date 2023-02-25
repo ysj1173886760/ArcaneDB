@@ -12,7 +12,7 @@
 #pragma once
 
 #include "common/config.h"
-#include "txn/lock_table.h"
+#include "common/lock_table.h"
 #include "txn/snapshot_manager.h"
 #include "txn/tso.h"
 #include "txn/txn_context.h"
@@ -34,7 +34,8 @@ public:
   TxnManager2PL() noexcept
       : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept override {
+  std::unique_ptr<TxnContext> BeginRoTxn(const Options &opts) const
+      noexcept override {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContext2PL>(txn_id, txn_ts, TxnType::ReadOnlyTxn,
@@ -47,7 +48,8 @@ public:
                                            &snapshot_manager_, &lock_table_);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept override {
+  std::unique_ptr<TxnContext> BeginRwTxn(const Options &opts) const
+      noexcept override {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = tso_.RequestTs();
     return std::make_unique<TxnContext2PL>(txn_id, txn_ts,
@@ -61,7 +63,7 @@ public:
 
 private:
   mutable LinkBufSnapshotManager snapshot_manager_;
-  mutable ShardedLockTable lock_table_;
+  mutable common::ShardedLockTable lock_table_;
   mutable Tso tso_;
 };
 

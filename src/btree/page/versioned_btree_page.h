@@ -166,6 +166,11 @@ public:
                                  std::move(new_internal_rows));
   }
 
+  common::LockTable &GetLockTable() noexcept {
+    assert(leaf_page_);
+    return leaf_page_->GetLockTable();
+  }
+
   /**
    * @brief
    * Test code below

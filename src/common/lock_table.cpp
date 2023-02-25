@@ -9,11 +9,11 @@
  *
  */
 
-#include "txn/lock_table.h"
+#include "common/lock_table.h"
 #include "common/config.h"
 
 namespace arcanedb {
-namespace txn {
+namespace common {
 
 // TODO(sheep): organize the code to avoid duplication
 
@@ -86,5 +86,5 @@ Status LockTable::Unlock(std::string_view sort_key, TxnId txn_id) noexcept {
   return Status::Ok();
 }
 
-} // namespace txn
+} // namespace common
 } // namespace arcanedb

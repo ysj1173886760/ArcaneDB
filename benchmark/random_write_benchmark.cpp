@@ -26,6 +26,7 @@ DEFINE_int64(pthread_concurrency, 4, "");
 DEFINE_int64(point_per_thread, 1000000, "");
 DEFINE_int64(edge_per_point, 100, "");
 DEFINE_bool(enable_wal, false, "");
+DEFINE_bool(decentralized_lock_table, false, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -43,6 +44,7 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
   arcanedb::Options opts;
+  opts.decentralized_lock_table = FLAGS_decentralized_lock_table;
   for (int i = 0; i < FLAGS_point_per_thread; i++) {
     auto vertex_id = GetRandom(0, max);
     for (int j = 0; j < FLAGS_edge_per_point; j++) {

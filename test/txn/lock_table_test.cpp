@@ -9,12 +9,12 @@
  *
  */
 
-#include "txn/lock_table.h"
+#include "common/lock_table.h"
 #include "util/bthread_util.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
-namespace txn {
+namespace common {
 
 TEST(LockTableTest, BasicTest) {
   // basic lock and unlock
@@ -49,5 +49,5 @@ TEST(LockTableTest, TimeoutTest) {
       table.LockFor(sk1.as_ref().as_slice(), txn2, 10 * util::MillSec).IsOk());
 }
 
-} // namespace txn
+} // namespace common
 } // namespace arcanedb

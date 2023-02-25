@@ -172,7 +172,7 @@ TEST_F(TxnContext2PLTest, BasicTest) {
   auto value_list = GenerateValueList(100);
   TxnTs ts;
   {
-    auto context = txn_manager_->BeginRwTxn();
+    auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
       EXPECT_TRUE(WriteHelper(value,
                               [&](const property::Row &row) {
@@ -191,7 +191,7 @@ TEST_F(TxnContext2PLTest, BasicTest) {
     context->CommitOrAbort(opts_);
   }
   {
-    auto context = txn_manager_->BeginRwTxn();
+    auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
       EXPECT_TRUE(WriteHelper(value,
                               [&](const property::Row &row) {
@@ -226,7 +226,7 @@ TEST_F(TxnContext2PLTest, ConcurrentTest) {
     for (int j = 0; j < 3; j++) {
       util::LaunchAsync([&, table_index = i]() {
         for (int k = 0; k < epoch_cnt; k++) {
-          auto context = txn_manager_->BeginRwTxn();
+          auto context = txn_manager_->BeginRwTxn(opts_);
           ValueStruct value1{
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
@@ -255,7 +255,7 @@ TEST_F(TxnContext2PLTest, ConcurrentTest) {
     for (int j = 0; j < 7; j++) {
       util::LaunchAsync([&, table_index = i]() {
         for (int k = 0; k < epoch_cnt; k++) {
-          auto context = txn_manager_->BeginRoTxn();
+          auto context = txn_manager_->BeginRoTxn(opts_);
           ValueStruct value1{
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{

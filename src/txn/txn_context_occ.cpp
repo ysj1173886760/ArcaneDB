@@ -21,7 +21,7 @@ namespace txn {
 Status TxnContextOCC::SetRow(const std::string &sub_table_key,
                              const property::Row &row,
                              const Options &opts) noexcept {
-  auto s = AcquireLock_(sub_table_key, row.GetSortKeys().as_slice());
+  auto s = AcquireLock_(sub_table_key, row.GetSortKeys().as_slice(), opts);
   if (unlikely(!s.ok())) {
     return s;
   }
@@ -36,7 +36,7 @@ Status TxnContextOCC::SetRow(const std::string &sub_table_key,
 Status TxnContextOCC::DeleteRow(const std::string &sub_table_key,
                                 property::SortKeysRef sort_key,
                                 const Options &opts) noexcept {
-  auto s = AcquireLock_(sub_table_key, sort_key.as_slice());
+  auto s = AcquireLock_(sub_table_key, sort_key.as_slice(), opts);
   if (unlikely(!s.ok())) {
     return s;
   }
@@ -87,7 +87,7 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
   if (txn_type_ == TxnType::ReadOnlyTxn) {
     return Status::Commit();
   }
-  auto defer = absl::MakeCleanup([&]() { ReleaseLock_(); });
+  auto defer = absl::MakeCleanup([&]() { ReleaseLock_(opts); });
   // commit protocol:
   // 1. write all intents
   // 2. acquire commit ts
@@ -177,14 +177,26 @@ Status TxnContextOCC::CommitIntents_(const Options &opts) noexcept {
   return Status::Ok();
 }
 
-void TxnContextOCC::ReleaseLock_() noexcept {
-  for (const auto &lock : lock_set_) {
-    lock_table_->Unlock(lock, txn_id_);
+std::string_view ExtraceSubTableKey(const std::string_view &lock_key) noexcept {
+  return lock_key.substr(0, lock_key.find("#"));
+}
+
+void TxnContextOCC::ReleaseLock_(const Options &opts) noexcept {
+  if (decentralized_lock_table_) {
+    for (const auto &lock : lock_set_) {
+      auto sub_table = GetSubTable_(ExtraceSubTableKey(lock), opts);
+      sub_table->GetLockTable().Unlock(lock, txn_id_);
+    }
+  } else {
+    for (const auto &lock : lock_set_) {
+      lock_table_->Unlock(lock, txn_id_);
+    }
   }
 }
 
 Status TxnContextOCC::AcquireLock_(const std::string &sub_table_key,
-                                   std::string_view sort_key) noexcept {
+                                   std::string_view sort_key,
+                                   const Options &opts) noexcept {
   // concat the subtable key and sortkey here.
   // user's subtable key and sortkey couldn't contains #
   // since it is used as delimiter here.
@@ -192,15 +204,23 @@ Status TxnContextOCC::AcquireLock_(const std::string &sub_table_key,
   lock_key.append("#");
   lock_key.append(sort_key);
   if (!lock_set_.count(lock_key)) {
-    auto s = lock_table_->Lock(lock_key, txn_id_);
-    lock_set_.insert(std::move(lock_key));
+    Status s;
+    if (decentralized_lock_table_) {
+      auto sub_table = GetSubTable_(sub_table_key, opts);
+      s = sub_table->GetLockTable().Lock(lock_key, txn_id_);
+      lock_set_.insert(std::move(lock_key));
+    } else {
+      s = lock_table_->Lock(lock_key, txn_id_);
+      lock_set_.insert(std::move(lock_key));
+    }
     return s;
   }
   return Status::Ok();
 }
 
-btree::SubTable *TxnContextOCC::GetSubTable_(const std::string &sub_table_key,
-                                             const Options &opts) noexcept {
+btree::SubTable *
+TxnContextOCC::GetSubTable_(const std::string_view &sub_table_key,
+                            const Options &opts) noexcept {
   auto it = tables_.find(sub_table_key);
   if (it != tables_.end()) {
     return it->second.get();

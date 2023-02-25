@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "btree/sub_table.h"
+#include "common/lock_table.h"
 #include "txn/txn_context.h"
 
 namespace arcanedb {
@@ -24,11 +26,12 @@ class TxnManagerOCC;
  */
 class TxnContextOCC : public TxnContext {
 public:
-  TxnContextOCC(TxnId txn_id, TxnTs txn_ts, TxnType txn_type,
-                ShardedLockTable *lock_table,
+  TxnContextOCC(const Options &opts, TxnId txn_id, TxnTs txn_ts,
+                TxnType txn_type, common::ShardedLockTable *lock_table,
                 const TxnManagerOCC *txn_manager) noexcept
       : txn_id_(txn_id), read_ts_(txn_ts), txn_type_(txn_type),
-        lock_table_(lock_table), txn_manager_(txn_manager) {}
+        lock_table_(lock_table), txn_manager_(txn_manager),
+        decentralized_lock_table_(opts.decentralized_lock_table) {}
 
   ~TxnContextOCC() noexcept override {
     write_set_.clear();
@@ -87,11 +90,11 @@ public:
   TxnType GetTxnType() const noexcept override { return txn_type_; }
 
 private:
-  btree::SubTable *GetSubTable_(const std::string &sub_table_key,
+  btree::SubTable *GetSubTable_(const std::string_view &sub_table_key,
                                 const Options &opts) noexcept;
 
   Status AcquireLock_(const std::string &sub_table_key,
-                      std::string_view sort_key) noexcept;
+                      std::string_view sort_key, const Options &opts) noexcept;
 
   Status WriteIntents_(const Options &opts) noexcept;
 
@@ -99,7 +102,7 @@ private:
 
   Status CommitIntents_(const Options &opts) noexcept;
 
-  void ReleaseLock_() noexcept;
+  void ReleaseLock_(const Options &opts) noexcept;
 
   struct WriteSetHash {
     size_t
@@ -127,7 +130,7 @@ private:
   TxnTs read_ts_;
   TxnTs commit_ts_;
   TxnType txn_type_;
-  ShardedLockTable *lock_table_;
+  common::ShardedLockTable *lock_table_;
   const TxnManagerOCC *txn_manager_;
   absl::flat_hash_set<std::string> lock_set_;
   absl::flat_hash_map<std::string_view, std::unique_ptr<btree::SubTable>>
@@ -141,6 +144,8 @@ private:
   absl::flat_hash_map<std::pair<std::string, property::SortKeys>,
                       std::optional<TxnTs>, ReadSetHash>
       read_set_;
+
+  bool decentralized_lock_table_{false};
 };
 
 } // namespace txn

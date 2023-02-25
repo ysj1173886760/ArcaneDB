@@ -16,11 +16,6 @@
 namespace arcanedb {
 namespace txn {
 
-enum class LockType : int8_t {
-  RLock,
-  WLock,
-};
-
 enum class TxnType : int8_t {
   ReadOnlyTxn,
   ReadWriteTxn,

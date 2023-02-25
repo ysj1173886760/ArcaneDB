@@ -24,12 +24,14 @@ Status TransactionalKKV::Open(std::unique_ptr<TransactionalKKV> *db,
   return Status::Ok();
 }
 
-std::unique_ptr<txn::TxnContext> TransactionalKKV::BeginRoTxn() noexcept {
-  return txn_manager_->BeginRoTxn();
+std::unique_ptr<txn::TxnContext>
+TransactionalKKV::BeginRoTxn(const Options &opts) noexcept {
+  return txn_manager_->BeginRoTxn(opts);
 }
 
-std::unique_ptr<txn::TxnContext> TransactionalKKV::BeginRwTxn() noexcept {
-  return txn_manager_->BeginRwTxn();
+std::unique_ptr<txn::TxnContext>
+TransactionalKKV::BeginRwTxn(const Options &opts) noexcept {
+  return txn_manager_->BeginRwTxn(opts);
 }
 
 } // namespace handler

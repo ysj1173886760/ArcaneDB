@@ -22,7 +22,12 @@
 #include <limits>
 
 namespace arcanedb {
-namespace txn {
+namespace common {
+
+enum class LockType : int8_t {
+  RLock,
+  WLock,
+};
 
 class LockTable {
 public:
@@ -111,5 +116,5 @@ private:
   std::vector<LockTable> shards_;
 };
 
-} // namespace txn
+} // namespace common
 } // namespace arcanedb

@@ -79,6 +79,10 @@ public:
 
   // TODO(sheep): support SMO interface
 
+  common::LockTable &GetLockTable() noexcept {
+    return root_page_->GetLockTable();
+  }
+
 private:
   Status GetRowMultilevel_(property::SortKeysRef sort_key, TxnTs read_ts,
                            const Options &opts, RowView *view) const noexcept;

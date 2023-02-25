@@ -13,12 +13,17 @@
 #include "txn/txn_context_occ.h"
 #include "txn/txn_manager_occ.h"
 #include "util/bthread_util.h"
+#include "gtest/gtest.h"
 #include <gtest/gtest.h>
 
 namespace arcanedb {
 namespace txn {
 
-class TxnContextOCCTest : public ::testing::Test {
+struct TestOptions {
+  bool decentralized_lock_table;
+};
+
+class TxnContextOCCTest : public ::testing::TestWithParam<TestOptions> {
 public:
   property::Schema MakeTestSchema() noexcept {
     property::Column column1{
@@ -164,6 +169,7 @@ public:
     txn_manager_ = std::make_unique<TxnManagerOCC>();
     opts_ro_ = opts_;
     opts_ro_.ignore_lock = true;
+    opts_.decentralized_lock_table = GetParam().decentralized_lock_table;
   }
 
   void TearDown() {}
@@ -177,11 +183,16 @@ public:
   std::unique_ptr<TxnManagerOCC> txn_manager_;
 };
 
-TEST_F(TxnContextOCCTest, BasicTest) {
+INSTANTIATE_TEST_SUITE_P(
+    TxnTest, TxnContextOCCTest,
+    ::testing::Values(TestOptions{.decentralized_lock_table = true},
+                      TestOptions{.decentralized_lock_table = false}));
+
+TEST_P(TxnContextOCCTest, BasicTest) {
   auto value_list = GenerateValueList(100);
   TxnTs ts;
   {
-    auto context = txn_manager_->BeginRwTxn();
+    auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
       EXPECT_TRUE(WriteHelper(value,
                               [&](const property::Row &row) {
@@ -200,7 +211,7 @@ TEST_F(TxnContextOCCTest, BasicTest) {
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
   }
   {
-    auto context = txn_manager_->BeginRwTxn();
+    auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
       EXPECT_TRUE(WriteHelper(value,
                               [&](const property::Row &row) {
@@ -220,10 +231,10 @@ TEST_F(TxnContextOCCTest, BasicTest) {
   }
 }
 
-TEST_F(TxnContextOCCTest, AbortTest) {
+TEST_P(TxnContextOCCTest, AbortTest) {
   auto value = ValueStruct{.point_id = 0, .point_type = 0, .value = "hello"};
   {
-    auto context = txn_manager_->BeginRwTxn();
+    auto context = txn_manager_->BeginRwTxn(opts_);
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
                               return context->SetRow(table_key_, row, opts_);
@@ -237,8 +248,8 @@ TEST_F(TxnContextOCCTest, AbortTest) {
   // 3. txn b commit
   // 4. txn a failed to commit
   auto sk = property::SortKeys({value.point_id, value.point_type});
-  auto txn1 = txn_manager_->BeginRwTxn();
-  auto txn2 = txn_manager_->BeginRwTxn();
+  auto txn1 = txn_manager_->BeginRwTxn(opts_);
+  auto txn2 = txn_manager_->BeginRwTxn(opts_);
   {
     btree::RowView view;
     EXPECT_TRUE(txn1->GetRow(table_key_, sk.as_ref(), opts_, &view).ok());
@@ -260,7 +271,7 @@ TEST_F(TxnContextOCCTest, AbortTest) {
   { EXPECT_TRUE(txn1->CommitOrAbort(opts_).IsAbort()); }
 }
 
-TEST_F(TxnContextOCCTest, ConcurrentTest) {
+TEST_P(TxnContextOCCTest, ConcurrentTest) {
   std::vector<std::string> table_list;
   for (int i = 0; i < 10; i++) {
     table_list.push_back("test_table" + std::to_string(i));
@@ -275,7 +286,7 @@ TEST_F(TxnContextOCCTest, ConcurrentTest) {
     for (int j = 0; j < 3; j++) {
       util::LaunchAsync([&, table_index = i]() {
         for (int k = 0; k < epoch_cnt; k++) {
-          auto context = txn_manager_->BeginRwTxn();
+          auto context = txn_manager_->BeginRwTxn(opts_);
           ValueStruct value1{
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
@@ -303,7 +314,7 @@ TEST_F(TxnContextOCCTest, ConcurrentTest) {
     for (int j = 0; j < 7; j++) {
       util::LaunchAsync([&, table_index = i]() {
         for (int k = 0; k < epoch_cnt; k++) {
-          auto context = txn_manager_->BeginRoTxn();
+          auto context = txn_manager_->BeginRoTxn(opts_);
           ValueStruct value1{
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
@@ -333,7 +344,7 @@ std::shared_ptr<log_store::LogStore> GenerateLogStore() {
   return store;
 }
 
-TEST_F(TxnContextOCCTest, ConcurrentTestWithLog) {
+TEST_P(TxnContextOCCTest, ConcurrentTestWithLog) {
   Options opts = opts_;
   std::shared_ptr<log_store::LogStore> log_store = GenerateLogStore();
   opts.log_store = log_store.get();
@@ -352,7 +363,7 @@ TEST_F(TxnContextOCCTest, ConcurrentTestWithLog) {
     for (int j = 0; j < 3; j++) {
       util::LaunchAsync([&, table_index = i]() {
         for (int k = 0; k < epoch_cnt; k++) {
-          auto context = txn_manager_->BeginRwTxn();
+          auto context = txn_manager_->BeginRwTxn(opts_);
           ValueStruct value1{
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
@@ -380,7 +391,7 @@ TEST_F(TxnContextOCCTest, ConcurrentTestWithLog) {
     for (int j = 0; j < 7; j++) {
       util::LaunchAsync([&, table_index = i]() {
         for (int k = 0; k < epoch_cnt; k++) {
-          auto context = txn_manager_->BeginRoTxn();
+          auto context = txn_manager_->BeginRoTxn(opts_);
           ValueStruct value1{
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{

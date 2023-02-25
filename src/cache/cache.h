@@ -93,7 +93,7 @@ public:
    * @param alloc
    * @return Result<CacheEntry *>
    */
-  Result<CacheEntry *> GetEntry(const std::string &key,
+  Result<CacheEntry *> GetEntry(const std::string_view &key,
                                 AllocFunc alloc) noexcept;
 
 private:
@@ -105,7 +105,7 @@ class LruMap {
 public:
   using AllocFunc = ShardedLRU::AllocFunc;
 
-  Result<CacheEntry *> GetEntry(const std::string &key,
+  Result<CacheEntry *> GetEntry(const std::string_view &key,
                                 AllocFunc alloc) noexcept;
 
   LruMap() = default;

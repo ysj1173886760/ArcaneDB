@@ -15,6 +15,7 @@
 #include "btree/page/versioned_delta_node.h"
 #include "btree/write_info.h"
 #include "butil/containers/doubly_buffered_data.h"
+#include "common/lock_table.h"
 #include "common/options.h"
 #include "common/status.h"
 #include "property/row/row.h"
@@ -74,6 +75,8 @@ public:
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
                const Options &opts, WriteInfo *info) noexcept;
 
+  common::LockTable &GetLockTable() noexcept { return lock_table_; }
+
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();
     return ptr->GetTotalLength();
@@ -122,6 +125,7 @@ private:
   // mutable ArcanedbLock write_mu_{"VersionedBwTreePageWriteMutex"};
   mutable ArcanedbLock write_mu_;
   mutable DoublyBufferedData ptr_;
+  common::LockTable lock_table_;
 };
 
 } // namespace btree

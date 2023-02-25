@@ -36,7 +36,7 @@ public:
    * @return Result<CacheEntry *>
    */
   template <typename T>
-  Status GetPage(const std::string &page_id, T **page) noexcept {
+  Status GetPage(const std::string_view &page_id, T **page) noexcept {
     static_assert(std::is_base_of<CacheEntry, T>::value,
                   "T must inherit from CacheEntry");
     auto alloc = [](const std::string_view &key,

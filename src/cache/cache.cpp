@@ -14,7 +14,7 @@
 namespace arcanedb {
 namespace cache {
 
-Result<CacheEntry *> LruMap::GetEntry(const std::string &key,
+Result<CacheEntry *> LruMap::GetEntry(const std::string_view &key,
                                       AllocFunc alloc) noexcept {
   auto cache_entry = GetFromMap_(key);
   if (!cache_entry) {
@@ -125,9 +125,9 @@ bool LruMap::TEST_CheckAllIsUndirty() noexcept {
   return true;
 }
 
-Result<CacheEntry *> ShardedLRU::GetEntry(const std::string &key,
+Result<CacheEntry *> ShardedLRU::GetEntry(const std::string_view &key,
                                           AllocFunc alloc) noexcept {
-  auto &shard = shards_[absl::Hash<std::string>()(key) % shard_num_];
+  auto &shard = shards_[absl::Hash<std::string_view>()(key) % shard_num_];
   return shard.GetEntry(key, alloc);
 }
 

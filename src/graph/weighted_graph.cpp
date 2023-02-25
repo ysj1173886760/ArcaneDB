@@ -151,7 +151,7 @@ WeightedGraphDB::BeginRoTxn(const Options &opts) noexcept {
   txn->opts_.log_store = log_store_.get();
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->opts_.ignore_lock = true;
-  txn->txn_context_ = txn_manager_->BeginRoTxn();
+  txn->txn_context_ = txn_manager_->BeginRoTxn(opts);
   return txn;
 }
 
@@ -161,7 +161,7 @@ WeightedGraphDB::BeginRwTxn(const Options &opts) noexcept {
   txn->opts_ = opts;
   txn->opts_.log_store = log_store_.get();
   txn->opts_.buffer_pool = buffer_pool_.get();
-  txn->txn_context_ = txn_manager_->BeginRwTxn();
+  txn->txn_context_ = txn_manager_->BeginRwTxn(opts);
   return txn;
 }
 

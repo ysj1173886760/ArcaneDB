@@ -14,14 +14,10 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "btree/btree_type.h"
-#include "btree/sub_table.h"
-#include "btree/versioned_btree.h"
 #include "common/options.h"
 #include "common/status.h"
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"
-#include "txn/lock_table.h"
-#include "txn/snapshot_manager.h"
 #include "txn/txn_type.h"
 
 namespace arcanedb {

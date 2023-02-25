@@ -25,8 +25,7 @@ using PageIdView = std::string_view;
 // template <typename Mutex>
 // using ArcanedbLockGuard = util::InstrumentedLockGuard<Mutex>;
 using ArcanedbLock = bthread::Mutex;
-template <typename Mutex>
-using ArcanedbLockGuard = std::lock_guard<Mutex>;
+template <typename Mutex> using ArcanedbLockGuard = std::lock_guard<Mutex>;
 
 using TxnId = int64_t;
 using TxnTs = uint32_t;

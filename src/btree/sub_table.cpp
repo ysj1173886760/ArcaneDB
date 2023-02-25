@@ -16,7 +16,8 @@
 namespace arcanedb {
 namespace btree {
 
-Status SubTable::OpenSubTable(const std::string &table_key, const Options &opts,
+Status SubTable::OpenSubTable(const std::string_view &table_key,
+                              const Options &opts,
                               std::unique_ptr<SubTable> *sub_table) noexcept {
   // root page id is table key
   VersionedBtreePage *root_page;

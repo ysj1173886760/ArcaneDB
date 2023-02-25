@@ -26,9 +26,9 @@ public:
   static Status Open(std::unique_ptr<TransactionalKKV> *db,
                      const Options &opts) noexcept;
 
-  std::unique_ptr<txn::TxnContext> BeginRoTxn() noexcept;
+  std::unique_ptr<txn::TxnContext> BeginRoTxn(const Options &opts) noexcept;
 
-  std::unique_ptr<txn::TxnContext> BeginRwTxn() noexcept;
+  std::unique_ptr<txn::TxnContext> BeginRwTxn(const Options &opts) noexcept;
 
 private:
   std::unique_ptr<txn::TxnManager> txn_manager_;

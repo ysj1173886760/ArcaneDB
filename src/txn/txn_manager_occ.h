@@ -12,7 +12,8 @@
 #pragma once
 
 #include "common/config.h"
-#include "txn/lock_table.h"
+#include "common/lock_table.h"
+#include "txn/snapshot_manager.h"
 #include "txn/tso.h"
 #include "txn/txn_context_occ.h"
 #include "txn/txn_manager.h"
@@ -26,26 +27,29 @@ public:
   TxnManagerOCC() noexcept
       : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn() const noexcept override {
+  std::unique_ptr<TxnContext> BeginRoTxn(const Options &opts) const
+      noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContextOCC>(
-        txn_id, read_ts, TxnType::ReadOnlyTxn, &lock_table_, this);
+        opts, txn_id, read_ts, TxnType::ReadOnlyTxn, &lock_table_, this);
   }
 
   std::unique_ptr<TxnContext> BeginRoTxnWithTs(TxnTs ts) const noexcept {
+    Options opts;
     auto txn_id = util::GenerateUUID();
-    return std::make_unique<TxnContextOCC>(txn_id, ts, TxnType::ReadOnlyTxn,
-                                           &lock_table_, this);
+    return std::make_unique<TxnContextOCC>(
+        opts, txn_id, ts, TxnType::ReadOnlyTxn, &lock_table_, this);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn() const noexcept override {
+  std::unique_ptr<TxnContext> BeginRwTxn(const Options &opts) const
+      noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = tso_.RequestTs();
     // commit this read ts immediately.
     snapshot_manager_.CommitTs(read_ts);
     return std::make_unique<TxnContextOCC>(
-        txn_id, read_ts, TxnType::ReadWriteTxn, &lock_table_, this);
+        opts, txn_id, read_ts, TxnType::ReadWriteTxn, &lock_table_, this);
   }
 
   TxnTs RequestTs() const noexcept { return tso_.RequestTs(); }
@@ -60,7 +64,7 @@ public:
 
 private:
   mutable LinkBufSnapshotManager snapshot_manager_;
-  mutable ShardedLockTable lock_table_;
+  mutable common::ShardedLockTable lock_table_;
   mutable Tso tso_;
 };
 

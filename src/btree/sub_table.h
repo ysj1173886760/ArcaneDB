@@ -40,7 +40,8 @@ public:
    * @param sub_table
    * @return Status
    */
-  static Status OpenSubTable(const std::string &table_key, const Options &opts,
+  static Status OpenSubTable(const std::string_view &table_key,
+                             const Options &opts,
                              std::unique_ptr<SubTable> *sub_table) noexcept;
 
   /**
@@ -98,6 +99,10 @@ public:
   Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
                const Options &opts, WriteInfo *info) noexcept {
     return cluster_index_.SetTs(sort_key, target_ts, opts, info);
+  }
+
+  common::LockTable &GetLockTable() noexcept {
+    return cluster_index_.GetLockTable();
   }
 
 private:
