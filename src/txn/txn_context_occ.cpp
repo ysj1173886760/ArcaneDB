@@ -93,7 +93,13 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
   // 2. acquire commit ts
   // 3. validate read set
   // 4. commit the intents
-  auto s = WriteIntents_(opts);
+  Status s;
+  {
+    Options write_intent_opts = opts;
+    write_intent_opts.check_intent_locked =
+        lock_manager_type_ == LockManagerType::kInlined;
+    s = WriteIntents_(write_intent_opts);
+  }
   if (!s.ok()) {
     ARCANEDB_INFO("Txn id: {} read ts: {}, Failed to commit {}", txn_id_,
                   read_ts_, s.ToString());
@@ -104,15 +110,11 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
     ARCANEDB_INFO(
         "Txn id: {} read ts: {}, commit ts: {}, Read validation failed.",
         txn_id_, read_ts_, commit_ts_);
+    AbortIntents_(opts);
     return Status::Abort();
   }
-  s = CommitIntents_(opts);
-  if (!s.ok()) {
-    ARCANEDB_INFO(
-        "Txn id: {} read ts: {} commit ts: {}. Commit intent failed. {}",
-        txn_id_, read_ts_, commit_ts_, s.ToString());
-    return Status::Abort();
-  }
+  CommitIntents_(opts);
+
   // commit ts
   txn_manager_->Commit(this);
   return Status::Commit();
@@ -121,6 +123,7 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
 Status TxnContextOCC::WriteIntents_(const Options &opts) noexcept {
   // iterate write sets
   btree::WriteInfo info;
+  std::vector<std::pair<std::string_view, property::SortKeysRef>> undo_list;
   for (const auto &[k, v] : write_set_) {
     auto sub_table = GetSubTable_(k.first, opts);
     Status s;
@@ -130,8 +133,14 @@ Status TxnContextOCC::WriteIntents_(const Options &opts) noexcept {
       s = sub_table->DeleteRow(k.second, MarkLocked(read_ts_), opts, &info);
     }
     if (!s.ok()) {
+      // abort the intents.
+      for (const auto &entry : undo_list) {
+        auto sub_table = GetSubTable_(entry.first, opts);
+        sub_table->SetTs(entry.second, kAbortedTxnTs, opts, &info);
+      }
       return s;
     }
+    undo_list.push_back({k.first, k.second});
   }
   return Status::Ok();
 }
@@ -165,16 +174,20 @@ bool TxnContextOCC::ValidateRead_(const Options &opts) noexcept {
   return true;
 }
 
-Status TxnContextOCC::CommitIntents_(const Options &opts) noexcept {
+void TxnContextOCC::CommitIntents_(const Options &opts) noexcept {
   btree::WriteInfo info;
   for (const auto &[k, v] : write_set_) {
     auto sub_table = GetSubTable_(k.first, opts);
-    auto s = sub_table->SetTs(k.second, commit_ts_, opts, &info);
-    if (!s.ok()) {
-      return s;
-    }
+    sub_table->SetTs(k.second, commit_ts_, opts, &info);
   }
-  return Status::Ok();
+}
+
+void TxnContextOCC::AbortIntents_(const Options &opts) noexcept {
+  btree::WriteInfo info;
+  for (const auto &[k, v] : write_set_) {
+    auto sub_table = GetSubTable_(k.first, opts);
+    sub_table->SetTs(k.second, kAbortedTxnTs, opts, &info);
+  }
 }
 
 std::string_view ExtraceSubTableKey(const std::string_view &lock_key) noexcept {
@@ -182,21 +195,35 @@ std::string_view ExtraceSubTableKey(const std::string_view &lock_key) noexcept {
 }
 
 void TxnContextOCC::ReleaseLock_(const Options &opts) noexcept {
-  if (decentralized_lock_table_) {
+  switch (lock_manager_type_) {
+  case LockManagerType::kCentralized: {
+    for (const auto &lock : lock_set_) {
+      lock_table_->Unlock(lock, txn_id_);
+    }
+    break;
+  }
+  case LockManagerType::kDecentralized: {
     for (const auto &lock : lock_set_) {
       auto sub_table = GetSubTable_(ExtraceSubTableKey(lock), opts);
       sub_table->GetLockTable().Unlock(lock, txn_id_);
     }
-  } else {
-    for (const auto &lock : lock_set_) {
-      lock_table_->Unlock(lock, txn_id_);
-    }
+    break;
+  }
+  case LockManagerType::kInlined: {
+    break;
+  }
+  default:
+    UNREACHABLE();
   }
 }
 
 Status TxnContextOCC::AcquireLock_(const std::string &sub_table_key,
                                    std::string_view sort_key,
                                    const Options &opts) noexcept {
+  if (lock_manager_type_ == LockManagerType::kInlined) {
+    return Status::Ok();
+  }
+
   // concat the subtable key and sortkey here.
   // user's subtable key and sortkey couldn't contains #
   // since it is used as delimiter here.
@@ -205,13 +232,23 @@ Status TxnContextOCC::AcquireLock_(const std::string &sub_table_key,
   lock_key.append(sort_key);
   if (!lock_set_.count(lock_key)) {
     Status s;
-    if (decentralized_lock_table_) {
+    switch (lock_manager_type_) {
+    case LockManagerType::kCentralized: {
+      s = lock_table_->Lock(lock_key, txn_id_);
+      lock_set_.insert(std::move(lock_key));
+      break;
+    }
+    case LockManagerType::kDecentralized: {
       auto sub_table = GetSubTable_(sub_table_key, opts);
       s = sub_table->GetLockTable().Lock(lock_key, txn_id_);
       lock_set_.insert(std::move(lock_key));
-    } else {
-      s = lock_table_->Lock(lock_key, txn_id_);
-      lock_set_.insert(std::move(lock_key));
+      break;
+    }
+    case LockManagerType::kInlined: {
+      break;
+    }
+    default:
+      UNREACHABLE();
     }
     return s;
   }

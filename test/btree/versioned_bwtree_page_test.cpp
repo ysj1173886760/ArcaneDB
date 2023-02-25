@@ -348,9 +348,8 @@ TEST_F(VersionedBwTreePageTest, SetTsTest) {
                   .ok());
   EXPECT_TRUE(WriteHelper(value,
                           [&](const property::Row &row) {
-                            auto s = page_->SetTs(row.GetSortKeys(), ts, opts,
-                                                  &info);
-                            return s;
+                            page_->SetTs(row.GetSortKeys(), ts, opts, &info);
+                            return Status::Ok();
                           })
                   .ok());
   auto sk = property::SortKeys({value.point_id, value.point_type});
@@ -384,8 +383,8 @@ TEST_F(VersionedBwTreePageTest, ConcurrentLockCommitTest) {
         {
           WriteInfo info;
           auto s = WriteHelper(value, [&](const property::Row &row) {
-            auto s = page_->SetTs(row.GetSortKeys(), ts, opts, &info);
-            return s;
+            page_->SetTs(row.GetSortKeys(), ts, opts, &info);
+            return Status::Ok();
           });
           EXPECT_TRUE(s.ok());
           RowView view;
@@ -398,6 +397,47 @@ TEST_F(VersionedBwTreePageTest, ConcurrentLockCommitTest) {
     });
   }
   wg.Wait();
+}
+
+TEST_F(VersionedBwTreePageTest, SetWhileCheckingLockTest) {
+  Options opts;
+  TxnTs ts = 1;
+  ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
+  WriteInfo info;
+  EXPECT_TRUE(WriteHelper(value,
+                          [&](const property::Row &row) {
+                            auto s =
+                                page_->SetRow(row, MarkLocked(ts), opts, &info);
+                            return s;
+                          })
+                  .ok());
+  opts.check_intent_locked = true;
+  EXPECT_TRUE(WriteHelper(value,
+                          [&](const property::Row &row) {
+                            auto s =
+                                page_->SetRow(row, MarkLocked(ts), opts, &info);
+                            return s;
+                          })
+                  .IsTxnConflict());
+  EXPECT_TRUE(WriteHelper(value,
+                          [&](const property::Row &row) {
+                            page_->SetTs(row.GetSortKeys(), ts, opts, &info);
+                            return Status::Ok();
+                          })
+                  .ok());
+  EXPECT_TRUE(WriteHelper(value,
+                          [&](const property::Row &row) {
+                            auto s = page_->SetRow(row, MarkLocked(ts + 1),
+                                                   opts, &info);
+                            return s;
+                          })
+                  .ok());
+  auto sk = property::SortKeys({value.point_id, value.point_type});
+  RowView view;
+  opts.ignore_lock = true;
+  EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts, &view).ok());
+  TestRead(view.at(0), value);
+  EXPECT_EQ(view.at(0).GetTs(), ts);
 }
 
 } // namespace btree

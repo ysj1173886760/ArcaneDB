@@ -29,7 +29,9 @@
   ARCANEDB_X(Deleted)                                                          \
   ARCANEDB_X(Timeout)                                                          \
   ARCANEDB_X(Commit)                                                           \
-  ARCANEDB_X(Abort)
+  ARCANEDB_X(Abort)                                                            \
+  ARCANEDB_X(TxnConflict)                                                      \
+  ARCANEDB_X(RowLocked)
 
 #define STATUS_ERROR_FUNC(name)                                                \
   static Status name() { return Status(ErrorCode::k##name); }                  \

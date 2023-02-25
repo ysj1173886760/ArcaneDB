@@ -121,12 +121,11 @@ public:
    * @param target_ts
    * @param opts
    * @param info
-   * @return Status
    */
-  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts, WriteInfo *info) noexcept {
+  void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+             const Options &opts, WriteInfo *info) noexcept {
     assert(leaf_page_);
-    return leaf_page_->SetTs(sort_key, target_ts, opts, info);
+    leaf_page_->SetTs(sort_key, target_ts, opts, info);
   }
 
   /**

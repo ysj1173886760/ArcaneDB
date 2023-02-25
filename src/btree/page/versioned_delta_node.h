@@ -141,7 +141,7 @@ public:
                  *opts.owner_ts == GetTs(write_ts)) {
         // ignore, since we are the owner.
       } else {
-        return Status::Retry();
+        return Status::RowLocked();
       }
     }
 
@@ -201,7 +201,7 @@ public:
       return Status::Ok();
     }
     // first entry is not locked, logical error might happens
-    return Status::Err();
+    UNREACHABLE();
   }
 
   VersionedDeltaNode() = default;

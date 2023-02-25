@@ -28,16 +28,13 @@ class TxnContextOCC : public TxnContext {
 public:
   TxnContextOCC(const Options &opts, TxnId txn_id, TxnTs txn_ts,
                 TxnType txn_type, common::ShardedLockTable *lock_table,
-                const TxnManagerOCC *txn_manager) noexcept
+                const TxnManagerOCC *txn_manager,
+                LockManagerType lock_manager_type) noexcept
       : txn_id_(txn_id), read_ts_(txn_ts), txn_type_(txn_type),
         lock_table_(lock_table), txn_manager_(txn_manager),
-        decentralized_lock_table_(opts.decentralized_lock_table) {}
+        lock_manager_type_(lock_manager_type) {}
 
-  ~TxnContextOCC() noexcept override {
-    write_set_.clear();
-    read_set_.clear();
-    row_owners_.clear();
-  }
+  ~TxnContextOCC() noexcept override = default;
 
   /**
    * @brief
@@ -100,7 +97,9 @@ private:
 
   bool ValidateRead_(const Options &opts) noexcept;
 
-  Status CommitIntents_(const Options &opts) noexcept;
+  void CommitIntents_(const Options &opts) noexcept;
+
+  void AbortIntents_(const Options &opts) noexcept;
 
   void ReleaseLock_(const Options &opts) noexcept;
 
@@ -139,13 +138,13 @@ private:
   absl::flat_hash_map<std::pair<std::string, property::SortKeysRef>,
                       std::optional<property::Row>, WriteSetHash>
       write_set_;
-  absl::flat_hash_set<std::unique_ptr<std::string>> row_owners_;
   // sort_key -> TxnTs
   absl::flat_hash_map<std::pair<std::string, property::SortKeys>,
                       std::optional<TxnTs>, ReadSetHash>
       read_set_;
+  absl::flat_hash_set<std::unique_ptr<std::string>> row_owners_;
 
-  bool decentralized_lock_table_{false};
+  LockManagerType lock_manager_type_;
 };
 
 } // namespace txn

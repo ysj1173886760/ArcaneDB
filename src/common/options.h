@@ -32,7 +32,7 @@ struct Options {
   bool disable_compaction{false};
   bool ignore_lock{false};
   bool force_compaction{false};
-  bool decentralized_lock_table{false};
+  bool check_intent_locked{false};
 };
 
 } // namespace arcanedb

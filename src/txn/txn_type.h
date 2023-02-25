@@ -21,5 +21,11 @@ enum class TxnType : int8_t {
   ReadWriteTxn,
 };
 
+enum class LockManagerType : uint8_t {
+  kCentralized,
+  kDecentralized,
+  kInlined,
+};
+
 } // namespace txn
 } // namespace arcanedb

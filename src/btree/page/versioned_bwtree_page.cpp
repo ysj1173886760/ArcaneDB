@@ -65,6 +65,11 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
   }
 
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
+  // check intent locked
+  if (opts.check_intent_locked && CheckRowLocked_(row.GetSortKeys(), opts)) {
+    return Status::TxnConflict();
+  }
+
   // prepend delta
   auto current_ptr = GetPtr_();
   delta->SetPrevious(std::move(current_ptr));
@@ -96,6 +101,11 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
   }
 
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
+  // check intent locked
+  if (opts.check_intent_locked && CheckRowLocked_(sort_key, opts)) {
+    return Status::TxnConflict();
+  }
+
   // prepend delta
   auto current_ptr = GetPtr_();
   delta->SetPrevious(std::move(current_ptr));
@@ -138,7 +148,7 @@ Status VersionedBwTreePage::GetRowOnce_(property::SortKeysRef sort_key,
       return Status::Ok();
     } else if (s.IsDeleted()) {
       return Status::NotFound();
-    } else if (s.IsRetry()) {
+    } else if (s.IsRowLocked()) {
       return Status::Retry();
     }
     current_ptr = current_ptr->GetPrevious().get();
@@ -146,9 +156,28 @@ Status VersionedBwTreePage::GetRowOnce_(property::SortKeysRef sort_key,
   return Status::NotFound();
 }
 
-Status VersionedBwTreePage::SetTs(property::SortKeysRef sort_key,
-                                  TxnTs target_ts, const Options &opts,
-                                  WriteInfo *info) noexcept {
+bool VersionedBwTreePage::CheckRowLocked_(property::SortKeysRef sort_key,
+                                          const Options &opts) const noexcept {
+  RowView view;
+  auto shared_ptr = GetPtr_();
+  auto current_ptr = shared_ptr.get();
+  // read by using max ts.
+  TxnTs read_ts = kMaxTxnTs;
+  // traverse the delta node
+  while (current_ptr != nullptr) {
+    auto s = current_ptr->GetRow(sort_key, read_ts, opts, &view);
+    if (s.IsRowLocked()) {
+      return true;
+    } else if (s.IsDeleted() || s.ok()) {
+      return false;
+    }
+    current_ptr = current_ptr->GetPrevious().get();
+  }
+  return false;
+}
+
+void VersionedBwTreePage::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+                                const Options &opts, WriteInfo *info) noexcept {
   // acquire write lock
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
   auto shared_ptr = GetPtr_();
@@ -159,14 +188,12 @@ Status VersionedBwTreePage::SetTs(property::SortKeysRef sort_key,
       // need to perform dummy update,
       // so that readers afterward will see our update.
       DummyUpdate_();
-      return s;
+      return;
     }
-    if (unlikely(!s.IsNotFound())) {
-      return s;
-    }
+    DCHECK(s.IsNotFound());
     current_ptr = current_ptr->GetPrevious().get();
   }
-  return Status::NotFound();
+  UNREACHABLE();
 }
 
 std::string VersionedBwTreePage::TEST_DumpPage() const noexcept {
@@ -217,9 +244,13 @@ bool VersionedBwTreePage::TEST_TsDesending() const noexcept {
     current_ptr = current_ptr->GetPrevious().get();
   }
   for (const auto &[sk, vec] : map) {
-    for (int i = 1; i < vec.size(); i++) {
-      if (vec[i].write_ts >= vec[i - 1].write_ts) {
-        return false;
+    std::optional<TxnTs> last_valid_ts{std::nullopt};
+    for (int i = 0; i < vec.size(); i++) {
+      if (vec[i].write_ts != kAbortedTxnTs) {
+        if (last_valid_ts.has_value() && vec[i].write_ts >= *last_valid_ts) {
+          return false;
+        }
+        last_valid_ts = vec[i].write_ts;
       }
     }
   }

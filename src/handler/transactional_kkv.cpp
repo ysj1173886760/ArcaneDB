@@ -18,7 +18,8 @@ namespace handler {
 Status TransactionalKKV::Open(std::unique_ptr<TransactionalKKV> *db,
                               const Options &opts) noexcept {
   auto res = std::make_unique<TransactionalKKV>();
-  res->txn_manager_ = std::make_unique<txn::TxnManagerOCC>();
+  res->txn_manager_ =
+      std::make_unique<txn::TxnManagerOCC>(txn::LockManagerType::kCentralized);
   res->buffer_pool_ = std::make_unique<cache::BufferPool>();
   *db = std::move(res);
   return Status::Ok();

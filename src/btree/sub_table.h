@@ -96,9 +96,9 @@ public:
    * @param opts
    * @return Status
    */
-  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts, WriteInfo *info) noexcept {
-    return cluster_index_.SetTs(sort_key, target_ts, opts, info);
+  void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+             const Options &opts, WriteInfo *info) noexcept {
+    cluster_index_.SetTs(sort_key, target_ts, opts, info);
   }
 
   common::LockTable &GetLockTable() noexcept {

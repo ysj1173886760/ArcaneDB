@@ -21,6 +21,7 @@ namespace graph {
 
 struct WeightedGraphOptions {
   bool enable_wal{false};
+  txn::LockManagerType lock_manager_type{txn::LockManagerType::kCentralized};
 };
 
 /**

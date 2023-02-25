@@ -26,7 +26,8 @@ DEFINE_int64(pthread_concurrency, 4, "");
 DEFINE_int64(point_per_thread, 1000000, "");
 DEFINE_int64(edge_per_point, 100, "");
 DEFINE_bool(enable_wal, false, "");
-DEFINE_bool(decentralized_lock_table, false, "");
+DEFINE_bool(decentralized_lock, false, "");
+DEFINE_bool(inlined_lock, false, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -44,7 +45,6 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
   arcanedb::Options opts;
-  opts.decentralized_lock_table = FLAGS_decentralized_lock_table;
   for (int i = 0; i < FLAGS_point_per_thread; i++) {
     auto vertex_id = GetRandom(0, max);
     for (int j = 0; j < FLAGS_edge_per_point; j++) {
@@ -74,6 +74,13 @@ int main(int argc, char* argv[]) {
   {
     arcanedb::graph::WeightedGraphDB::Destroy(db_name);
     arcanedb::graph::WeightedGraphOptions opts;
+    if (FLAGS_inlined_lock) {
+      opts.lock_manager_type = arcanedb::txn::LockManagerType::kInlined;
+    } else if (FLAGS_decentralized_lock) {
+      opts.lock_manager_type = arcanedb::txn::LockManagerType::kDecentralized;
+    } else {
+      opts.lock_manager_type = arcanedb::txn::LockManagerType::kCentralized;
+    }
     opts.enable_wal = FLAGS_enable_wal;
     auto s = arcanedb::graph::WeightedGraphDB::Open(db_name, &db, opts);
     if (!s.ok()) {

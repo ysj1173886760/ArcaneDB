@@ -20,7 +20,7 @@ namespace arcanedb {
 namespace txn {
 
 struct TestOptions {
-  bool decentralized_lock_table;
+  LockManagerType type;
 };
 
 class TxnContextOCCTest : public ::testing::TestWithParam<TestOptions> {
@@ -42,6 +42,11 @@ public:
     int64_t point_id;
     int32_t point_type;
     std::string value;
+
+    bool operator==(const ValueStruct &rhs) const noexcept {
+      return point_id == rhs.point_id && point_type == rhs.point_type &&
+             value == rhs.value;
+    }
   };
 
   std::vector<ValueStruct> GenerateValueList(size_t size) noexcept {
@@ -166,10 +171,9 @@ public:
     opts_.schema = &schema_;
     bpm_ = std::make_unique<cache::BufferPool>();
     opts_.buffer_pool = bpm_.get();
-    txn_manager_ = std::make_unique<TxnManagerOCC>();
+    txn_manager_ = std::make_unique<TxnManagerOCC>(GetParam().type);
     opts_ro_ = opts_;
     opts_ro_.ignore_lock = true;
-    opts_.decentralized_lock_table = GetParam().decentralized_lock_table;
   }
 
   void TearDown() {}
@@ -185,8 +189,9 @@ public:
 
 INSTANTIATE_TEST_SUITE_P(
     TxnTest, TxnContextOCCTest,
-    ::testing::Values(TestOptions{.decentralized_lock_table = true},
-                      TestOptions{.decentralized_lock_table = false}));
+    ::testing::Values(TestOptions{.type = LockManagerType::kCentralized},
+                      TestOptions{.type = LockManagerType::kDecentralized},
+                      TestOptions{.type = LockManagerType::kInlined}));
 
 TEST_P(TxnContextOCCTest, BasicTest) {
   auto value_list = GenerateValueList(100);
@@ -271,6 +276,72 @@ TEST_P(TxnContextOCCTest, AbortTest) {
   { EXPECT_TRUE(txn1->CommitOrAbort(opts_).IsAbort()); }
 }
 
+TEST_P(TxnContextOCCTest, AbortIntentTest) {
+  auto values = GenerateValueList(10);
+  {
+    auto context = txn_manager_->BeginRwTxn(opts_);
+    for (const auto &value : values) {
+      EXPECT_TRUE(WriteHelper(value,
+                              [&](const property::Row &row) {
+                                return context->SetRow(table_key_, row, opts_);
+                              })
+                      .ok());
+    }
+    EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+  }
+  auto construct_conflict = [&](const ValueStruct &conflict_value) {
+    // scenario:
+    // 1. txn 1 read a value
+    // 2. txn 2 read the value, then modify it
+    // 3. txn 2 commit
+    // 4. txn 1 failed to commit
+    auto sk = property::SortKeys(
+        {conflict_value.point_id, conflict_value.point_type});
+    auto txn1 = txn_manager_->BeginRwTxn(opts_);
+    auto txn2 = txn_manager_->BeginRwTxn(opts_);
+    {
+      btree::RowView view;
+      EXPECT_TRUE(txn1->GetRow(table_key_, sk.as_ref(), opts_, &view).ok());
+      for (const auto &value : values) {
+        if (value == conflict_value) {
+          continue;
+        }
+        EXPECT_TRUE(WriteHelper(value,
+                                [&](const property::Row &row) {
+                                  return txn1->SetRow(table_key_, row, opts_);
+                                })
+                        .ok());
+      }
+    }
+    {
+      btree::RowView view;
+      EXPECT_TRUE(txn2->GetRow(table_key_, sk.as_ref(), opts_, &view).ok());
+    }
+    {
+      auto new_value = ValueStruct{.point_id = conflict_value.point_id,
+                                   .point_type = conflict_value.point_type,
+                                   .value = "world"};
+      EXPECT_TRUE(WriteHelper(new_value,
+                              [&](const property::Row &row) {
+                                return txn2->SetRow(table_key_, row, opts_);
+                              })
+                      .ok());
+      EXPECT_TRUE(txn2->CommitOrAbort(opts_).IsCommit());
+    }
+    { EXPECT_TRUE(txn1->CommitOrAbort(opts_).IsAbort()); }
+  };
+  for (const auto &value : values) {
+    construct_conflict(value);
+  }
+  // then all value will be world
+  auto txn3 = txn_manager_->BeginRoTxnWithTs(kMaxTxnTs);
+  for (const auto &value : values) {
+    auto new_value = value;
+    new_value.value = "world";
+    TestRead(txn3.get(), table_key_, new_value, false);
+  }
+}
+
 TEST_P(TxnContextOCCTest, ConcurrentTest) {
   std::vector<std::string> table_list;
   for (int i = 0; i < 10; i++) {
@@ -303,7 +374,7 @@ TEST_P(TxnContextOCCTest, ConcurrentTest) {
                                         table_list[table_index], row, opts_);
                                   })
                           .ok());
-          EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+          context->CommitOrAbort(opts_);
         }
         wg.Done();
       });
@@ -380,7 +451,7 @@ TEST_P(TxnContextOCCTest, ConcurrentTestWithLog) {
                                         table_list[table_index], row, opts);
                                   })
                           .ok());
-          EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
+          context->CommitOrAbort(opts);
         }
         wg.Done();
       });

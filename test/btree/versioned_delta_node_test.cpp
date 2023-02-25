@@ -190,7 +190,7 @@ TEST_F(VersionedDeltaNodeTest, LockTest) {
   auto delta = MakeDelta(value, false, ts);
   auto sk = property::SortKeys({value.point_id, value.point_type});
   RowView view;
-  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRetry());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRowLocked());
   EXPECT_TRUE(delta->SetTs(sk.as_ref(), 1).ok());
   EXPECT_TRUE(delta->GetRow(sk.as_ref(), 1, opts_, &view).ok());
   TestRead(&view, value);
@@ -202,7 +202,7 @@ TEST_F(VersionedDeltaNodeTest, CompactionAbortedVersionTest) {
   std::vector<std::shared_ptr<VersionedDeltaNode>> deltas;
   TxnTs ts = 1;
   for (const auto &value : value_list) {
-    auto node = MakeDelta(value, false, 0);
+    auto node = MakeDelta(value, false, kAbortedTxnTs);
     deltas.push_back(node);
     builder.AddDeltaNode(node.get());
   }
@@ -221,7 +221,7 @@ TEST_F(VersionedDeltaNodeTest, IgnoreLockTest) {
   auto delta = MakeDelta(value, false, MarkLocked(ts));
   auto sk = property::SortKeys({value.point_id, value.point_type});
   RowView view;
-  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRetry());
+  EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRowLocked());
   Options opts;
   opts.ignore_lock = true;
   auto s = delta->GetRow(sk.as_ref(), ts, opts, &view);

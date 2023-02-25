@@ -70,10 +70,9 @@ public:
    * @param target_ts
    * @param opts
    * @param info
-   * @return Status
    */
-  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts, WriteInfo *info) noexcept;
+  void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+             const Options &opts, WriteInfo *info) noexcept;
 
   common::LockTable &GetLockTable() noexcept { return lock_table_; }
 
@@ -98,6 +97,9 @@ private:
 
   Status GetRowOnce_(property::SortKeysRef sort_key, TxnTs read_ts,
                      const Options &opts, RowView *view) const noexcept;
+
+  bool CheckRowLocked_(property::SortKeysRef sort_key,
+                       const Options &opts) const noexcept;
 
   std::shared_ptr<VersionedDeltaNode> GetPtr_() const noexcept {
     DoublyBufferedData::ScopedPtr scoped_ptr;

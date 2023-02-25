@@ -70,10 +70,9 @@ public:
    * @param target_ts
    * @param opts
    * @param info
-   * @return Status
    */
-  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
-               const Options &opts, WriteInfo *info) noexcept;
+  void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+             const Options &opts, WriteInfo *info) noexcept;
 
   std::string_view GetTableKey() const noexcept { return root_page_->GetKey(); }
 
