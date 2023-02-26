@@ -19,13 +19,7 @@
 namespace arcanedb {
 namespace wal {
 
-struct SetRowLog {
-  std::string_view page_id;
-  TxnId txn_id;
-  TxnTs write_ts;
-  property::Row row;
-};
-
+namespace detail {
 inline std::string_view
 DeserializeString(util::BufReader *buf_reader) noexcept {
   uint16_t length;
@@ -34,11 +28,19 @@ DeserializeString(util::BufReader *buf_reader) noexcept {
   CHECK(buf_reader->ReadPiece(&str, length));
   return str;
 }
+} // namespace detail
+
+struct SetRowLog {
+  std::string_view page_id;
+  TxnId txn_id;
+  TxnTs write_ts;
+  property::Row row;
+};
 
 inline SetRowLog DeserializeSetRowLog(const std::string_view &data) noexcept {
   util::BufReader reader(data);
   SetRowLog log;
-  log.page_id = DeserializeString(&reader);
+  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.txn_id);
   reader.ReadBytes(&log.write_ts);
   log.row = property::Row(reader.CurrentPtr());
@@ -56,10 +58,10 @@ inline DeleteRowLog
 DeserializeDeleteRowLog(const std::string_view &data) noexcept {
   util::BufReader reader(data);
   DeleteRowLog log;
-  log.page_id = DeserializeString(&reader);
+  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.txn_id);
   reader.ReadBytes(&log.write_ts);
-  log.sort_key = property::SortKeysRef(DeserializeString(&reader));
+  log.sort_key = property::SortKeysRef(detail::DeserializeString(&reader));
   return log;
 }
 
@@ -73,10 +75,10 @@ struct SetTsLog {
 inline SetTsLog DeserializeSetTsLog(const std::string_view &data) noexcept {
   util::BufReader reader(data);
   SetTsLog log;
-  log.page_id = DeserializeString(&reader);
+  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.txn_id);
   reader.ReadBytes(&log.commit_ts);
-  log.sort_key = property::SortKeysRef(DeserializeString(&reader));
+  log.sort_key = property::SortKeysRef(detail::DeserializeString(&reader));
   return log;
 }
 

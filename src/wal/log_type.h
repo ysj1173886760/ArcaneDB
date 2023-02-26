@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace arcanedb {
 namespace wal {
@@ -28,5 +29,11 @@ enum class LogType : uint8_t {
   kOccAbort = 5,
 };
 
+inline LogType ParseLogRecord(std::string_view *data) noexcept {
+  auto type = static_cast<LogType>(data->at(0));
+  *data = data->substr(1);
+  return type;
 }
+
+} // namespace wal
 } // namespace arcanedb

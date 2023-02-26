@@ -33,7 +33,7 @@ public:
    * Get the page.
    * @tparam T
    * @param page_id
-   * @return Result<CacheEntry *>
+   * @return Status
    */
   template <typename T>
   Status GetPage(const std::string_view &page_id, T **page) noexcept {
