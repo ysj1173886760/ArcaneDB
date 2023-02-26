@@ -126,6 +126,7 @@ private:
   // note that we are relying on the fact that
   // every rw txn has different read ts.
   TxnId txn_id_;
+  // read ts is playing role as txn id.
   TxnTs read_ts_;
   TxnTs commit_ts_;
   TxnType txn_type_;

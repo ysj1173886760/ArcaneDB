@@ -11,10 +11,10 @@
 
 #include "btree/page/versioned_bwtree_page.h"
 #include "bthread/bthread.h"
-#include "btree/wal/bwtree_log_writer.h"
 #include "butil/object_pool.h"
 #include "common/config.h"
 #include "util/monitor.h"
+#include "wal/bwtree_log_writer.h"
 
 namespace arcanedb {
 namespace btree {
@@ -52,6 +52,15 @@ void VersionedBwTreePage::MaybePerformCompaction_(
   }
 }
 
+void AppendLogAndSetLsn_(log_store::LogStore *log_store, WriteInfo *info,
+                         const wal::BwTreeLogWriter &log_writer) noexcept {
+  util::Timer timer;
+  log_store::LogStore::LogResultContainer result;
+  log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
+  util::Monitor::GetInstance()->RecordAppendLogLatency(timer.GetElapsed());
+  info->lsn = result[0].end_lsn;
+}
+
 Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
                                    const Options &opts,
                                    WriteInfo *info) noexcept {
@@ -77,10 +86,7 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
 
   // append log
   if (opts.log_store != nullptr) {
-    util::Timer timer;
-    log_store::LogStore::LogResultContainer result;
-    opts.log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
-    util::Monitor::GetInstance()->RecordAppendLogLatency(timer.GetElapsed());
+    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
   }
 
   // perform compaction
@@ -113,8 +119,7 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
 
   // append log
   if (opts.log_store != nullptr) {
-    log_store::LogStore::LogResultContainer result;
-    opts.log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
+    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
   }
 
   // compaction
@@ -178,6 +183,12 @@ bool VersionedBwTreePage::CheckRowLocked_(property::SortKeysRef sort_key,
 
 void VersionedBwTreePage::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
                                 const Options &opts, WriteInfo *info) noexcept {
+  // write log
+  wal::BwTreeLogWriter log_writer;
+  if (opts.log_store != nullptr) {
+    log_writer.WriteSetTs(target_ts, sort_key);
+  }
+
   // acquire write lock
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
   auto shared_ptr = GetPtr_();
@@ -188,6 +199,11 @@ void VersionedBwTreePage::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
       // need to perform dummy update,
       // so that readers afterward will see our update.
       DummyUpdate_();
+
+      // append log
+      if (opts.log_store != nullptr) {
+        AppendLogAndSetLsn_(opts.log_store, info, log_writer);
+      }
       return;
     }
     DCHECK(s.IsNotFound());

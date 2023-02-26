@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "log_store/log_store.h"
+
 namespace arcanedb {
 namespace btree {
 
@@ -19,7 +21,9 @@ namespace btree {
  * Write info contains the result of a writing to btree.
  * e.g. LSN, page size.
  */
-struct WriteInfo {};
+struct WriteInfo {
+  log_store::LsnType lsn{};
+};
 
 } // namespace btree
 } // namespace arcanedb

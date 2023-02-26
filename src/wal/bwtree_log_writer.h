@@ -29,7 +29,8 @@ class BwTreeLogWriter {
 public:
   enum class LogType : uint8_t {
     SetRow = 0,
-    DeleteRow,
+    DeleteRow = 1,
+    SetTs = 2,
   };
 
   BwTreeLogWriter() noexcept : writer_(block_, kDefaultBlockSize) {}
@@ -53,7 +54,18 @@ public:
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }
 
-  const log_store::LogStore::LogRecordContainer GetLogRecords() & noexcept {
+  void WriteSetTs(TxnTs commit_ts, property::SortKeysRef sort_key) noexcept {
+    auto offset = writer_.Offset();
+    writer_.WriteBytes(LogType::SetTs);
+    writer_.WriteBytes(commit_ts);
+    writer_.WriteBytes(static_cast<uint16_t>(sort_key.as_slice().size()));
+    writer_.WriteBytes(sort_key.as_slice());
+    container_.push_back(
+        std::string_view(block_ + offset, writer_.Offset() - offset));
+  }
+
+  const log_store::LogStore::LogRecordContainer &GetLogRecords() const
+      noexcept {
     return container_;
   }
 
