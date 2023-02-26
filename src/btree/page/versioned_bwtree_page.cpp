@@ -14,7 +14,7 @@
 #include "butil/object_pool.h"
 #include "common/config.h"
 #include "util/monitor.h"
-#include "wal/bwtree_log_writer.h"
+#include "wal/bwtree_log.h"
 
 namespace arcanedb {
 namespace btree {
@@ -70,7 +70,7 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
   // write log
   wal::BwTreeLogWriter log_writer;
   if (opts.log_store != nullptr) {
-    log_writer.WriteSetRow(write_ts, row);
+    log_writer.SetRow(write_ts, row);
   }
 
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
@@ -103,7 +103,7 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
   // write log
   wal::BwTreeLogWriter log_writer;
   if (opts.log_store != nullptr) {
-    log_writer.WriteDeleteRow(write_ts, sort_key);
+    log_writer.DeleteRow(write_ts, sort_key);
   }
 
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
@@ -186,7 +186,7 @@ void VersionedBwTreePage::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
   // write log
   wal::BwTreeLogWriter log_writer;
   if (opts.log_store != nullptr) {
-    log_writer.WriteSetTs(target_ts, sort_key);
+    log_writer.SetTs(target_ts, sort_key);
   }
 
   // acquire write lock

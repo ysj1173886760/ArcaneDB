@@ -13,6 +13,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "btree/write_info.h"
 #include "txn/txn_manager_occ.h"
+#include "wal/occ_log.h"
 #include <optional>
 
 namespace arcanedb {
@@ -198,14 +199,14 @@ void TxnContextOCC::ReleaseLock_(const Options &opts) noexcept {
   switch (lock_manager_type_) {
   case LockManagerType::kCentralized: {
     for (const auto &lock : lock_set_) {
-      lock_table_->Unlock(lock, txn_id_);
+      lock_table_->Unlock(lock, read_ts_);
     }
     break;
   }
   case LockManagerType::kDecentralized: {
     for (const auto &lock : lock_set_) {
       auto sub_table = GetSubTable_(ExtraceSubTableKey(lock), opts);
-      sub_table->GetLockTable().Unlock(lock, txn_id_);
+      sub_table->GetLockTable().Unlock(lock, read_ts_);
     }
     break;
   }
@@ -234,13 +235,13 @@ Status TxnContextOCC::AcquireLock_(const std::string &sub_table_key,
     Status s;
     switch (lock_manager_type_) {
     case LockManagerType::kCentralized: {
-      s = lock_table_->Lock(lock_key, txn_id_);
+      s = lock_table_->Lock(lock_key, read_ts_);
       lock_set_.insert(std::move(lock_key));
       break;
     }
     case LockManagerType::kDecentralized: {
       auto sub_table = GetSubTable_(sub_table_key, opts);
-      s = sub_table->GetLockTable().Lock(lock_key, txn_id_);
+      s = sub_table->GetLockTable().Lock(lock_key, read_ts_);
       lock_set_.insert(std::move(lock_key));
       break;
     }
@@ -269,6 +270,41 @@ TxnContextOCC::GetSubTable_(const std::string_view &sub_table_key,
       tables_.emplace(table->GetTableKey(), std::move(table));
   CHECK(succeed);
   return new_it->second.get();
+}
+
+template <typename Func>
+void WriteLogHelper_(log_store::LogStore *log_store, log_store::LsnType *lsn,
+                     Func &&func) noexcept {
+  if (log_store == nullptr) {
+    return;
+  }
+  wal::OccLogWriter log_writer;
+  func(log_writer);
+  log_store::LogStore::LogResultContainer result;
+  log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
+  *lsn = std::max(*lsn, result[0].end_lsn);
+}
+
+void TxnContextOCC::Begin_(log_store::LogStore *log_store) noexcept {
+  WriteLogHelper_(log_store, &lsn_,
+                  [read_ts = read_ts_](wal::OccLogWriter &log_writer) {
+                    log_writer.Begin(read_ts);
+                  });
+}
+
+void TxnContextOCC::Commit_(log_store::LogStore *log_store) noexcept {
+  WriteLogHelper_(log_store, &lsn_,
+                  [read_ts = read_ts_,
+                   commit_ts = commit_ts_](wal::OccLogWriter &log_writer) {
+                    log_writer.Commit(read_ts, commit_ts);
+                  });
+}
+
+void TxnContextOCC::Abort_(log_store::LogStore *log_store) noexcept {
+  WriteLogHelper_(log_store, &lsn_,
+                  [read_ts = read_ts_](wal::OccLogWriter &log_writer) {
+                    log_writer.Abort(read_ts);
+                  });
 }
 
 } // namespace txn

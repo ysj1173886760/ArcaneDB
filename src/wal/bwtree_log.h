@@ -15,6 +15,7 @@
 #include "log_store/log_store.h"
 #include "property/row/row.h"
 #include "util/codec/buf_writer.h"
+#include "wal/log_type.h"
 
 namespace arcanedb {
 namespace wal {
@@ -27,26 +28,20 @@ namespace wal {
 
 class BwTreeLogWriter {
 public:
-  enum class LogType : uint8_t {
-    SetRow = 0,
-    DeleteRow = 1,
-    SetTs = 2,
-  };
-
   BwTreeLogWriter() noexcept : writer_(block_, kDefaultBlockSize) {}
 
-  void WriteSetRow(TxnTs write_ts, const property::Row &row) noexcept {
+  void SetRow(TxnTs write_ts, const property::Row &row) noexcept {
     auto offset = writer_.Offset();
-    writer_.WriteBytes(LogType::SetRow);
+    writer_.WriteBytes(LogType::kBwtreeSetRow);
     writer_.WriteBytes(write_ts);
     writer_.WriteBytes(row.as_slice());
     container_.push_back(
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }
 
-  void WriteDeleteRow(TxnTs write_ts, property::SortKeysRef sort_key) noexcept {
+  void DeleteRow(TxnTs write_ts, property::SortKeysRef sort_key) noexcept {
     auto offset = writer_.Offset();
-    writer_.WriteBytes(LogType::DeleteRow);
+    writer_.WriteBytes(LogType::kBwtreeDeleteRow);
     writer_.WriteBytes(write_ts);
     writer_.WriteBytes(static_cast<uint16_t>(sort_key.as_slice().size()));
     writer_.WriteBytes(sort_key.as_slice());
@@ -54,9 +49,9 @@ public:
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }
 
-  void WriteSetTs(TxnTs commit_ts, property::SortKeysRef sort_key) noexcept {
+  void SetTs(TxnTs commit_ts, property::SortKeysRef sort_key) noexcept {
     auto offset = writer_.Offset();
-    writer_.WriteBytes(LogType::SetTs);
+    writer_.WriteBytes(LogType::kBwtreeSetTs);
     writer_.WriteBytes(commit_ts);
     writer_.WriteBytes(static_cast<uint16_t>(sort_key.as_slice().size()));
     writer_.WriteBytes(sort_key.as_slice());

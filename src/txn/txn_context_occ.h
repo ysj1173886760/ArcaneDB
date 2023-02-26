@@ -103,6 +103,12 @@ private:
 
   void ReleaseLock_(const Options &opts) noexcept;
 
+  void Begin_(log_store::LogStore *log_store) noexcept;
+
+  void Commit_(log_store::LogStore *log_store) noexcept;
+
+  void Abort_(log_store::LogStore *log_store) noexcept;
+
   struct WriteSetHash {
     size_t
     operator()(const std::pair<std::string, property::SortKeysRef> &value) const
@@ -125,6 +131,7 @@ private:
 
   // note that we are relying on the fact that
   // every rw txn has different read ts.
+  // txn_id is useless now.
   TxnId txn_id_;
   // read ts is playing role as txn id.
   TxnTs read_ts_;
@@ -146,6 +153,8 @@ private:
   absl::flat_hash_set<std::unique_ptr<std::string>> row_owners_;
 
   LockManagerType lock_manager_type_;
+
+  log_store::LsnType lsn_{};
 };
 
 } // namespace txn
