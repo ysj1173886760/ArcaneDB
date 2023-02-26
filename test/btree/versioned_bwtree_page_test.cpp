@@ -83,7 +83,7 @@ public:
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
-    page_ = std::make_unique<VersionedBwTreePage>();
+    page_ = std::make_unique<VersionedBwTreePage>("test_page");
   }
 
   void TearDown() {}

@@ -79,6 +79,8 @@ public:
     return true;
   }
 
+  const char *CurrentPtr() noexcept { return ptr_; }
+
 private:
   template <typename T> bool ReadHelper_(T *v) noexcept {
     if (ptr_ + sizeof(T) > end_) {

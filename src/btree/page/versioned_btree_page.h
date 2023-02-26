@@ -34,7 +34,7 @@ public:
    */
   VersionedBtreePage(const std::string_view &page_id) noexcept
       : cache::CacheEntry(page_id) {
-    leaf_page_ = std::make_unique<VersionedBwTreePage>();
+    leaf_page_ = std::make_unique<VersionedBwTreePage>(page_id);
     ModifyPageType(PageType::LeafPage);
   }
 

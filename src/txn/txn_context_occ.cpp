@@ -15,7 +15,7 @@
 #include "btree/write_info.h"
 #include "txn/txn_manager_occ.h"
 #include "txn_type.h"
-#include "wal/occ_log.h"
+#include "wal/occ_log_writer.h"
 #include <optional>
 
 namespace arcanedb {

@@ -25,6 +25,9 @@ namespace btree {
 
 class VersionedBwTreePage {
 public:
+  VersionedBwTreePage(const std::string_view &page_id) noexcept
+      : page_id_(page_id) {}
+
   /**
    * @brief
    * Insert a row into page
@@ -128,6 +131,7 @@ private:
   mutable ArcanedbLock write_mu_;
   mutable DoublyBufferedData ptr_;
   common::LockTable lock_table_;
+  const std::string page_id_;
 };
 
 } // namespace btree
