@@ -29,10 +29,12 @@ struct Options {
   // we will skip the lock when lock ts is the same as
   // owner ts.
   std::optional<TxnTs> owner_ts{};
+  TxnId txn_id{};
   bool disable_compaction{false};
   bool ignore_lock{false};
   bool force_compaction{false};
   bool check_intent_locked{false};
+  bool sync_commit{false};
 };
 
 } // namespace arcanedb

@@ -84,12 +84,14 @@ public:
     } else {
       opts = opts_;
     }
-    s = context->GetRow(k1, sk.as_ref(), opts_, &view);
+    s = context->GetRow(k1, sk.as_ref(), opts, &view);
     if (is_deleted) {
-      EXPECT_TRUE(s.IsNotFound());
+      EXPECT_TRUE(s.IsNotFound()) << s.ToString() << "\n";
       return;
     } else {
-      EXPECT_TRUE(s.ok());
+      EXPECT_TRUE(s.ok()) << s.ToString() << "\n"
+                          << DumpHelper(k1) << "\n"
+                          << "Ts: " << context->GetReadTs() << "\n";
     }
     {
       property::ValueResult res;
@@ -205,11 +207,11 @@ TEST_P(TxnContextOCCTest, BasicTest) {
                               })
                       .ok());
     }
-    ts = context->GetWriteTs();
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+    ts = context->GetWriteTs();
   }
   {
-    auto context = txn_manager_->BeginRoTxnWithTs(ts);
+    auto context = txn_manager_->BeginRoTxnWithTs(opts_, ts);
     for (const auto &value : value_list) {
       TestRead(context.get(), table_key_, value, false);
     }
@@ -225,11 +227,11 @@ TEST_P(TxnContextOCCTest, BasicTest) {
                               })
                       .ok());
     }
-    ts = context->GetWriteTs();
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+    ts = context->GetWriteTs();
   }
   {
-    auto context = txn_manager_->BeginRoTxnWithTs(ts);
+    auto context = txn_manager_->BeginRoTxnWithTs(opts_, ts);
     for (const auto &value : value_list) {
       TestRead(context.get(), table_key_, value, true);
     }
@@ -334,7 +336,7 @@ TEST_P(TxnContextOCCTest, AbortIntentTest) {
     construct_conflict(value);
   }
   // then all value will be world
-  auto txn3 = txn_manager_->BeginRoTxnWithTs(kMaxTxnTs);
+  auto txn3 = txn_manager_->BeginRoTxnWithTs(opts_, kMaxTxnTs);
   for (const auto &value : values) {
     auto new_value = value;
     new_value.value = "world";
@@ -478,6 +480,55 @@ TEST_P(TxnContextOCCTest, ConcurrentTestWithLog) {
   wg.Wait();
   for (int i = 0; i < 10; i++) {
     TestTsAsending(table_list[i]);
+  }
+}
+
+TEST_P(TxnContextOCCTest, BasicRecoveryTest) {
+  auto value_list = GenerateValueList(100);
+  Options opts = opts_;
+  opts.sync_commit = true;
+  TxnTs ts;
+  // write 100 rows
+  {
+    auto context = txn_manager_->BeginRwTxn(opts);
+    for (const auto &value : value_list) {
+      EXPECT_TRUE(WriteHelper(value,
+                              [&](const property::Row &row) {
+                                return context->SetRow(table_key_, row, opts);
+                              })
+                      .ok());
+    }
+    EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
+    ts = context->GetWriteTs();
+  }
+  // test read
+  {
+    auto context = txn_manager_->BeginRoTxnWithTs(opts, ts);
+    for (const auto &value : value_list) {
+      TestRead(context.get(), table_key_, value, false);
+    }
+    EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
+  }
+  // delete 100 rows
+  {
+    auto context = txn_manager_->BeginRwTxn(opts);
+    for (const auto &value : value_list) {
+      EXPECT_TRUE(WriteHelper(value,
+                              [&](const property::Row &row) {
+                                return context->DeleteRow(
+                                    table_key_, row.GetSortKeys(), opts);
+                              })
+                      .ok());
+    }
+    EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
+    ts = context->GetWriteTs();
+  }
+  // test read
+  {
+    auto context = txn_manager_->BeginRoTxnWithTs(opts, ts);
+    for (const auto &value : value_list) {
+      TestRead(context.get(), table_key_, value, true);
+    }
   }
 }
 

@@ -39,6 +39,8 @@ public:
   // txn ts is 4 byte
   // 4 mb link buf
   static constexpr size_t kLinkBufSnapshotManagerSize = 1 << 20;
+
+  static constexpr size_t kTxnWaitLogInterval = 2 * util::MillSec;
 };
 
 } // namespace common

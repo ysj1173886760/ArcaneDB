@@ -109,6 +109,11 @@ private:
 
   void Abort_(log_store::LogStore *log_store) noexcept;
 
+  void UndoWriteIntents_(
+      const std::vector<std::pair<std::string_view, property::SortKeysRef>>
+          &undo_list,
+      const Options &opts) noexcept;
+
   struct WriteSetHash {
     size_t
     operator()(const std::pair<std::string, property::SortKeysRef> &value) const
@@ -131,9 +136,7 @@ private:
 
   // note that we are relying on the fact that
   // every rw txn has different read ts.
-  // txn_id is useless now.
   TxnId txn_id_;
-  // read ts is playing role as txn id.
   TxnTs read_ts_;
   TxnTs commit_ts_;
   TxnType txn_type_;

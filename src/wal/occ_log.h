@@ -22,7 +22,7 @@ namespace wal {
 /**
  * @brief
  * Format:
- * | type 1byte | read ts 4 byte | commit ts 4 byte |
+ * | type 1byte | txn id 8 byte | ts 4 byte |
  */
 
 class OccLogWriter {
@@ -34,27 +34,28 @@ public:
     return container_;
   }
 
-  void Begin(TxnTs read_ts) noexcept {
+  void Begin(TxnId txn_id, TxnTs read_ts) noexcept {
     auto offset = writer_.Offset();
     writer_.WriteBytes(LogType::kOccBegin);
+    writer_.WriteBytes(txn_id);
     writer_.WriteBytes(read_ts);
     container_.push_back(
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }
 
-  void Commit(TxnTs read_ts, TxnTs commit_ts) noexcept {
+  void Commit(TxnId txn_id, TxnTs commit_ts) noexcept {
     auto offset = writer_.Offset();
     writer_.WriteBytes(LogType::kOccCommit);
-    writer_.WriteBytes(read_ts);
+    writer_.WriteBytes(txn_id);
     writer_.WriteBytes(commit_ts);
     container_.push_back(
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }
 
-  void Abort(TxnTs read_ts) noexcept {
+  void Abort(TxnId txn_id) noexcept {
     auto offset = writer_.Offset();
     writer_.WriteBytes(LogType::kOccAbort);
-    writer_.WriteBytes(read_ts);
+    writer_.WriteBytes(txn_id);
     container_.push_back(
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }

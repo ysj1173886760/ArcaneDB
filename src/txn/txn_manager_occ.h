@@ -37,8 +37,8 @@ public:
                                            this, lock_manager_type_);
   }
 
-  std::unique_ptr<TxnContext> BeginRoTxnWithTs(TxnTs ts) const noexcept {
-    Options opts;
+  std::unique_ptr<TxnContext> BeginRoTxnWithTs(const Options &opts,
+                                               TxnTs ts) const noexcept {
     auto txn_id = util::GenerateUUID();
     return std::make_unique<TxnContextOCC>(opts, txn_id, ts,
                                            TxnType::ReadOnlyTxn, &lock_table_,

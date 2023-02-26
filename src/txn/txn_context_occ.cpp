@@ -11,8 +11,10 @@
 
 #include "txn/txn_context_occ.h"
 #include "absl/cleanup/cleanup.h"
+#include "bthread/bthread.h"
 #include "btree/write_info.h"
 #include "txn/txn_manager_occ.h"
+#include "txn_type.h"
 #include "wal/occ_log.h"
 #include <optional>
 
@@ -88,44 +90,73 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
   if (txn_type_ == TxnType::ReadOnlyTxn) {
     return Status::Commit();
   }
-  auto defer = absl::MakeCleanup([&]() { ReleaseLock_(opts); });
+  Options commit_opts = opts;
+  commit_opts.check_intent_locked =
+      lock_manager_type_ == LockManagerType::kInlined;
+  commit_opts.owner_ts = read_ts_;
+
+  Begin_(commit_opts.log_store);
+
+  auto defer = absl::MakeCleanup([&]() { ReleaseLock_(commit_opts); });
   // commit protocol:
   // 1. write all intents
   // 2. acquire commit ts
   // 3. validate read set
   // 4. commit the intents
-  Status s;
-  {
-    Options write_intent_opts = opts;
-    write_intent_opts.check_intent_locked =
-        lock_manager_type_ == LockManagerType::kInlined;
-    s = WriteIntents_(write_intent_opts);
-  }
+  auto s = WriteIntents_(commit_opts);
   if (!s.ok()) {
     ARCANEDB_INFO("Txn id: {} read ts: {}, Failed to commit {}", txn_id_,
                   read_ts_, s.ToString());
     return Status::Abort();
   }
+
   commit_ts_ = txn_manager_->RequestTs();
-  if (!ValidateRead_(opts)) {
+
+  if (!ValidateRead_(commit_opts)) {
     ARCANEDB_INFO(
         "Txn id: {} read ts: {}, commit ts: {}, Read validation failed.",
         txn_id_, read_ts_, commit_ts_);
-    AbortIntents_(opts);
+    // write abort log
+    Abort_(commit_opts.log_store);
+    AbortIntents_(commit_opts);
     return Status::Abort();
   }
-  CommitIntents_(opts);
+
+  Commit_(commit_opts.log_store);
+  CommitIntents_(commit_opts);
+
+  // wait for persistent
+  if (commit_opts.log_store != nullptr && commit_opts.sync_commit) {
+    while (commit_opts.log_store->GetPersistentLsn() < lsn_) {
+      bthread_usleep(common::Config::kTxnWaitLogInterval);
+    }
+  }
 
   // commit ts
   txn_manager_->Commit(this);
   return Status::Commit();
 }
 
+void TxnContextOCC::UndoWriteIntents_(
+    const std::vector<std::pair<std::string_view, property::SortKeysRef>>
+        &undo_list,
+    const Options &opts) noexcept {
+  // abort the intents.
+  // don't need to remember lsn since aborted txn don't need to reply to user
+  btree::WriteInfo info;
+  // write abort log
+  Abort_(opts.log_store);
+  for (const auto &entry : undo_list) {
+    auto sub_table = GetSubTable_(entry.first, opts);
+    sub_table->SetTs(entry.second, kAbortedTxnTs, opts, &info);
+  }
+}
+
 Status TxnContextOCC::WriteIntents_(const Options &opts) noexcept {
   // iterate write sets
-  btree::WriteInfo info;
   std::vector<std::pair<std::string_view, property::SortKeysRef>> undo_list;
   for (const auto &[k, v] : write_set_) {
+    btree::WriteInfo info;
     auto sub_table = GetSubTable_(k.first, opts);
     Status s;
     if (v.has_value()) {
@@ -133,12 +164,11 @@ Status TxnContextOCC::WriteIntents_(const Options &opts) noexcept {
     } else {
       s = sub_table->DeleteRow(k.second, MarkLocked(read_ts_), opts, &info);
     }
+    // update lsn
+    lsn_ = std::max(lsn_, info.lsn);
+
     if (!s.ok()) {
-      // abort the intents.
-      for (const auto &entry : undo_list) {
-        auto sub_table = GetSubTable_(entry.first, opts);
-        sub_table->SetTs(entry.second, kAbortedTxnTs, opts, &info);
-      }
+      UndoWriteIntents_(undo_list, opts);
       return s;
     }
     undo_list.push_back({k.first, k.second});
@@ -147,15 +177,13 @@ Status TxnContextOCC::WriteIntents_(const Options &opts) noexcept {
 }
 
 bool TxnContextOCC::ValidateRead_(const Options &opts) noexcept {
-  Options tmp_opt = opts;
-  tmp_opt.owner_ts = read_ts_;
   for (const auto &[k, v] : read_set_) {
     // since read set will only record the ts we read on real table
     // instead of write cache.
     // so we can only skip the intent that is written by ourself.
     auto sub_table = GetSubTable_(k.first, opts);
     btree::RowView view;
-    auto s = sub_table->GetRow(k.second.as_ref(), commit_ts_, tmp_opt, &view);
+    auto s = sub_table->GetRow(k.second.as_ref(), commit_ts_, opts, &view);
     if (v.has_value()) {
       if (!s.ok()) {
         ARCANEDB_INFO("Expect value, get {}", s.ok());
@@ -176,14 +204,16 @@ bool TxnContextOCC::ValidateRead_(const Options &opts) noexcept {
 }
 
 void TxnContextOCC::CommitIntents_(const Options &opts) noexcept {
-  btree::WriteInfo info;
   for (const auto &[k, v] : write_set_) {
+    btree::WriteInfo info;
     auto sub_table = GetSubTable_(k.first, opts);
     sub_table->SetTs(k.second, commit_ts_, opts, &info);
+    lsn_ = std::max(lsn_, info.lsn);
   }
 }
 
 void TxnContextOCC::AbortIntents_(const Options &opts) noexcept {
+  // lsn for aborted txn is meaningless
   btree::WriteInfo info;
   for (const auto &[k, v] : write_set_) {
     auto sub_table = GetSubTable_(k.first, opts);
@@ -199,14 +229,14 @@ void TxnContextOCC::ReleaseLock_(const Options &opts) noexcept {
   switch (lock_manager_type_) {
   case LockManagerType::kCentralized: {
     for (const auto &lock : lock_set_) {
-      lock_table_->Unlock(lock, read_ts_);
+      lock_table_->Unlock(lock, txn_id_);
     }
     break;
   }
   case LockManagerType::kDecentralized: {
     for (const auto &lock : lock_set_) {
       auto sub_table = GetSubTable_(ExtraceSubTableKey(lock), opts);
-      sub_table->GetLockTable().Unlock(lock, read_ts_);
+      sub_table->GetLockTable().Unlock(lock, txn_id_);
     }
     break;
   }
@@ -235,13 +265,13 @@ Status TxnContextOCC::AcquireLock_(const std::string &sub_table_key,
     Status s;
     switch (lock_manager_type_) {
     case LockManagerType::kCentralized: {
-      s = lock_table_->Lock(lock_key, read_ts_);
+      s = lock_table_->Lock(lock_key, txn_id_);
       lock_set_.insert(std::move(lock_key));
       break;
     }
     case LockManagerType::kDecentralized: {
       auto sub_table = GetSubTable_(sub_table_key, opts);
-      s = sub_table->GetLockTable().Lock(lock_key, read_ts_);
+      s = sub_table->GetLockTable().Lock(lock_key, txn_id_);
       lock_set_.insert(std::move(lock_key));
       break;
     }
@@ -286,24 +316,25 @@ void WriteLogHelper_(log_store::LogStore *log_store, log_store::LsnType *lsn,
 }
 
 void TxnContextOCC::Begin_(log_store::LogStore *log_store) noexcept {
-  WriteLogHelper_(log_store, &lsn_,
-                  [read_ts = read_ts_](wal::OccLogWriter &log_writer) {
-                    log_writer.Begin(read_ts);
-                  });
+  WriteLogHelper_(
+      log_store, &lsn_,
+      [txn_id = txn_id_, read_ts = read_ts_](wal::OccLogWriter &log_writer) {
+        log_writer.Begin(txn_id, read_ts);
+      });
 }
 
 void TxnContextOCC::Commit_(log_store::LogStore *log_store) noexcept {
   WriteLogHelper_(log_store, &lsn_,
-                  [read_ts = read_ts_,
+                  [txn_id = txn_id_,
                    commit_ts = commit_ts_](wal::OccLogWriter &log_writer) {
-                    log_writer.Commit(read_ts, commit_ts);
+                    log_writer.Commit(txn_id, commit_ts);
                   });
 }
 
 void TxnContextOCC::Abort_(log_store::LogStore *log_store) noexcept {
   WriteLogHelper_(log_store, &lsn_,
-                  [read_ts = read_ts_](wal::OccLogWriter &log_writer) {
-                    log_writer.Abort(read_ts);
+                  [txn_id = txn_id_](wal::OccLogWriter &log_writer) {
+                    log_writer.Abort(txn_id);
                   });
 }
 
