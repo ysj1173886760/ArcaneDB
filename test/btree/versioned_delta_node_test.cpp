@@ -191,7 +191,7 @@ TEST_F(VersionedDeltaNodeTest, LockTest) {
   auto sk = property::SortKeys({value.point_id, value.point_type});
   RowView view;
   EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).IsRowLocked());
-  EXPECT_TRUE(delta->SetTs(sk.as_ref(), 1).ok());
+  EXPECT_TRUE(delta->SetTs(sk.as_ref(), 1, 0).ok());
   EXPECT_TRUE(delta->GetRow(sk.as_ref(), 1, opts_, &view).ok());
   TestRead(&view, value);
 }
@@ -226,7 +226,7 @@ TEST_F(VersionedDeltaNodeTest, IgnoreLockTest) {
   opts.ignore_lock = true;
   auto s = delta->GetRow(sk.as_ref(), ts, opts, &view);
   EXPECT_TRUE(s.IsNotFound()) << s.ToString();
-  EXPECT_TRUE(delta->SetTs(sk.as_ref(), ts).ok());
+  EXPECT_TRUE(delta->SetTs(sk.as_ref(), ts, 0).ok());
   EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).ok());
   TestRead(&view, value);
 }
@@ -240,7 +240,7 @@ TEST_F(VersionedDeltaNodeTest, LockOwnerTest) {
   Options tmp_opt = opts_;
   tmp_opt.owner_ts = ts;
   EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, tmp_opt, &view).IsNotFound());
-  EXPECT_TRUE(delta->SetTs(sk.as_ref(), ts).ok());
+  EXPECT_TRUE(delta->SetTs(sk.as_ref(), ts, 0).ok());
   EXPECT_TRUE(delta->GetRow(sk.as_ref(), ts, opts_, &view).ok());
   TestRead(&view, value);
 }

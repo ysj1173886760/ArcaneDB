@@ -73,6 +73,7 @@ btree::VersionedBtreePage *GetPage_(cache::BufferPool *buffer_pool,
   return page;
 }
 
+// TODO(sheep): recovery should carry the lsn.
 void OccRecovery::BwTreeSetRow_(const std::string_view &data) noexcept {
   auto log = wal::DeserializeSetRowLog(data);
 

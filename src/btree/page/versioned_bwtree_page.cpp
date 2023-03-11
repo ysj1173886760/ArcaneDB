@@ -11,10 +11,15 @@
 
 #include "btree/page/versioned_bwtree_page.h"
 #include "bthread/bthread.h"
+#include "btree/page/page_snapshot.h"
+#include "btree/page/versioned_delta_node.h"
 #include "butil/object_pool.h"
+#include "bwtree_page.h"
 #include "common/config.h"
 #include "util/monitor.h"
 #include "wal/bwtree_log_writer.h"
+#include <cmath>
+#include <optional>
 
 namespace arcanedb {
 namespace btree {
@@ -79,15 +84,16 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
     return Status::TxnConflict();
   }
 
+  // append log
+  if (opts.log_store != nullptr) {
+    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
+    delta->SetLSN(info->lsn);
+  }
+
   // prepend delta
   auto current_ptr = GetPtr_();
   delta->SetPrevious(std::move(current_ptr));
   UpdatePtr_(delta);
-
-  // append log
-  if (opts.log_store != nullptr) {
-    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
-  }
 
   // perform compaction
   MaybePerformCompaction_(opts, delta.get());
@@ -112,15 +118,16 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
     return Status::TxnConflict();
   }
 
+  // append log
+  if (opts.log_store != nullptr) {
+    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
+    delta->SetLSN(info->lsn);
+  }
+
   // prepend delta
   auto current_ptr = GetPtr_();
   delta->SetPrevious(std::move(current_ptr));
   UpdatePtr_(delta);
-
-  // append log
-  if (opts.log_store != nullptr) {
-    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
-  }
 
   // compaction
   MaybePerformCompaction_(opts, delta.get());
@@ -193,17 +200,18 @@ void VersionedBwTreePage::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
   ArcanedbLockGuard<ArcanedbLock> guard(write_mu_);
   auto shared_ptr = GetPtr_();
   auto current_ptr = shared_ptr.get();
+
+  // append log
+  if (opts.log_store != nullptr) {
+    AppendLogAndSetLsn_(opts.log_store, info, log_writer);
+  }
+
   while (current_ptr != nullptr) {
-    auto s = current_ptr->SetTs(sort_key, target_ts);
+    auto s = current_ptr->SetTs(sort_key, target_ts, info->lsn);
     if (likely(s.ok())) {
       // need to perform dummy update,
       // so that readers afterward will see our update.
       DummyUpdate_();
-
-      // append log
-      if (opts.log_store != nullptr) {
-        AppendLogAndSetLsn_(opts.log_store, info, log_writer);
-      }
       return;
     }
     DCHECK(s.IsNotFound());
@@ -272,6 +280,104 @@ bool VersionedBwTreePage::TEST_TsDesending() const noexcept {
   }
   return true;
 }
+
+/**
+ * @brief
+ * Format:
+ * | lsn 8byte | row1 v0 | row1 v1 | ... | rowN v0 | ...
+ * Row format:
+ * | delete bit 1byte | write_ts 4byte | row varlen |
+ */
+std::unique_ptr<PageSnapshot> VersionedBwTreePage::GetPageSnapshot() noexcept {
+  struct BuildEntry {
+    const property::Row row;
+    bool is_deleted;
+    TxnTs write_ts;
+  };
+  std::map<property::SortKeysRef, std::vector<BuildEntry>> map;
+  auto shared_ptr = GetPtr_();
+  auto current_ptr = shared_ptr.get();
+  // traverse the delta node
+  log_store::LsnType lsn{};
+  while (current_ptr != nullptr) {
+    constexpr bool should_lock = true;
+    auto tmp_lsn = current_ptr->Traverse(
+        [&](const property::Row &row, bool is_deleted, TxnTs write_ts) {
+          map[row.GetSortKeys()].emplace_back(BuildEntry{
+              .row = row, .is_deleted = is_deleted, .write_ts = write_ts});
+        },
+        should_lock);
+    current_ptr = current_ptr->GetPrevious().get();
+    lsn = std::max(lsn, tmp_lsn);
+  }
+
+  util::BufWriter writer;
+  writer.WriteBytes(lsn);
+  auto serialize_row = [](util::BufWriter *writer, const property::Row &row,
+                          bool is_deleted, TxnTs write_ts) {
+    writer->WriteBytes(static_cast<uint8_t>(is_deleted));
+    writer->WriteBytes(write_ts);
+    writer->WriteBytes(row.as_slice());
+  };
+  for (const auto &[k, vec] : map) {
+    for (const auto &entry : vec) {
+      serialize_row(&writer, entry.row, entry.is_deleted, entry.write_ts);
+    }
+  }
+
+  return std::make_unique<VersionedBwTreePageSnapshot>(writer.Detach(), lsn);
+}
+
+Status VersionedBwTreePage::Deserialize(std::string_view data) noexcept {
+  std::map<property::SortKeysRef,
+           std::vector<VersionedDeltaNodeBuilder::BuildEntry>>
+      map;
+
+  util::BufReader reader(data);
+  log_store::LsnType lsn;
+  reader.ReadBytes(&lsn);
+
+  auto deserialize_entry = [&]() {
+    uint8_t is_deleted;
+    TxnTs write_ts;
+    reader.ReadBytes(&is_deleted);
+    reader.ReadBytes(&write_ts);
+    return VersionedDeltaNodeBuilder::BuildEntry{.row = reader.CurrentPtr(),
+                                                 .is_deleted =
+                                                     (is_deleted != 0),
+                                                 .write_ts = write_ts};
+  };
+
+  util::BufWriter writer;
+  util::BufWriter version_writer;
+  std::vector<VersionedDeltaNode::Entry> rows;
+  VersionedDeltaNode::VersionContainer versions;
+  bool has_version = false;
+
+  property::SortKeysRef sk;
+  while (reader.Remaining() != 0) {
+    auto entry = deserialize_entry();
+    if (!sk.empty() && entry.row.GetSortKeys() == sk) {
+      // old version
+      VersionedDeltaNodeBuilder::WriteRow_(versions.back(), &version_writer,
+                                           entry);
+      has_version = true;
+    } else {
+      // newest version
+      VersionedDeltaNodeBuilder::WriteRow_(rows, &writer, entry);
+      versions.push_back({});
+    }
+  }
+
+  auto delta = std::make_shared<VersionedDeltaNode>(
+      writer.Detach(), version_writer.Detach(), std::move(rows),
+      std::move(versions));
+  UpdatePtr_(delta);
+  return Status::Ok();
+}
+
+bool VersionedBwTreePage::FinishFlush(const Status &s,
+                                      log_store::LsnType lsn) noexcept {}
 
 } // namespace btree
 } // namespace arcanedb

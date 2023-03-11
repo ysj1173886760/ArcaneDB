@@ -13,6 +13,7 @@
 
 #include "btree/btree_type.h"
 #include "btree/page/internal_page.h"
+#include "btree/page/page_snapshot.h"
 #include "btree/page/versioned_bwtree_page.h"
 #include "btree/write_info.h"
 #include "cache/cache.h"

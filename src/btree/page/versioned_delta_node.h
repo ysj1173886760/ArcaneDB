@@ -23,6 +23,8 @@ namespace arcanedb {
 namespace btree {
 
 class VersionedDeltaNode : public RowOwner {
+  friend class VersionedBwTreePage;
+
   struct Entry {
     // highest bit stores whether row is deleted.
     // 31 bit stores offset
@@ -68,6 +70,14 @@ public:
 
   size_t GetTotalLength() const noexcept { return total_length_; }
 
+  void SetLSN(log_store::LsnType lsn) noexcept {
+    lsn_.store(lsn, std::memory_order_relaxed);
+  }
+
+  log_store::LsnType GetLSN() noexcept {
+    return lsn_.load(std::memory_order_relaxed);
+  }
+
   /**
    * @brief
    * Traverse the delta node.
@@ -79,7 +89,16 @@ public:
    * !! do not store reference to the row, since it was a variable on stack.
    * @param visitor
    */
-  template <typename Visitor> void Traverse(Visitor visitor) const noexcept {
+  template <typename Visitor>
+  log_store::LsnType Traverse(Visitor visitor, bool should_lock = false) const
+      noexcept {
+    log_store::LsnType lsn;
+    if (unlikely(should_lock)) {
+      lock_.Lock();
+    }
+
+    // read lsn inside lock.
+    lsn = lsn_.load();
     for (size_t i = 0; i < rows_.size(); i++) {
       {
         auto offset = GetOffset(rows_[i].control_bit);
@@ -97,6 +116,11 @@ public:
                 entry.write_ts.load(std::memory_order_relaxed));
       }
     }
+
+    if (unlikely(should_lock)) {
+      lock_.Unlock();
+    }
+    return lsn;
   }
 
   /**
@@ -172,9 +196,11 @@ public:
    * Set ts of the newest version with "sort_key" to "target_ts"
    * @param sort_key
    * @param target_ts
+   * @param lsn
    * @return Status
    */
-  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts) noexcept {
+  Status SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
+               log_store::LsnType lsn) noexcept {
     // first locate sort_key
     auto it = std::lower_bound(
         rows_.begin(), rows_.end(), sort_key,
@@ -197,7 +223,10 @@ public:
 
     // must be locked
     if (IsLocked(entry.write_ts.load(std::memory_order_relaxed))) {
+      lock_.Lock();
+      lsn_.store(lsn, std::memory_order_relaxed);
       entry.write_ts.store(target_ts, std::memory_order_relaxed);
+      lock_.Unlock();
       return Status::Ok();
     }
     // first entry is not locked, logical error might happens
@@ -253,9 +282,15 @@ private:
   VersionContainer versions_;
   std::shared_ptr<VersionedDeltaNode> previous_{};
   uint32_t total_length_{};
+  std::atomic<log_store::LsnType> lsn_{};
+  // spin lock is used to protect the atomicity of
+  // lsn and timestamp.
+  mutable absl::base_internal::SpinLock lock_;
 };
 
 class VersionedDeltaNodeBuilder {
+  friend class VersionedBwTreePage;
+
 public:
   VersionedDeltaNodeBuilder() = default;
 

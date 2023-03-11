@@ -12,6 +12,7 @@
 #pragma once
 
 #include "btree/btree_type.h"
+#include "btree/page/page_snapshot.h"
 #include "btree/page/versioned_delta_node.h"
 #include "btree/write_info.h"
 #include "butil/containers/doubly_buffered_data.h"
@@ -79,6 +80,31 @@ public:
 
   common::LockTable &GetLockTable() noexcept { return lock_table_; }
 
+  /**
+   * @brief Get page snapshot which is used to flush page
+   * to persistent storage
+   * @return std::unique_ptr<PageSnapshot>
+   */
+  std::unique_ptr<PageSnapshot> GetPageSnapshot() noexcept;
+
+  /**
+   * @brief
+   * Update flushed lsn.
+   * @param s Flush status
+   * @param lsn flushed lsn
+   * @return true when page still need to flush.
+   * @return false when page doesn't need to flush.
+   */
+  bool FinishFlush(const Status &s, log_store::LsnType lsn) noexcept;
+
+  /**
+   * @brief
+   * Deserialize page from data.
+   * @param data
+   * @return Status
+   */
+  Status Deserialize(std::string_view data) noexcept;
+
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();
     return ptr->GetTotalLength();
@@ -132,6 +158,23 @@ private:
   mutable DoublyBufferedData ptr_;
   common::LockTable lock_table_;
   const std::string page_id_;
+};
+
+class VersionedBwTreePageSnapshot : public PageSnapshot {
+public:
+  VersionedBwTreePageSnapshot(std::string bytes,
+                              log_store::LsnType lsn) noexcept
+      : lsn_(lsn), bytes_(std::move(bytes)) {}
+
+  ~VersionedBwTreePageSnapshot() noexcept override {}
+
+  std::string Serialize() noexcept override { return std::move(bytes_); }
+
+  log_store::LsnType GetLSN() noexcept override { return lsn_; }
+
+private:
+  log_store::LsnType lsn_{};
+  std::string bytes_;
 };
 
 } // namespace btree

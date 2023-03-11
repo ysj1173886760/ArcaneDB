@@ -26,7 +26,7 @@ namespace log_store {
  */
 using LsnType = uint64_t;
 
-static constexpr LsnType kInvalidLsn = std::numeric_limits<LsnType>::max();
+static constexpr LsnType kInvalidLsn = 0;
 
 struct LsnRange {
   LsnType start_lsn;
