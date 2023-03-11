@@ -20,11 +20,11 @@ Might be a graph storage engine.
   - [x] Implement Hekaton style occ
   - [] More concurrency control protocol
 - [x] Graph interface
-- [] 2-level Btr
-- [] WAL
-- [] Recovery
-- [] Page serialization/deserialization
+- [x] WAL
+- [x] Recovery
+- [x] Page serialization/deserialization
 - [] Flush dirty page
+- [] 2-level Btr
 - [] Multi-level Btr
 
 # Dependency
