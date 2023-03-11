@@ -10,11 +10,12 @@
  */
 
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "txn/occ_recovery.h"
 #include "txn/txn_context_occ.h"
 #include "txn/txn_manager_occ.h"
 #include "util/bthread_util.h"
-#include "gtest/gtest.h"
 #include <gtest/gtest.h>
+#include <memory>
 
 namespace arcanedb {
 namespace txn {
@@ -170,10 +171,14 @@ public:
 
   void SetUp() {
     schema_ = MakeTestSchema();
-    opts_.schema = &schema_;
-    bpm_ = std::make_unique<cache::BufferPool>();
-    opts_.buffer_pool = bpm_.get();
+    Restart();
     txn_manager_ = std::make_unique<TxnManagerOCC>(GetParam().type);
+  }
+
+  void Restart() noexcept {
+    bpm_ = std::make_unique<cache::BufferPool>();
+    opts_.schema = &schema_;
+    opts_.buffer_pool = bpm_.get();
     opts_ro_ = opts_;
     opts_ro_.ignore_lock = true;
   }
@@ -486,6 +491,8 @@ TEST_P(TxnContextOCCTest, ConcurrentTestWithLog) {
 TEST_P(TxnContextOCCTest, BasicRecoveryTest) {
   auto value_list = GenerateValueList(100);
   Options opts = opts_;
+  std::shared_ptr<log_store::LogStore> log_store = GenerateLogStore();
+  opts.log_store = log_store.get();
   opts.sync_commit = true;
   TxnTs ts;
   // write 100 rows
@@ -502,6 +509,23 @@ TEST_P(TxnContextOCCTest, BasicRecoveryTest) {
     ts = context->GetWriteTs();
   }
   // test read
+  {
+    auto context = txn_manager_->BeginRoTxnWithTs(opts, ts);
+    for (const auto &value : value_list) {
+      TestRead(context.get(), table_key_, value, false);
+    }
+    EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
+  }
+  // recover
+  {
+    Restart();
+    opts.buffer_pool = bpm_.get();
+    std::unique_ptr<log_store::LogReader> log_reader;
+    EXPECT_TRUE(log_store->GetLogReader(&log_reader).ok());
+    OccRecovery recovery(bpm_.get(), log_reader.get());
+    recovery.Recover();
+  }
+  // test read again
   {
     auto context = txn_manager_->BeginRoTxnWithTs(opts, ts);
     for (const auto &value : value_list) {
@@ -529,6 +553,23 @@ TEST_P(TxnContextOCCTest, BasicRecoveryTest) {
     for (const auto &value : value_list) {
       TestRead(context.get(), table_key_, value, true);
     }
+  }
+  // recover
+  {
+    Restart();
+    opts.buffer_pool = bpm_.get();
+    std::unique_ptr<log_store::LogReader> log_reader;
+    EXPECT_TRUE(log_store->GetLogReader(&log_reader).ok());
+    OccRecovery recovery(bpm_.get(), log_reader.get());
+    recovery.Recover();
+  }
+  // test read again
+  {
+    auto context = txn_manager_->BeginRoTxnWithTs(opts, ts);
+    for (const auto &value : value_list) {
+      TestRead(context.get(), table_key_, value, false);
+    }
+    EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
   }
 }
 

@@ -40,8 +40,8 @@ struct SetRowLog {
 inline SetRowLog DeserializeSetRowLog(const std::string_view &data) noexcept {
   util::BufReader reader(data);
   SetRowLog log;
-  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.txn_id);
+  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.write_ts);
   log.row = property::Row(reader.CurrentPtr());
   return log;
@@ -58,8 +58,8 @@ inline DeleteRowLog
 DeserializeDeleteRowLog(const std::string_view &data) noexcept {
   util::BufReader reader(data);
   DeleteRowLog log;
-  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.txn_id);
+  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.write_ts);
   log.sort_key = property::SortKeysRef(detail::DeserializeString(&reader));
   return log;
@@ -75,8 +75,8 @@ struct SetTsLog {
 inline SetTsLog DeserializeSetTsLog(const std::string_view &data) noexcept {
   util::BufReader reader(data);
   SetTsLog log;
-  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.txn_id);
+  log.page_id = detail::DeserializeString(&reader);
   reader.ReadBytes(&log.commit_ts);
   log.sort_key = property::SortKeysRef(detail::DeserializeString(&reader));
   return log;

@@ -94,6 +94,7 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
   commit_opts.check_intent_locked =
       lock_manager_type_ == LockManagerType::kInlined;
   commit_opts.owner_ts = read_ts_;
+  commit_opts.txn_id = txn_id_;
 
   Begin_(commit_opts.log_store);
 

@@ -1,19 +1,19 @@
 /**
  * @file occ_recovery.cc
  * @author sheep (ysj1173886760@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2023-02-26
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
  */
 
 #include "txn/occ_recovery.h"
-#include "wal/log_type.h"
-#include "wal/bwtree_log_reader.h"
-#include "wal/occ_log_reader.h"
 #include "btree/page/versioned_btree_page.h"
+#include "wal/bwtree_log_reader.h"
+#include "wal/log_type.h"
+#include "wal/occ_log_reader.h"
 
 namespace arcanedb {
 namespace txn {
@@ -25,42 +25,48 @@ void OccRecovery::Recover() noexcept {
     std::string_view log_data = log_record;
     auto type = wal::ParseLogRecord(&log_data);
     switch (type) {
-      case wal::LogType::kBwtreeSetTs: {
-        BwTreeSetTs_(log_data);
-        break;
-      }
-      case wal::LogType::kBwtreeSetRow: {
-        BwTreeSetRow_(log_data);
-        break;
-      }
-      case wal::LogType::kBwtreeDeleteRow: {
-        BwTreeDeleteRow_(log_data);
-        break;
-      }
-      case wal::LogType::kOccBegin: {
-        OccBegin_(log_data);
-        break;
-      }
-      case wal::LogType::kOccAbort: {
-        OccAbort_(log_data);
-        break;
-      }
-      case wal::LogType::kOccCommit: {
-        OccCommit_(log_data);
-        break;
-      }
-      default:
-        UNREACHABLE();
+    case wal::LogType::kBwtreeSetTs: {
+      BwTreeSetTs_(log_data);
+      break;
+    }
+    case wal::LogType::kBwtreeSetRow: {
+      BwTreeSetRow_(log_data);
+      break;
+    }
+    case wal::LogType::kBwtreeDeleteRow: {
+      BwTreeDeleteRow_(log_data);
+      break;
+    }
+    case wal::LogType::kOccBegin: {
+      OccBegin_(log_data);
+      break;
+    }
+    case wal::LogType::kOccAbort: {
+      OccAbort_(log_data);
+      break;
+    }
+    case wal::LogType::kOccCommit: {
+      OccCommit_(log_data);
+      break;
+    }
+    default:
+      UNREACHABLE();
     }
   }
 
   ARCANEDB_INFO("Recover done. txn map size: {}", txn_map_.size());
-  for (const auto &[txn_id, cnt]: txn_map_) {
+  for (const auto &[txn_id, cnt] : txn_map_) {
     ARCANEDB_INFO("TxnId: {}, Cnt: {}", txn_id, cnt);
   }
+
+  // TODO(sheep): implement finialize phase and undo phase.
+  // 1. find all txns that commits but havn't finish set ts, we help to set ts.
+  // 2. find all txns that failed to commit, we help to abort the txn
+  // note that abort phase could be optimized by using
 }
 
-btree::VersionedBtreePage* GetPage_(cache::BufferPool *buffer_pool, const std::string_view &page_id) noexcept {
+btree::VersionedBtreePage *GetPage_(cache::BufferPool *buffer_pool,
+                                    const std::string_view &page_id) noexcept {
   btree::VersionedBtreePage *page;
   auto s = buffer_pool->GetPage<btree::VersionedBtreePage>(page_id, &page);
   CHECK(s.ok());
@@ -77,7 +83,7 @@ void OccRecovery::BwTreeSetRow_(const std::string_view &data) noexcept {
   auto s = page->SetRow(log.row, log.write_ts, opts, &info);
   CHECK(s.ok());
 
-  AddPrepare_(log.write_ts);
+  AddPrepare_(log.txn_id);
 }
 
 void OccRecovery::BwTreeDeleteRow_(const std::string_view &data) noexcept {
@@ -90,7 +96,7 @@ void OccRecovery::BwTreeDeleteRow_(const std::string_view &data) noexcept {
   auto s = page->DeleteRow(log.sort_key, log.write_ts, opts, &info);
   CHECK(s.ok());
 
-  AddPrepare_(log.write_ts);
+  AddPrepare_(log.txn_id);
 }
 
 void OccRecovery::BwTreeSetTs_(const std::string_view &data) noexcept {
@@ -139,5 +145,5 @@ void OccRecovery::AddCommit_(TxnId txn_id) noexcept {
   }
 }
 
-}
-}
+} // namespace txn
+} // namespace arcanedb
