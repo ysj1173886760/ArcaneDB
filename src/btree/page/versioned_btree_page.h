@@ -172,6 +172,40 @@ public:
   }
 
   /**
+   * @brief Get page snapshot which is used to flush page
+   * to persistent storage
+   * @return std::unique_ptr<PageSnapshot>
+   */
+  std::unique_ptr<PageSnapshot> GetPageSnapshot() noexcept {
+    assert(leaf_page_);
+    return leaf_page_->GetPageSnapshot();
+  }
+
+  /**
+   * @brief
+   * Update flushed lsn.
+   * @param s Flush status
+   * @param lsn flushed lsn
+   * @return true when page still need to flush.
+   * @return false when page doesn't need to flush.
+   */
+  bool FinishFlush(const Status &s, log_store::LsnType lsn) noexcept {
+    assert(leaf_page_);
+    return leaf_page_->FinishFlush(s, lsn);
+  }
+
+  /**
+   * @brief
+   * Deserialize page from data.
+   * @param data
+   * @return Status
+   */
+  Status Deserialize(std::string_view data) noexcept {
+    assert(leaf_page_);
+    return leaf_page_->Deserialize(data);
+  }
+
+  /**
    * @brief
    * Test code below
    */
