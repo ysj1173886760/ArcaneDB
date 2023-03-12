@@ -281,6 +281,11 @@ bool VersionedBwTreePage::TEST_TsDesending() const noexcept {
   return true;
 }
 
+bool VersionedBwTreePage::TEST_Equal(const VersionedBwTreePage &rhs) const
+    noexcept {
+  return TEST_DumpPage() == rhs.TEST_DumpPage();
+}
+
 /**
  * @brief
  * Format:
@@ -342,10 +347,10 @@ Status VersionedBwTreePage::Deserialize(std::string_view data) noexcept {
     TxnTs write_ts;
     reader.ReadBytes(&is_deleted);
     reader.ReadBytes(&write_ts);
-    return VersionedDeltaNodeBuilder::BuildEntry{.row = reader.CurrentPtr(),
-                                                 .is_deleted =
-                                                     (is_deleted != 0),
-                                                 .write_ts = write_ts};
+    auto row = property::Row(reader.CurrentPtr());
+    reader.Skip(row.as_slice().size());
+    return VersionedDeltaNodeBuilder::BuildEntry{
+        .row = row, .is_deleted = (is_deleted != 0), .write_ts = write_ts};
   };
 
   util::BufWriter writer;
@@ -367,6 +372,9 @@ Status VersionedBwTreePage::Deserialize(std::string_view data) noexcept {
       VersionedDeltaNodeBuilder::WriteRow_(rows, &writer, entry);
       versions.push_back({});
     }
+  }
+  if (!has_version) {
+    versions.clear();
   }
 
   auto delta = std::make_shared<VersionedDeltaNode>(

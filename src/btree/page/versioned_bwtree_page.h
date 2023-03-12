@@ -114,6 +114,8 @@ public:
 
   bool TEST_TsDesending() const noexcept;
 
+  bool TEST_Equal(const VersionedBwTreePage &rhs) const noexcept;
+
 private:
   using DoublyBufferedData =
       butil::DoublyBufferedData<std::shared_ptr<VersionedDeltaNode>>;

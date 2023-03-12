@@ -440,5 +440,41 @@ TEST_F(VersionedBwTreePageTest, SetWhileCheckingLockTest) {
   EXPECT_EQ(view.at(0).GetTs(), ts);
 }
 
+TEST_F(VersionedBwTreePageTest, SerializeTest) {
+  auto value_list = GenerateValueList(2000);
+  WriteInfo info;
+  for (const auto &value : value_list) {
+    auto s = WriteHelper(value, [&](const property::Row &row) {
+      return page_->SetRow(row, 1, opts_, &info);
+    });
+    EXPECT_TRUE(s.ok());
+  }
+  // test read
+  for (const auto &value : value_list) {
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    RowView view;
+    auto s = page_->GetRow(sk.as_ref(), 1, opts_, &view);
+    EXPECT_TRUE(s.ok());
+    TestRead(view.at(0), value);
+  }
+  // serialize
+  auto snapshot = page_->GetPageSnapshot();
+  auto binary = snapshot->Serialize();
+  ARCANEDB_INFO("Serialize Size: {}", binary.size());
+
+  auto new_page = std::make_unique<VersionedBwTreePage>("test_page");
+  EXPECT_TRUE(new_page->Deserialize(binary).ok());
+
+  EXPECT_TRUE(page_->TEST_Equal(*new_page));
+
+  for (const auto &value : value_list) {
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    RowView view;
+    auto s = new_page->GetRow(sk.as_ref(), 1, opts_, &view);
+    EXPECT_TRUE(s.ok());
+    TestRead(view.at(0), value);
+  }
+}
+
 } // namespace btree
 } // namespace arcanedb
