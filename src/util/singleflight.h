@@ -21,12 +21,13 @@
 namespace arcanedb {
 namespace util {
 
-template <typename T, typename Key = std::string_view> class SingleFlight {
+template <typename ShareableType, typename Key = std::string_view>
+class SingleFlight {
 public:
   SingleFlight() = default;
   ~SingleFlight() = default;
 
-  using LoadFunc = std::function<Status(const Key &key, T **entry)>;
+  using LoadFunc = std::function<Status(const Key &key, ShareableType *entry)>;
 
   /**
    * @brief
@@ -39,7 +40,7 @@ public:
    * @param loader
    * @return Status
    */
-  Status Do(const Key &key, T **entry, LoadFunc loader) noexcept {
+  Status Do(const Key &key, ShareableType *entry, LoadFunc loader) noexcept {
     mu_.lock();
     auto it = map_.find(key);
     if (it != map_.end()) {
@@ -74,7 +75,7 @@ private:
 
   struct Call {
     WaitGroup wg{1};
-    T *entry;
+    ShareableType entry;
     Status st;
   };
 

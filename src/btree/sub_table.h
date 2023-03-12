@@ -13,6 +13,7 @@
 
 #include "btree/versioned_btree.h"
 #include "btree/write_info.h"
+#include "cache/buffer_pool.h"
 #include "page/versioned_btree_page.h"
 
 namespace arcanedb {
@@ -25,11 +26,11 @@ namespace btree {
  */
 class SubTable {
 public:
-  SubTable(VersionedBtreePage *root_page) noexcept
+  SubTable(cache::BufferPool::PageHolder root_page) noexcept
       : cluster_index_(root_page) {}
 
   std::string_view GetTableKey() noexcept {
-    return cluster_index_.GetTableKey();
+    return cluster_index_.GetRootPageKey();
   }
 
   /**

@@ -145,10 +145,9 @@ public:
   }
 
   std::string DumpHelper(const std::string &k1) {
-    btree::VersionedBtreePage *page;
-    EXPECT_TRUE(bpm_->GetPage<btree::VersionedBtreePage>(k1, &page).ok());
-    auto s = page->TEST_DumpPage();
-    page->Unref();
+    cache::BufferPool::PageHolder page_holder;
+    EXPECT_TRUE(bpm_->GetPage(k1, &page_holder).ok());
+    auto s = page_holder->TEST_DumpPage();
     return s;
   }
 
@@ -163,10 +162,9 @@ public:
   }
 
   void TestTsAsending(const std::string &k1) {
-    btree::VersionedBtreePage *page;
-    EXPECT_TRUE(bpm_->GetPage<btree::VersionedBtreePage>(k1, &page).ok());
-    EXPECT_TRUE(page->TEST_TsDesending()) << DumpHelper(k1);
-    page->Unref();
+    cache::BufferPool::PageHolder page_holder;
+    EXPECT_TRUE(bpm_->GetPage(k1, &page_holder).ok());
+    EXPECT_TRUE(page_holder->TEST_TsDesending()) << DumpHelper(k1);
   }
 
   void SetUp() {

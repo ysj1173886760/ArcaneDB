@@ -11,6 +11,7 @@
 
 #include "txn/occ_recovery.h"
 #include "btree/page/versioned_btree_page.h"
+#include "cache/buffer_pool.h"
 #include "wal/bwtree_log_reader.h"
 #include "wal/log_type.h"
 #include "wal/occ_log_reader.h"
@@ -65,10 +66,11 @@ void OccRecovery::Recover() noexcept {
   // note that abort phase could be optimized by using
 }
 
-btree::VersionedBtreePage *GetPage_(cache::BufferPool *buffer_pool,
-                                    const std::string_view &page_id) noexcept {
-  btree::VersionedBtreePage *page;
-  auto s = buffer_pool->GetPage<btree::VersionedBtreePage>(page_id, &page);
+cache::BufferPool::PageHolder
+GetPage_(cache::BufferPool *buffer_pool,
+         const std::string_view &page_id) noexcept {
+  cache::BufferPool::PageHolder page;
+  auto s = buffer_pool->GetPage(page_id, &page);
   CHECK(s.ok());
   return page;
 }

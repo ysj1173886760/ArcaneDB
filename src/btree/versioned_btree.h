@@ -13,16 +13,17 @@
 
 #include "btree/page/versioned_btree_page.h"
 #include "btree/write_info.h"
+#include "cache/buffer_pool.h"
 
 namespace arcanedb {
 namespace btree {
 
 class VersionedBtree {
 public:
-  explicit VersionedBtree(VersionedBtreePage *root_page) noexcept
-      : root_page_(root_page) {}
+  explicit VersionedBtree(cache::BufferPool::PageHolder root_page) noexcept
+      : root_page_(std::move(root_page)) {}
 
-  ~VersionedBtree() noexcept { root_page_->Unref(); }
+  ~VersionedBtree() = default;
 
   /**
    * @brief
@@ -74,7 +75,9 @@ public:
   void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
              const Options &opts, WriteInfo *info) noexcept;
 
-  std::string_view GetTableKey() const noexcept { return root_page_->GetKey(); }
+  std::string_view GetRootPageKey() const noexcept {
+    return root_page_->GetPageKey();
+  }
 
   // TODO(sheep): support SMO interface
 
@@ -86,7 +89,7 @@ private:
   Status GetRowMultilevel_(property::SortKeysRef sort_key, TxnTs read_ts,
                            const Options &opts, RowView *view) const noexcept;
 
-  VersionedBtreePage *root_page_{nullptr};
+  cache::BufferPool::PageHolder root_page_;
 };
 
 } // namespace btree

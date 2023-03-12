@@ -11,10 +11,13 @@
 
 #pragma once
 
+#include "btree/page/versioned_btree_page.h"
 #include "cache/cache.h"
+#include "cache/lru_cache.h"
 #include "common/config.h"
 #include "common/status.h"
 #include "common/type.h"
+#include "util/singleflight.h"
 #include <type_traits>
 
 namespace arcanedb {
@@ -26,35 +29,70 @@ namespace cache {
  */
 class BufferPool {
 public:
-  BufferPool() noexcept : lru_(common::Config::kCacheShardNum) {}
+  BufferPool() noexcept
+      : cache_(
+            NewLRUCache<bthread::Mutex>(common::Config::kCacheCapacity,
+                                        common::Config::kCacheShardNumBits)) {}
+
+  ~BufferPool() noexcept { ARCANEDB_INFO("Buffer pool destory"); }
+
+  // simple wrapper
+  class PageHolder {
+  public:
+    btree::VersionedBtreePage *operator->() const noexcept {
+      return handle_holder_.TValue<btree::VersionedBtreePage>();
+    }
+
+    explicit PageHolder(Cache::HandleHolder handle_holder) noexcept
+        : handle_holder_(std::move(handle_holder)) {}
+
+    PageHolder() = default;
+    PageHolder(const PageHolder &) = default;
+    PageHolder &operator=(const PageHolder &) = default;
+    PageHolder(PageHolder &&) = default;
+    PageHolder &operator=(PageHolder &&) = default;
+
+  private:
+    Cache::HandleHolder handle_holder_{};
+  };
 
   /**
-   * @brief
-   * Get the page.
-   * @tparam T
+   * @brief Get the Page
+   *
    * @param page_id
+   * @param page_handle
    * @return Status
    */
-  template <typename T>
-  Status GetPage(const std::string_view &page_id, T **page) noexcept {
-    static_assert(std::is_base_of<CacheEntry, T>::value,
-                  "T must inherit from CacheEntry");
-    auto alloc = [](const std::string_view &key,
-                    std::unique_ptr<CacheEntry> *entry) -> Status {
-      // TODO(sheep): load from store
-      *entry = std::make_unique<T>(key);
+  Status GetPage(const std::string_view &page_id,
+                 PageHolder *page_handle) noexcept {
+    auto handle_holder = cache_->Lookup(page_id);
+    if (handle_holder) {
+      *page_handle = PageHolder(std::move(handle_holder));
       return Status::Ok();
-    };
-    auto result = lru_.GetEntry(page_id, alloc);
-    if (likely(result.ok())) {
-      // sheep: really don't want to use dynamic cast.
-      *page = reinterpret_cast<T *>(result.GetValue());
     }
-    return result.ToStatus();
+    auto s = load_group_.Do(
+        page_id, &handle_holder,
+        [&](const std::string_view &key, Cache::HandleHolder *val) {
+          auto page = std::make_unique<btree::VersionedBtreePage>(key);
+          // TODO(sheep): deserialize from page store.
+          auto handle = cache_->Insert(
+              key, page.get(), sizeof(btree::VersionedBtreePage), &PageDeleter);
+          *val = std::move(handle);
+          page.release();
+          return Status::Ok();
+        });
+
+    *page_handle = PageHolder(std::move(handle_holder));
+    return s;
+  }
+
+  static void PageDeleter(const std::string_view &key, void *value) noexcept {
+    delete static_cast<btree::VersionedBtreePage *>(value);
   }
 
 private:
-  ShardedLRU lru_;
+  std::unique_ptr<Cache> cache_;
+  util::SingleFlight<Cache::HandleHolder, std::string_view> load_group_;
 };
 
 } // namespace cache

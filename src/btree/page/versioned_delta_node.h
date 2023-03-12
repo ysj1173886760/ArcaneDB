@@ -12,6 +12,7 @@
 
 #include "btree/btree_type.h"
 #include "common/options.h"
+#include "log_store/log_store.h"
 #include "property/row/row.h"
 #include "property/sort_key/sort_key.h"
 #include <atomic>

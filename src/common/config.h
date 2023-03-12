@@ -28,7 +28,10 @@ public:
   static constexpr size_t kBwTreeDeltaChainLength = 16;
   static constexpr size_t kBwTreeCompactionFactor = 2;
 
-  static constexpr size_t kCacheShardNum = 64;
+  // 6 bit indicates 32 shard
+  static constexpr size_t kCacheShardNumBits = 6;
+  // 1G capacity
+  static constexpr size_t kCacheCapacity = 1 << 30;
 
   static constexpr int64_t kLockTimeoutUs = 150 * util::MillSec;
 

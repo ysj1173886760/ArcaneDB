@@ -1,164 +1,196 @@
-/**
- * @file cache.h
- * @author sheep (ysj1173886760@gmail.com)
- * @brief
- * @version 0.1
- * @date 2023-01-02
- *
- * @copyright Copyright (c) 2023
- *
- */
-#pragma once
+// Copyright (c) 2011 The LevelDB Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file. See the AUTHORS file for names of contributors.
+//
+// A Cache is an interface that maps keys to values.  It has internal
+// synchronization and may be safely accessed concurrently from
+// multiple threads.  It may automatically evict entries to make room
+// for new entries.  Values have a specified charge against the cache
+// capacity.  For example, a cache where the values are variable
+// length strings, may use the length of the string as the charge for
+// the string.
+//
+// A builtin cache implementation with a least-recently-used eviction
+// policy is provided.  Clients may use their own implementations if
+// they want something more sophisticated (like scan-resistance, a
+// custom eviction policy, variable cache sizing, etc.)
 
-#include "absl/container/flat_hash_map.h"
-#include "bthread/mutex.h"
-#include "butil/macros.h"
-#include "common/config.h"
-#include "common/status.h"
-#include "util/singleflight.h"
-#include <list>
+#pragma once
+#include "common/macros.h"
+#include <cstdint>
 #include <memory>
-#include <string>
-#include <unordered_map>
+#include <string_view>
+#include <utility>
 
 namespace arcanedb {
 namespace cache {
 
-class LruMap;
-
-/**
- * @brief
- * Manipulating CacheEntry requires external synchronization.
- */
-class CacheEntry {
+class Cache {
 public:
-  explicit CacheEntry(const std::string &key) : key_(key) {}
+  Cache() = default;
 
-  explicit CacheEntry(std::string_view key) : key_(std::string(key)) {}
+  // Destroys all existing entries by calling the "deleter"
+  // function that was passed to the constructor.
+  virtual ~Cache() = default;
 
-  virtual ~CacheEntry() = default;
+protected:
+  // Opaque handle to an entry stored in the cache.
+  struct Handle {};
 
-  void SetDirty() noexcept {
-    std::lock_guard<bthread::Mutex> guard(mu_);
-    is_dirty_ = true;
+public:
+  /// Holder of opaque handle to an entry stored in the cache.
+  class HandleHolder {
+  public:
+    HandleHolder() = default;
+    ~HandleHolder() { Release(); }
+
+    HandleHolder(HandleHolder &&rhs) noexcept { Move(std::move(rhs)); }
+
+    HandleHolder &operator=(HandleHolder &&rhs) noexcept {
+      Release();
+      Move(std::move(rhs));
+      return *this;
+    }
+
+    HandleHolder(const HandleHolder &rhs) noexcept
+        : cache_(rhs.cache_), handle_(rhs.handle_), value_(rhs.value_) {
+      if (rhs) {
+        cache_->Fork(handle_);
+      }
+    }
+
+    HandleHolder &operator=(const HandleHolder &rhs) noexcept {
+      HandleHolder tmp(rhs);
+      std::swap(cache_, tmp.cache_);
+      std::swap(handle_, tmp.handle_);
+      std::swap(value_, tmp.value_);
+      return *this;
+    }
+
+    /// Return true if the stored handle is not null.
+    explicit operator bool() const noexcept { return value_ != nullptr; }
+
+    void Release() noexcept {
+      if (handle_ != nullptr) {
+        cache_->Release(handle_);
+        handle_ = nullptr;
+        cache_ = nullptr;
+        value_ = nullptr;
+      }
+    }
+
+    /// Return the value encapsulated
+    template <class T> T *TValue() const noexcept {
+      return static_cast<T *>(value_);
+    }
+
+  private:
+    friend class Cache;
+
+    HandleHolder(Cache *cache, Handle *handle, void *value)
+        : cache_(cache), handle_(handle), value_(value) {}
+
+    inline void Move(HandleHolder &&rhs) {
+      cache_ = rhs.cache_;
+      handle_ = rhs.handle_;
+      value_ = rhs.value_;
+      rhs.cache_ = nullptr;
+      rhs.handle_ = nullptr;
+      rhs.value_ = nullptr;
+    }
+
+  private:
+    Cache *cache_{nullptr};
+    Handle *handle_{nullptr};
+    void *value_{nullptr};
+  };
+
+  // Insert a mapping from key->value into the cache and assign it
+  // the specified charge against the total cache capacity.
+  //
+  // Returns a handle that corresponds to the mapping.
+  // The caller must destroy handle holder when the returned mapping is no
+  // longer needed.
+  //
+  // When the inserted entry is no longer needed, the key and
+  // value will be passed to "deleter".
+  HandleHolder Insert(const std::string_view &key, void *value, size_t charge,
+                      void (*deleter)(const std::string_view &key,
+                                      void *value)) {
+    auto *handle = DoInsert(key, value, charge, deleter);
+    return HandleHolder(this, handle, Value(handle));
   }
 
-  void UnsetDirty() noexcept {
-    std::lock_guard<bthread::Mutex> guard(mu_);
-    is_dirty_ = false;
+  // If the cache has no mapping for "key", returns a false handle holder.
+  //
+  // Else return a handle that corresponds to the mapping.
+  // The caller must destroy handle holder when the returned mapping is no
+  // longer needed.
+  HandleHolder Lookup(const std::string_view &key) {
+    auto *handle = DoLookup(key);
+    if (handle == nullptr) {
+      return HandleHolder(nullptr, nullptr, nullptr);
+    }
+    return HandleHolder(this, handle, Value(handle));
   }
 
-  bool IsDirty() const noexcept {
-    std::lock_guard<bthread::Mutex> guard(mu_);
-    return is_dirty_;
-  }
+  // Return a new numeric id.  May be used by multiple clients who are
+  // sharing the same cache to partition the key space.  Typically the
+  // client will allocate a new id at startup and prepend the id to
+  // its cache keys.
+  virtual uint64_t NewId() = 0;
 
-  void Ref() noexcept {
-    std::lock_guard<bthread::Mutex> guard(mu_);
-    ref_cnt_ += 1;
-  }
+  // Remove all cache entries that are not actively in use.  Memory-constrained
+  // applications may wish to call this method to reduce memory usage.
+  // Default implementation of Prune() does nothing.  Subclasses are strongly
+  // encouraged to override the default implementation.  A future release of
+  // leveldb may change Prune() to a pure abstract method.
+  virtual void Prune() {}
 
-  void Unref() noexcept {
-    std::lock_guard<bthread::Mutex> guard(mu_);
-    ref_cnt_ -= 1;
-  }
+  // Return an estimate of the combined charges of all elements stored in the
+  // cache.
+  virtual size_t TotalCharge() = 0;
 
-  std::string_view GetKey() const noexcept { return key_; }
+protected:
+  // Insert a mapping from key->value into the cache and assign it
+  // the specified charge against the total cache capacity.
+  //
+  // Returns a handle that corresponds to the mapping.  The caller
+  // must call this->Release(handle) when the returned mapping is no
+  // longer needed.
+  //
+  // When the inserted entry is no longer needed, the key and
+  // value will be passed to "deleter".
+  virtual Handle *
+  DoInsert(const std::string_view &key, void *value, size_t charge,
+           void (*deleter)(const std::string_view &key, void *value)) = 0;
+
+  // If the cache has no mapping for "key", returns nullptr.
+  //
+  // Else return a handle that corresponds to the mapping.  The caller
+  // must call this->Release(handle) when the returned mapping is no
+  // longer needed.
+  virtual Handle *DoLookup(const std::string_view &key) = 0;
+
+  // Increment the reference count of a handle.
+  // Note that user should make Release call corresponding to every Ref call.
+  // REQUIRES: handle must not have been released yet.
+  // REQUIRES: handle must have been returned by a method on *this.
+  virtual void Fork(Handle *handle) = 0;
+
+  // Release a mapping returned by a previous Lookup().
+  // REQUIRES: handle must not have been released yet.
+  // REQUIRES: handle must have been returned by a method on *this.
+  virtual void Release(Handle *handle) = 0;
+
+  // Return the value encapsulated in a handle returned by a
+  // successful Lookup().
+  // REQUIRES: handle must not have been released yet.
+  // REQUIRES: handle must have been returned by a method on *this.
+  virtual void *Value(Handle *handle) = 0;
 
 private:
-  friend class LruMap;
-
-  const std::string key_;
-  typename std::list<CacheEntry *>::iterator iter_{}; // guarded by mu_
-  mutable bthread::Mutex mu_;
-  bool is_dirty_{false}; // guarded by mu_
-  bool in_cache_{false}; // guarded by mu_
-  int32_t ref_cnt_{1};   // guarded by mu_
-};
-
-class ShardedLRU {
-public:
-  using AllocFunc = std::function<Status(const std::string_view &key,
-                                         std::unique_ptr<CacheEntry> *entry)>;
-  explicit ShardedLRU(size_t shard_num)
-      : shard_num_(shard_num), shards_(shard_num) {}
-
-  // Status Init() noexcept;
-
-  /**
-   * @brief Get CacheEntry.
-   * alloc could be nullptr when user don't want to perform IO when cache
-   * missed.
-   * @param key
-   * @param alloc
-   * @return Result<CacheEntry *>
-   */
-  Result<CacheEntry *> GetEntry(const std::string_view &key,
-                                AllocFunc alloc) noexcept;
-
-private:
-  size_t shard_num_;
-  std::vector<LruMap> shards_;
-};
-
-class LruMap {
-public:
-  using AllocFunc = ShardedLRU::AllocFunc;
-
-  Result<CacheEntry *> GetEntry(const std::string_view &key,
-                                AllocFunc alloc) noexcept;
-
-  LruMap() = default;
-
-private:
-  DISALLOW_COPY_AND_ASSIGN(LruMap);
-
-  FRIEND_TEST(CacheTest, LruMapTest);
-  FRIEND_TEST(CacheTest, ConcurrentLruMapTest);
-
-  /**
-   * @brief
-   * Check all ref cnt is 1. i.e. held by cache
-   * @return true
-   * @return false
-   */
-  bool TEST_CheckAllRefCnt() noexcept;
-
-  /**
-   * @brief
-   * Check all entry is undirty.
-   * @return true
-   * @return false
-   */
-  bool TEST_CheckAllIsUndirty() noexcept;
-
-  Status AllocEntry_(const std::string_view &key, CacheEntry **entry,
-                     const AllocFunc &alloc) noexcept;
-
-  void RefreshEntry(CacheEntry *entry) noexcept;
-
-  CacheEntry *GetFromMap_(const std::string_view &key) const noexcept;
-
-  void InsertIntoMap_(std::unique_ptr<CacheEntry> entry) noexcept;
-
-  void InsertIntoList_(CacheEntry *entry) noexcept;
-
-  bool DelFromMap_(const CacheEntry &entry) noexcept;
-
-  bool DelFromList_(const CacheEntry &entry) noexcept;
-
-  mutable bthread::Mutex list_mu_;
-  /**
-   * @brief
-   * LRU list, end is newest
-   */
-  std::list<CacheEntry *> list_;
-
-  // map holds one refcnt of cache entry
-  mutable bthread::Mutex map_mu_;
-  absl::flat_hash_map<std::string_view, std::unique_ptr<CacheEntry>> map_;
-
-  util::SingleFlight<CacheEntry> single_flight_;
+  DISALLOW_COPY_AND_ASSIGN(Cache);
 };
 
 } // namespace cache

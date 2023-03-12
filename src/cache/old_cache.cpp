@@ -8,7 +8,7 @@
  * @copyright Copyright (c) 2023
  *
  */
-#include "cache/cache.h"
+#include "cache/old_cache.h"
 #include "bthread/mutex.h"
 
 namespace arcanedb {

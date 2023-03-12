@@ -1,7 +1,6 @@
 #pragma once
 
 #include "bthread/mutex.h"
-#include "cache/cache.h"
 
 namespace arcanedb {
 namespace cache {

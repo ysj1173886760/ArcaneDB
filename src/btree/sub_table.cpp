@@ -20,12 +20,12 @@ Status SubTable::OpenSubTable(const std::string_view &table_key,
                               const Options &opts,
                               std::unique_ptr<SubTable> *sub_table) noexcept {
   // root page id is table key
-  VersionedBtreePage *root_page;
-  auto s = opts.buffer_pool->GetPage<VersionedBtreePage>(table_key, &root_page);
+  cache::BufferPool::PageHolder page_holder;
+  auto s = opts.buffer_pool->GetPage(table_key, &page_holder);
   if (!s.ok()) {
     return s;
   }
-  *sub_table = std::make_unique<SubTable>(root_page);
+  *sub_table = std::make_unique<SubTable>(page_holder);
   return Status::Ok();
 }
 

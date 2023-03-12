@@ -11,12 +11,19 @@
 
 #pragma once
 
-#include "cache/buffer_pool.h"
-#include "log_store/log_store.h"
-#include "property/schema.h"
+#include "common/type.h"
 #include <optional>
 
 namespace arcanedb {
+namespace cache {
+class BufferPool;
+}
+namespace log_store {
+class LogStore;
+}
+namespace property {
+class Schema;
+}
 
 /**
  * @brief

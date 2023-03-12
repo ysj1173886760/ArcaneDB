@@ -29,6 +29,8 @@ public:
   VersionedBwTreePage(const std::string_view &page_id) noexcept
       : page_id_(page_id) {}
 
+  std::string_view GetPageKey() const noexcept { return page_id_; }
+
   /**
    * @brief
    * Insert a row into page

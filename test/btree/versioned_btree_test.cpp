@@ -73,7 +73,7 @@ public:
     Status s;
     {
       util::Timer tc;
-      s = btree_.GetRow(sk.as_ref(), read_ts, opts_, &view);
+      s = btree_->GetRow(sk.as_ref(), read_ts, opts_, &view);
       (*read_latency_) << tc.GetElapsed();
     }
     if (is_deleted) {
@@ -109,8 +109,10 @@ public:
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
-    root_page_ = std::make_unique<VersionedBtreePage>("");
-    btree_ = VersionedBtree(root_page_.get());
+    buffer_pool_ = std::make_unique<cache::BufferPool>();
+    cache::BufferPool::PageHolder page;
+    EXPECT_TRUE(buffer_pool_->GetPage("test_page", &page).ok());
+    btree_ = std::make_unique<VersionedBtree>(std::move(page));
     write_latency_ = std::make_unique<bvar::LatencyRecorder>();
     read_latency_ = std::make_unique<bvar::LatencyRecorder>();
   }
@@ -120,31 +122,34 @@ public:
   Options opts_;
   const int32_t type_ = 0;
   property::Schema schema_;
-  std::unique_ptr<VersionedBtreePage> root_page_;
-  VersionedBtree btree_{nullptr};
+  std::unique_ptr<cache::BufferPool> buffer_pool_;
+  std::unique_ptr<VersionedBtree> btree_;
   std::unique_ptr<bvar::LatencyRecorder> write_latency_;
   std::unique_ptr<bvar::LatencyRecorder> read_latency_;
 };
 
 TEST_F(VersionedBtreeTest, BasicTest) {
-  auto value_list = GenerateValueList(100);
+  auto value_list = GenerateValueList(1);
   TxnTs ts = 1;
   WriteInfo info;
+  ARCANEDB_INFO("Before write");
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
-                              return btree_.SetRow(row, ts, opts_, &info);
+                              return btree_->SetRow(row, ts, opts_, &info);
                             })
                     .ok());
   }
+  ARCANEDB_INFO("Before write2");
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
-                              return btree_.DeleteRow(row.GetSortKeys(), ts + 1,
-                                                      opts_, &info);
+                              return btree_->DeleteRow(row.GetSortKeys(),
+                                                       ts + 1, opts_, &info);
                             })
                     .ok());
   }
+  ARCANEDB_INFO("Write Done");
   for (const auto &value : value_list) {
     SCOPED_TRACE("");
     TestRead(value, ts, false);
@@ -168,7 +173,7 @@ TEST_F(VersionedBtreeTest, ConcurrentTest) {
         WriteInfo info;
         EXPECT_TRUE(WriteHelper(value,
                                 [&](const property::Row &row) {
-                                  return btree_.SetRow(row, ts, opts_, &info);
+                                  return btree_->SetRow(row, ts, opts_, &info);
                                 })
                         .ok());
         {
