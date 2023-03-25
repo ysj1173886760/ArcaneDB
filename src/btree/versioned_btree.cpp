@@ -10,6 +10,7 @@
  */
 
 #include "btree/versioned_btree.h"
+#include "cache/buffer_pool.h"
 #include "common/macros.h"
 
 namespace arcanedb {
@@ -22,6 +23,9 @@ Status VersionedBtree::SetRow(const property::Row &row, TxnTs write_ts,
   switch (page_type) {
   case PageType::LeafPage: {
     s = root_page_->SetRow(row, write_ts, opts, info);
+    if (s.ok() && info->is_dirty) {
+      opts.buffer_pool->TryInsertDirtyPage(root_page_);
+    }
     break;
   }
   case PageType::InternalPage: {
@@ -40,6 +44,9 @@ Status VersionedBtree::DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
   switch (page_type) {
   case PageType::LeafPage: {
     s = root_page_->DeleteRow(sort_key, write_ts, opts, info);
+    if (s.ok() && info->is_dirty) {
+      opts.buffer_pool->TryInsertDirtyPage(root_page_);
+    }
     break;
   }
   case PageType::InternalPage: {
@@ -56,6 +63,9 @@ void VersionedBtree::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
   switch (page_type) {
   case PageType::LeafPage: {
     root_page_->SetTs(sort_key, target_ts, opts, info);
+    if (info->is_dirty) {
+      opts.buffer_pool->TryInsertDirtyPage(root_page_);
+    }
     break;
   }
   case PageType::InternalPage: {

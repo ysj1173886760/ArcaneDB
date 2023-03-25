@@ -27,9 +27,11 @@ public:
 
   void Start() noexcept;
 
-  void Stop() noexcept;
+  bool Stop() noexcept;
 
   void InsertDirtyPage(BufferPool::PageHolder page_holder) noexcept;
+
+  void ForceFlushAllPages() noexcept;
 
 private:
   void LoopWork_() noexcept;
@@ -54,7 +56,7 @@ public:
           std::shared_ptr<page_store::PageStore> page_store) noexcept {
     shards_.reserve(shard_num);
     for (int i = 0; i < shard_num; i++) {
-      shards_.emplace_back(FlusherShard{page_store});
+      shards_.emplace_back(std::make_unique<FlusherShard>(page_store));
     }
   }
 
@@ -64,8 +66,10 @@ public:
 
   void TryInsertDirtyPage(const BufferPool::PageHolder &page_holder) noexcept;
 
+  void ForceFlushAllPages() noexcept;
+
 private:
-  std::vector<FlusherShard> shards_;
+  std::vector<std::unique_ptr<FlusherShard>> shards_;
 };
 
 } // namespace cache

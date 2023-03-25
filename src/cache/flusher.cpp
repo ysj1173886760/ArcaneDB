@@ -17,13 +17,13 @@ namespace cache {
 
 void Flusher::Start() noexcept {
   for (int i = 0; i < shards_.size(); i++) {
-    shards_[i].Start();
+    shards_[i]->Start();
   }
 }
 
 void Flusher::Stop() noexcept {
   for (int i = 0; i < shards_.size(); i++) {
-    shards_[i].Stop();
+    shards_[i]->Stop();
   }
 }
 
@@ -34,7 +34,7 @@ void Flusher::TryInsertDirtyPage(
   }
   auto shard = absl::Hash<std::string_view>()(page_holder->GetPageKey()) &
                shards_.size();
-  shards_[shard].InsertDirtyPage(page_holder);
+  shards_[shard]->InsertDirtyPage(page_holder);
 }
 
 void FlusherShard::Start() noexcept {
@@ -50,13 +50,15 @@ void FlusherShard::Start() noexcept {
   });
 }
 
-void FlusherShard::Stop() noexcept {
+bool FlusherShard::Stop() noexcept {
   bool stop = false;
   if (!stop_.compare_exchange_strong(stop, true)) {
-    return;
+    return false;
   }
 
+  cv_.notify_all();
   wg_.Wait();
+  return true;
 }
 
 void FlusherShard::LoopWork_() noexcept {
@@ -99,6 +101,26 @@ void FlusherShard::InsertDirtyPage(
     BufferPool::PageHolder page_holder) noexcept {
   std::lock_guard<decltype(mu_)> guard(mu_);
   deque_.emplace_back(std::move(page_holder));
+  cv_.notify_one();
+}
+
+void Flusher::ForceFlushAllPages() noexcept {
+  for (int i = 0; i < shards_.size(); i++) {
+    shards_[i]->ForceFlushAllPages();
+  }
+}
+
+void FlusherShard::ForceFlushAllPages() noexcept {
+  auto stop_succeed = Stop();
+  std::unique_lock<decltype(mu_)> lock(mu_);
+  while (!deque_.empty()) {
+    auto page_holder = std::move(deque_.front());
+    deque_.pop_front();
+    FlushPage(&page_holder);
+  }
+  if (stop_succeed) {
+    Start();
+  }
 }
 
 } // namespace cache

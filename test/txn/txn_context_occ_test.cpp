@@ -174,7 +174,7 @@ public:
   }
 
   void Restart() noexcept {
-    bpm_ = std::make_unique<cache::BufferPool>();
+    bpm_ = std::make_unique<cache::BufferPool>(nullptr);
     opts_.schema = &schema_;
     opts_.buffer_pool = bpm_.get();
     opts_ro_ = opts_;

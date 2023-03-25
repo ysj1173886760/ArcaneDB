@@ -14,6 +14,7 @@
 #include "util/bthread_util.h"
 #include "util/wait_group.h"
 #include <gtest/gtest.h>
+#include "page_store/kv_page_store/kv_page_store.h"
 
 namespace arcanedb {
 namespace btree {
@@ -109,12 +110,17 @@ public:
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
-    buffer_pool_ = std::make_unique<cache::BufferPool>();
-    cache::BufferPool::PageHolder page;
-    EXPECT_TRUE(buffer_pool_->GetPage("test_page", &page).ok());
-    btree_ = std::make_unique<VersionedBtree>(std::move(page));
+    buffer_pool_ = std::make_unique<cache::BufferPool>(nullptr);
+    opts_.buffer_pool = buffer_pool_.get();
+    LoadBtree("test_page");
     write_latency_ = std::make_unique<bvar::LatencyRecorder>();
     read_latency_ = std::make_unique<bvar::LatencyRecorder>();
+  }
+
+  void LoadBtree(const std::string &key) noexcept {
+    cache::BufferPool::PageHolder page;
+    EXPECT_TRUE(buffer_pool_->GetPage(key, &page).ok());
+    btree_ = std::make_unique<VersionedBtree>(std::move(page));
   }
 
   void TearDown() {}
@@ -129,10 +135,9 @@ public:
 };
 
 TEST_F(VersionedBtreeTest, BasicTest) {
-  auto value_list = GenerateValueList(1);
+  auto value_list = GenerateValueList(100);
   TxnTs ts = 1;
   WriteInfo info;
-  ARCANEDB_INFO("Before write");
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
@@ -140,7 +145,6 @@ TEST_F(VersionedBtreeTest, BasicTest) {
                             })
                     .ok());
   }
-  ARCANEDB_INFO("Before write2");
   for (const auto &value : value_list) {
     EXPECT_TRUE(WriteHelper(value,
                             [&](const property::Row &row) {
@@ -149,7 +153,6 @@ TEST_F(VersionedBtreeTest, BasicTest) {
                             })
                     .ok());
   }
-  ARCANEDB_INFO("Write Done");
   for (const auto &value : value_list) {
     SCOPED_TRACE("");
     TestRead(value, ts, false);
@@ -186,6 +189,46 @@ TEST_F(VersionedBtreeTest, ConcurrentTest) {
   }
   wg.Wait();
   PrintLatency();
+}
+
+TEST_F(VersionedBtreeTest, FlushPageTest) {
+  {
+    btree_.reset();
+    buffer_pool_.reset();
+    page_store::Options opts;
+    std::shared_ptr<page_store::PageStore> page_store;
+    const std::string store_name = "test_store";
+    EXPECT_TRUE(page_store::KvPageStore::Destory(store_name).ok());
+    EXPECT_TRUE(page_store::KvPageStore::Open(store_name, opts, &page_store).ok());
+    buffer_pool_ = std::make_unique<cache::BufferPool>(std::move(page_store));
+    opts_.buffer_pool = buffer_pool_.get();
+    LoadBtree("test_page");
+  }
+  auto value_list = GenerateValueList(100);
+  TxnTs ts = 1;
+  WriteInfo info;
+  for (const auto &value : value_list) {
+    EXPECT_TRUE(WriteHelper(value,
+                            [&](const property::Row &row) {
+                              return btree_->SetRow(row, ts, opts_, &info);
+                            })
+                    .ok());
+  }
+  for (const auto &value : value_list) {
+    SCOPED_TRACE("");
+    TestRead(value, ts, false);
+  }
+  btree_.reset();
+  // flush
+  buffer_pool_->ForceFlushAllPages();
+  buffer_pool_->Prune();
+  EXPECT_EQ(buffer_pool_->TotalCharge(), 0);
+
+  LoadBtree("test_page");
+  for (const auto &value : value_list) {
+    SCOPED_TRACE("");
+    TestRead(value, ts, false);
+  }
 }
 
 } // namespace btree

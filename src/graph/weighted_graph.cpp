@@ -46,7 +46,8 @@ Status WeightedGraphDB::Open(const std::string &db_name,
       return s;
     }
   }
-  res->buffer_pool_ = std::make_unique<cache::BufferPool>();
+
+  res->buffer_pool_ = std::make_unique<cache::BufferPool>(nullptr);
   res->txn_manager_ =
       std::make_unique<txn::TxnManagerOCC>(opts.lock_manager_type);
   *db = std::move(res);

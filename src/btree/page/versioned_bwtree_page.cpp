@@ -64,7 +64,6 @@ void AppendLogAndSetLsn_(log_store::LogStore *log_store, WriteInfo *info,
   log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
   util::Monitor::GetInstance()->RecordAppendLogLatency(timer.GetElapsed());
   info->lsn = result[0].end_lsn;
-  info->is_dirty = true;
 }
 
 Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
@@ -90,6 +89,7 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
     AppendLogAndSetLsn_(opts.log_store, info, log_writer);
     delta->SetLSN(info->lsn);
   }
+  info->is_dirty = true;
 
   // prepend delta
   auto current_ptr = GetPtr_();
@@ -124,6 +124,7 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
     AppendLogAndSetLsn_(opts.log_store, info, log_writer);
     delta->SetLSN(info->lsn);
   }
+  info->is_dirty = true;
 
   // prepend delta
   auto current_ptr = GetPtr_();
@@ -206,6 +207,7 @@ void VersionedBwTreePage::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
   if (opts.log_store != nullptr) {
     AppendLogAndSetLsn_(opts.log_store, info, log_writer);
   }
+  info->is_dirty = true;
 
   while (current_ptr != nullptr) {
     auto s = current_ptr->SetTs(sort_key, target_ts, info->lsn);

@@ -20,7 +20,7 @@ Status TransactionalKKV::Open(std::unique_ptr<TransactionalKKV> *db,
   auto res = std::make_unique<TransactionalKKV>();
   res->txn_manager_ =
       std::make_unique<txn::TxnManagerOCC>(txn::LockManagerType::kCentralized);
-  res->buffer_pool_ = std::make_unique<cache::BufferPool>();
+  res->buffer_pool_ = std::make_unique<cache::BufferPool>(nullptr);
   *db = std::move(res);
   return Status::Ok();
 }

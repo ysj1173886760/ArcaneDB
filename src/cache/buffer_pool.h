@@ -21,6 +21,10 @@
 #include <type_traits>
 
 namespace arcanedb {
+namespace page_store {
+class PageStore;
+}
+
 namespace cache {
 
 class Flusher;
@@ -31,10 +35,8 @@ class Flusher;
  */
 class BufferPool {
 public:
-  BufferPool() noexcept
-      : cache_(
-            NewLRUCache<bthread::Mutex>(common::Config::kCacheCapacity,
-                                        common::Config::kCacheShardNumBits)) {}
+  // page_store == nullptr indicates that we don't needs to flush dirty pages
+  BufferPool(std::shared_ptr<page_store::PageStore> page_store) noexcept;
 
   ~BufferPool() noexcept { ARCANEDB_INFO("Buffer pool destory"); }
 
@@ -66,29 +68,19 @@ public:
    * @return Status
    */
   Status GetPage(const std::string_view &page_id,
-                 PageHolder *page_handle) noexcept {
-    auto handle_holder = cache_->Lookup(page_id);
-    if (handle_holder) {
-      *page_handle = PageHolder(std::move(handle_holder));
-      return Status::Ok();
-    }
-    auto s = load_group_.Do(
-        page_id, &handle_holder,
-        [&](const std::string_view &key, Cache::HandleHolder *val) {
-          auto page = std::make_unique<btree::VersionedBtreePage>(key);
-          // TODO(sheep): deserialize from page store.
-          auto handle = cache_->Insert(
-              key, page.get(), sizeof(btree::VersionedBtreePage), &PageDeleter);
-          *val = std::move(handle);
-          page.release();
-          return Status::Ok();
-        });
+                 PageHolder *page_handle) noexcept;
 
-    *page_handle = PageHolder(std::move(handle_holder));
-    return s;
+  void TryInsertDirtyPage(const PageHolder &page_holder) noexcept;
+
+  void Prune() noexcept {
+    cache_->Prune();
   }
 
-  Flusher *GetFlusher() noexcept { return flusher_.get(); }
+  size_t TotalCharge() noexcept {
+    return cache_->TotalCharge();
+  }
+
+  void ForceFlushAllPages() noexcept;
 
 private:
   static void PageDeleter(const std::string_view &key, void *value) noexcept {
@@ -96,7 +88,8 @@ private:
   }
 
   std::unique_ptr<Cache> cache_;
-  std::unique_ptr<Flusher> flusher_;
+  std::shared_ptr<page_store::PageStore> page_store_{};
+  std::shared_ptr<Flusher> flusher_{};
   util::SingleFlight<Cache::HandleHolder, std::string_view> load_group_;
 };
 

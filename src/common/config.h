@@ -44,6 +44,9 @@ public:
   static constexpr size_t kLinkBufSnapshotManagerSize = 1 << 20;
 
   static constexpr size_t kTxnWaitLogInterval = 2 * util::MillSec;
+
+  // 32 shard
+  static constexpr size_t kFlusherShardNum = 32;
 };
 
 } // namespace common

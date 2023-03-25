@@ -151,7 +151,7 @@ public:
   void SetUp() {
     schema_ = MakeTestSchema();
     opts_.schema = &schema_;
-    bpm_ = std::make_unique<cache::BufferPool>();
+    bpm_ = std::make_unique<cache::BufferPool>(nullptr);
     opts_.buffer_pool = bpm_.get();
     txn_manager_ = std::make_unique<TxnManager2PL>();
   }

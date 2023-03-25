@@ -98,8 +98,8 @@ public:
       std::lock_guard<decltype(mu_)> guard(mu_);
       TryMarkDirtyInLock_();
       UpdateAppliedLSN_(info->lsn);
-      // TODO(sheep): insert dirty page.
     }
+    return Status::Ok();
   }
 
   /**
@@ -114,7 +114,16 @@ public:
   Status DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
                    const Options &opts, WriteInfo *info) noexcept {
     assert(leaf_page_);
-    return leaf_page_->DeleteRow(sort_key, write_ts, opts, info);
+    auto s = leaf_page_->DeleteRow(sort_key, write_ts, opts, info);
+    if (!s.ok()) {
+      return s;
+    }
+    if (info->is_dirty) {
+      std::lock_guard<decltype(mu_)> guard(mu_);
+      TryMarkDirtyInLock_();
+      UpdateAppliedLSN_(info->lsn);
+    }
+    return Status::Ok();
   }
 
   /**
@@ -145,6 +154,11 @@ public:
              const Options &opts, WriteInfo *info) noexcept {
     assert(leaf_page_);
     leaf_page_->SetTs(sort_key, target_ts, opts, info);
+    if (info->is_dirty) {
+      std::lock_guard<decltype(mu_)> guard(mu_);
+      TryMarkDirtyInLock_();
+      UpdateAppliedLSN_(info->lsn);
+    }
   }
 
   /**
@@ -208,8 +222,11 @@ public:
    * @return false when page doesn't need to flush.
    */
   bool FinishFlush(const Status &s, log_store::LsnType lsn) noexcept {
-    assert(leaf_page_);
-    return leaf_page_->FinishFlush(s, lsn);
+    std::lock_guard<decltype(mu_)> guard(mu_);
+    if (s.ok()) {
+      flushed_lsn_ = std::max(lsn, flushed_lsn_);
+    }
+    return NeedFlush_();
   }
 
   /**
