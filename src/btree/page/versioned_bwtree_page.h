@@ -31,6 +31,8 @@ public:
 
   std::string_view GetPageKey() const noexcept { return page_id_; }
 
+  const std::string GetPageKeyRef() const noexcept { return page_id_; }
+
   /**
    * @brief
    * Insert a row into page

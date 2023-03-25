@@ -16,6 +16,7 @@
 #include "btree/page/page_snapshot.h"
 #include "btree/page/versioned_bwtree_page.h"
 #include "btree/write_info.h"
+#include <mutex>
 
 namespace arcanedb {
 namespace btree {
@@ -65,6 +66,11 @@ public:
     return leaf_page_->GetPageKey();
   }
 
+  const std::string GetPageKeyRef() const noexcept {
+    assert(leaf_page_);
+    return leaf_page_->GetPageKeyRef();
+  }
+
   /**
    * @brief
    * Interfaces for leaf page type
@@ -84,7 +90,16 @@ public:
   Status SetRow(const property::Row &row, TxnTs write_ts, const Options &opts,
                 WriteInfo *info) noexcept {
     assert(leaf_page_);
-    return leaf_page_->SetRow(row, write_ts, opts, info);
+    auto s = leaf_page_->SetRow(row, write_ts, opts, info);
+    if (!s.ok()) {
+      return s;
+    }
+    if (info->is_dirty) {
+      std::lock_guard<decltype(mu_)> guard(mu_);
+      TryMarkDirtyInLock_();
+      UpdateAppliedLSN_(info->lsn);
+      // TODO(sheep): insert dirty page.
+    }
   }
 
   /**
@@ -223,12 +238,47 @@ public:
     return leaf_page_->TEST_TsDesending();
   }
 
+  bool TryMarkInFlusher() noexcept {
+    std::lock_guard<decltype(mu_)> guard(mu_);
+    if (page_state_ == PageState::kDirty) {
+      page_state_ = PageState::kInFlusher;
+      return true;
+    }
+    return false;
+  }
+
 private:
+  enum class PageState : uint8_t {
+    kUnDirty,
+    kDirty,
+    kInFlusher,
+  };
+
+  // require guarded by mu
+  void TryMarkDirtyInLock_() noexcept {
+    if (page_state_ == PageState::kUnDirty) {
+      page_state_ = PageState::kDirty;
+    }
+  }
+
+  // require guarded by mu
+  void UpdateAppliedLSN_(log_store::LsnType lsn) noexcept {
+    applied_lsn_ = std::max(lsn, applied_lsn_);
+  }
+
+  // require guarded by mu
+  bool NeedFlush_() noexcept { return applied_lsn_ > flushed_lsn_; }
+
   // TODO(sheep): introduce Page interface
   // for different page type
   std::unique_ptr<VersionedBwTreePage> leaf_page_;
   std::unique_ptr<InternalPage> internal_page_;
   std::atomic<PageType> page_type_;
+
+  bthread::Mutex mu_;
+  PageState page_state_{PageState::kUnDirty};              // guarded by mu_
+  log_store::LsnType flushed_lsn_{log_store::kInvalidLsn}; // guarded by mu_
+  log_store::LsnType applied_lsn_{log_store::kInvalidLsn}; // guarded by mu_
 };
 
 } // namespace btree

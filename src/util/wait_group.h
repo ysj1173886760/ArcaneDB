@@ -27,6 +27,11 @@ public:
     size_ += n;
   }
 
+  void Reset(size_t n) noexcept {
+    std::lock_guard<bthread::Mutex> guard(mu_);
+    size_ = n;
+  }
+
   void Done() noexcept {
     std::lock_guard<bthread::Mutex> guard(mu_);
     assert(size_ > 0);

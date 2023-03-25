@@ -64,6 +64,7 @@ void AppendLogAndSetLsn_(log_store::LogStore *log_store, WriteInfo *info,
   log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
   util::Monitor::GetInstance()->RecordAppendLogLatency(timer.GetElapsed());
   info->lsn = result[0].end_lsn;
+  info->is_dirty = true;
 }
 
 Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,

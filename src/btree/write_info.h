@@ -22,7 +22,8 @@ namespace btree {
  * e.g. LSN, page size.
  */
 struct WriteInfo {
-  log_store::LsnType lsn{};
+  log_store::LsnType lsn{log_store::kInvalidLsn};
+  bool is_dirty{false};
 };
 
 } // namespace btree

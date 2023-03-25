@@ -23,6 +23,8 @@
 namespace arcanedb {
 namespace cache {
 
+class Flusher;
+
 /**
  * @brief
  * Wrapper for cache
@@ -86,12 +88,15 @@ public:
     return s;
   }
 
+  Flusher *GetFlusher() noexcept { return flusher_.get(); }
+
+private:
   static void PageDeleter(const std::string_view &key, void *value) noexcept {
     delete static_cast<btree::VersionedBtreePage *>(value);
   }
 
-private:
   std::unique_ptr<Cache> cache_;
+  std::unique_ptr<Flusher> flusher_;
   util::SingleFlight<Cache::HandleHolder, std::string_view> load_group_;
 };
 
