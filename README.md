@@ -23,7 +23,8 @@ Might be a graph storage engine.
 - [x] WAL
 - [x] Recovery
 - [x] Page serialization/deserialization
-- [] Flush dirty page
+- [x] Flush dirty page
+- [] Support range scan
 - [] 2-level Btr
 - [] Multi-level Btr
 
