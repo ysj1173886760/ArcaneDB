@@ -238,6 +238,12 @@ public:
 
   std::string TEST_DumpChain() const noexcept;
 
+  size_t GetTotalCharge() noexcept {
+    // TODO(sheep): take versions into account.
+    return buffer_.size() + version_buffer_.size() +
+           rows_.capacity() * sizeof(Entry) + sizeof(VersionedDeltaNode);
+  }
+
 private:
   friend class VersionedDeltaNodeBuilder;
 

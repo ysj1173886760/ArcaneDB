@@ -84,6 +84,10 @@ public:
       return static_cast<T *>(value_);
     }
 
+    inline void UpdateCharge(size_t charge) noexcept {
+      cache_->UpdateCharge(handle_, charge);
+    }
+
   private:
     friend class Cache;
 
@@ -188,6 +192,8 @@ protected:
   // REQUIRES: handle must not have been released yet.
   // REQUIRES: handle must have been returned by a method on *this.
   virtual void *Value(Handle *handle) = 0;
+
+  virtual void UpdateCharge(Handle *handle, size_t charge) = 0;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(Cache);

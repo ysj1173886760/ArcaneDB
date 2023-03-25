@@ -32,7 +32,7 @@ void Flusher::TryInsertDirtyPage(
   if (!page_holder->TryMarkInFlusher()) {
     return;
   }
-  auto shard = absl::Hash<std::string_view>()(page_holder->GetPageKey()) &
+  auto shard = absl::Hash<std::string_view>()(page_holder->GetPageKey()) %
                shards_.size();
   shards_[shard]->InsertDirtyPage(page_holder);
 }

@@ -20,6 +20,7 @@
 #include "common/options.h"
 #include "common/status.h"
 #include "property/row/row.h"
+#include <atomic>
 
 namespace arcanedb {
 namespace btree {
@@ -109,6 +110,10 @@ public:
    */
   Status Deserialize(std::string_view data) noexcept;
 
+  size_t GetTotalCharge() noexcept {
+    return total_charge_.load(std::memory_order_relaxed);
+  }
+
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();
     return ptr->GetTotalLength();
@@ -164,6 +169,7 @@ private:
   mutable DoublyBufferedData ptr_;
   common::LockTable lock_table_;
   const std::string page_id_;
+  std::atomic<size_t> total_charge_{sizeof(VersionedBwTreePage)};
 };
 
 class VersionedBwTreePageSnapshot : public PageSnapshot {

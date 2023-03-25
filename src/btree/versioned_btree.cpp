@@ -25,6 +25,7 @@ Status VersionedBtree::SetRow(const property::Row &row, TxnTs write_ts,
     s = root_page_->SetRow(row, write_ts, opts, info);
     if (s.ok() && info->is_dirty) {
       opts.buffer_pool->TryInsertDirtyPage(root_page_);
+      root_page_.UpdateCharge(root_page_->GetTotalCharge());
     }
     break;
   }
@@ -46,6 +47,7 @@ Status VersionedBtree::DeleteRow(property::SortKeysRef sort_key, TxnTs write_ts,
     s = root_page_->DeleteRow(sort_key, write_ts, opts, info);
     if (s.ok() && info->is_dirty) {
       opts.buffer_pool->TryInsertDirtyPage(root_page_);
+      root_page_.UpdateCharge(root_page_->GetTotalCharge());
     }
     break;
   }

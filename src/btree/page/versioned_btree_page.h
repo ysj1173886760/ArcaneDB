@@ -240,6 +240,11 @@ public:
     return leaf_page_->Deserialize(data);
   }
 
+  size_t GetTotalCharge() noexcept {
+    assert(leaf_page_);
+    return leaf_page_->GetTotalCharge();
+  }
+
   /**
    * @brief
    * Test code below

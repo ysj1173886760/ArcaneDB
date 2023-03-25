@@ -21,9 +21,16 @@ BufferPool::BufferPool(
     : cache_(NewLRUCache<bthread::Mutex>(common::Config::kCacheCapacity,
                                          common::Config::kCacheShardNumBits)) {
   if (page_store) {
-      page_store_ = std::move(page_store);
-      flusher_ = std::make_shared<Flusher>(common::Config::kFlusherShardNum,
+    page_store_ = std::move(page_store);
+    flusher_ = std::make_shared<Flusher>(common::Config::kFlusherShardNum,
                                          page_store_);
+    flusher_->Start();
+  }
+}
+
+BufferPool::~BufferPool() noexcept {
+  if (flusher_) {
+    flusher_->Stop();
   }
 }
 
@@ -42,12 +49,13 @@ Status BufferPool::GetPage(const std::string_view &page_id,
         if (page_store_) {
           page_store::ReadOptions read_opts;
           std::vector<page_store::PageStore::RawPage> pages;
-          auto s = page_store_->ReadPage(page->GetPageKeyRef(), read_opts, &pages);
+          auto s =
+              page_store_->ReadPage(page->GetPageKeyRef(), read_opts, &pages);
 
           if (s.ok()) {
             assert(pages.size() == 1);
             s = page->Deserialize(pages[0].binary);
-          } 
+          }
           if (!s.ok() && !s.IsNotFound()) {
             return s;
           }

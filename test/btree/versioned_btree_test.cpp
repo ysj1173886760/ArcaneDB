@@ -10,11 +10,11 @@
  */
 
 #include "btree/versioned_btree.h"
+#include "page_store/kv_page_store/kv_page_store.h"
 #include "property/schema.h"
 #include "util/bthread_util.h"
 #include "util/wait_group.h"
 #include <gtest/gtest.h>
-#include "page_store/kv_page_store/kv_page_store.h"
 
 namespace arcanedb {
 namespace btree {
@@ -199,7 +199,8 @@ TEST_F(VersionedBtreeTest, FlushPageTest) {
     std::shared_ptr<page_store::PageStore> page_store;
     const std::string store_name = "test_store";
     EXPECT_TRUE(page_store::KvPageStore::Destory(store_name).ok());
-    EXPECT_TRUE(page_store::KvPageStore::Open(store_name, opts, &page_store).ok());
+    EXPECT_TRUE(
+        page_store::KvPageStore::Open(store_name, opts, &page_store).ok());
     buffer_pool_ = std::make_unique<cache::BufferPool>(std::move(page_store));
     opts_.buffer_pool = buffer_pool_.get();
     LoadBtree("test_page");

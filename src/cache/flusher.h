@@ -45,7 +45,7 @@ private:
   bthread::Mutex mu_;
 
   util::WaitGroup wg_;
-  std::atomic_bool stop_{false};
+  std::atomic_bool stop_{true};
 
   std::shared_ptr<page_store::PageStore> page_store_;
 };

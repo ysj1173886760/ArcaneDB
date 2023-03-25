@@ -90,6 +90,7 @@ Status VersionedBwTreePage::SetRow(const property::Row &row, TxnTs write_ts,
     delta->SetLSN(info->lsn);
   }
   info->is_dirty = true;
+  total_charge_ += delta->GetTotalCharge();
 
   // prepend delta
   auto current_ptr = GetPtr_();
@@ -125,6 +126,7 @@ Status VersionedBwTreePage::DeleteRow(property::SortKeysRef sort_key,
     delta->SetLSN(info->lsn);
   }
   info->is_dirty = true;
+  total_charge_ += delta->GetTotalCharge();
 
   // prepend delta
   auto current_ptr = GetPtr_();

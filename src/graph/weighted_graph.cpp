@@ -12,6 +12,7 @@
 #include "graph/weighted_graph.h"
 #include "cache/buffer_pool.h"
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "page_store/kv_page_store/kv_page_store.h"
 #include "txn/txn_manager_occ.h"
 #include <memory>
 
@@ -47,7 +48,17 @@ Status WeightedGraphDB::Open(const std::string &db_name,
     }
   }
 
-  res->buffer_pool_ = std::make_unique<cache::BufferPool>(nullptr);
+  std::shared_ptr<page_store::PageStore> page_store;
+  if (opts.enable_flush) {
+    page_store::Options opts;
+    auto s =
+        page_store::KvPageStore::Open(db_name + "_page", opts, &page_store);
+    if (!s.ok()) {
+      return s;
+    }
+  }
+
+  res->buffer_pool_ = std::make_unique<cache::BufferPool>(page_store);
   res->txn_manager_ =
       std::make_unique<txn::TxnManagerOCC>(opts.lock_manager_type);
   *db = std::move(res);
@@ -55,7 +66,9 @@ Status WeightedGraphDB::Open(const std::string &db_name,
 }
 
 Status WeightedGraphDB::Destroy(const std::string &db_name) noexcept {
-  return log_store::PosixLogStore::Destory(db_name + "_log");
+  log_store::PosixLogStore::Destory(db_name + "_log");
+  page_store::KvPageStore::Destory(db_name + "_page");
+  return Status::Ok();
 }
 
 // TODO(sheep): check duplicate

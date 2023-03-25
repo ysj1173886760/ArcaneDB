@@ -162,11 +162,16 @@ public:
   void Fork(LRUHandle *handle);
   void Release(LRUHandle *handle);
   void Prune();
+
   size_t TotalCharge() {
     std::lock_guard<decltype(mutex_)> lock(mutex_);
     return usage_;
   }
-  void UpdateCharge(LRUHandle *handle, size_t new_charge);
+  void UpdateCharge(LRUHandle *handle, size_t new_charge) {
+    std::lock_guard<decltype(mutex_)> lock(mutex_);
+    usage_ = usage_ - handle->charge + new_charge;
+    handle->charge = new_charge;
+  }
 
 private:
   void LRU_Remove(LRUHandle *e);
@@ -408,6 +413,12 @@ public:
       total += s.TotalCharge();
     }
     return total;
+  }
+
+  void UpdateCharge(Handle *handle, size_t charge) override {
+    auto *h = reinterpret_cast<LRUHandle *>(handle);
+    shard_[Shard(h->hash)].UpdateCharge(reinterpret_cast<LRUHandle *>(handle),
+                                        charge);
   }
 };
 

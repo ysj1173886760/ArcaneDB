@@ -38,7 +38,7 @@ public:
   // page_store == nullptr indicates that we don't needs to flush dirty pages
   BufferPool(std::shared_ptr<page_store::PageStore> page_store) noexcept;
 
-  ~BufferPool() noexcept { ARCANEDB_INFO("Buffer pool destory"); }
+  ~BufferPool() noexcept;
 
   // simple wrapper
   class PageHolder {
@@ -56,6 +56,8 @@ public:
     PageHolder(PageHolder &&) = default;
     PageHolder &operator=(PageHolder &&) = default;
 
+    void UpdateCharge(size_t charge) { handle_holder_.UpdateCharge(charge); }
+
   private:
     Cache::HandleHolder handle_holder_{};
   };
@@ -72,13 +74,9 @@ public:
 
   void TryInsertDirtyPage(const PageHolder &page_holder) noexcept;
 
-  void Prune() noexcept {
-    cache_->Prune();
-  }
+  void Prune() noexcept { cache_->Prune(); }
 
-  size_t TotalCharge() noexcept {
-    return cache_->TotalCharge();
-  }
+  size_t TotalCharge() noexcept { return cache_->TotalCharge(); }
 
   void ForceFlushAllPages() noexcept;
 

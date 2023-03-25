@@ -26,6 +26,7 @@ DEFINE_int64(pthread_concurrency, 4, "");
 DEFINE_int64(point_per_thread, 1000000, "");
 DEFINE_int64(edge_per_point, 100, "");
 DEFINE_bool(enable_wal, false, "");
+DEFINE_bool(enable_flush, false, "");
 DEFINE_bool(decentralized_lock, false, "");
 DEFINE_bool(inlined_lock, false, "");
 
@@ -82,6 +83,7 @@ int main(int argc, char* argv[]) {
       opts.lock_manager_type = arcanedb::txn::LockManagerType::kCentralized;
     }
     opts.enable_wal = FLAGS_enable_wal;
+    opts.enable_flush = FLAGS_enable_flush;
     auto s = arcanedb::graph::WeightedGraphDB::Open(db_name, &db, opts);
     if (!s.ok()) {
       ARCANEDB_INFO("Failed to open db");
