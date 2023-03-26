@@ -15,6 +15,7 @@
 #include "btree/write_info.h"
 #include "txn/txn_manager_occ.h"
 #include "txn_type.h"
+#include "util/monitor.h"
 #include "wal/occ_log_writer.h"
 #include <optional>
 
@@ -128,9 +129,12 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
 
   // wait for persistent
   if (commit_opts.log_store != nullptr && commit_opts.sync_commit) {
+    util::Timer timer;
     while (commit_opts.log_store->GetPersistentLsn() < lsn_) {
       bthread_usleep(common::Config::kTxnWaitLogInterval);
     }
+    util::Monitor::GetInstance()->RecordWaitCommitLatencyLatency(
+        timer.GetElapsed());
   }
 
   // commit ts

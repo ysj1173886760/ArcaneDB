@@ -29,6 +29,7 @@ DEFINE_bool(enable_wal, false, "");
 DEFINE_bool(enable_flush, false, "");
 DEFINE_bool(decentralized_lock, false, "");
 DEFINE_bool(inlined_lock, false, "");
+DEFINE_bool(sync_commit, false, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -46,6 +47,7 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
   arcanedb::Options opts;
+  opts.sync_commit = FLAGS_sync_commit;
   for (int i = 0; i < FLAGS_point_per_thread; i++) {
     auto vertex_id = GetRandom(0, max);
     for (int j = 0; j < FLAGS_edge_per_point; j++) {
@@ -100,13 +102,18 @@ int main(int argc, char* argv[]) {
   auto thread = std::thread([&]() {
     while (!stopped.load()) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
-      ARCANEDB_INFO("max latency {}", latency_recorder.max_latency());
       ARCANEDB_INFO("qps {}", latency_recorder.qps());
-      arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintSealByIoThreadLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintIoLatencyLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintWaitCommitLatencyLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintWritePageCacheLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintFsyncLatency();
+
       bthread_usleep(1 * arcanedb::util::Second);
     }
     wg.Done();

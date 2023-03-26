@@ -49,6 +49,7 @@ public:
     size_ = size;
     buffer_.resize(size);
     index_ = index;
+    valid_size_ = 0;
   }
 
   /**
@@ -128,8 +129,7 @@ public:
    */
   void FreeSegment() noexcept {
     // reset buffer
-    buffer_.clear();
-    buffer_.resize(size_);
+    valid_size_ = 0;
     // set state to kfree
     CHECK(CasState_(LogSegmentState::kIo, LogSegmentState::kFree));
   }
@@ -183,8 +183,7 @@ public:
         waiter_.NotifyAll();
       }
     }
-    // resize to fit
-    buffer_.resize(new_lsn);
+    valid_size_ = new_lsn;
     return new_lsn + start_lsn_;
   }
 
@@ -211,6 +210,10 @@ public:
 
   bool IsIo() const noexcept {
     return IsIo_(control_bits_.load(std::memory_order_acquire));
+  }
+
+  std::string_view GetIoData() noexcept {
+    return std::string_view(buffer_.data(), valid_size_);
   }
 
   /**
@@ -313,6 +316,7 @@ private:
   size_t size_{};
   LsnType start_lsn_{};
   std::string buffer_;
+  size_t valid_size_{};
   /**
    * @brief
    * Control bits format:

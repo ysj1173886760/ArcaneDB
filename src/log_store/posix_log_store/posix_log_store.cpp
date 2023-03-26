@@ -33,7 +33,7 @@ namespace log_store {
 Status PosixLogStore::Open(const std::string &name, const Options &options,
                            std::shared_ptr<LogStore> *log_store) noexcept {
   auto store = std::make_shared<PosixLogStore>();
-  store->env_ = leveldb::Env::Default();
+  store->env_ = rocksdb::Env::Default();
   store->name_ = name;
   // create directory
   auto s = store->env_->CreateDir(name);
@@ -43,7 +43,9 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   }
 
   // create log file
-  s = store->env_->NewWritableFile(MakeLogFileName_(name), &store->log_file_);
+  rocksdb::EnvOptions opts;
+  s = store->env_->NewWritableFile(MakeLogFileName_(name), &store->log_file_,
+                                   opts);
   if (!s.ok()) {
     ARCANEDB_WARN("Failed to create writable file, error: {}", s.ToString());
     return Status::Err();
@@ -70,7 +72,7 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
 }
 
 Status PosixLogStore::Destory(const std::string &store_name) noexcept {
-  auto *env = leveldb::Env::Default();
+  auto *env = rocksdb::Env::Default();
   std::vector<std::string> filenames;
   auto s = env->GetChildren(store_name, &filenames);
   if (!s.ok()) {
@@ -96,7 +98,7 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
 
 void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
                                     LogResultContainer *result) noexcept {
-  util::HighResolutionTimer append_log_timer;
+  // util::HighResolutionTimer append_log_timer;
   // first calc the size we need to occupy
   size_t total_size = LogRecord::kHeaderSize * log_records.size();
   for (const auto &record : log_records) {
@@ -109,14 +111,14 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
     // first acquire the guard
     auto *segment = GetCurrentLogSegment_();
 
-    util::HighResolutionTimer reserve_log_buffer_timer;
+    // util::HighResolutionTimer reserve_log_buffer_timer;
     auto [succeed, should_seal, raw_lsn] =
         segment->TryReserveLogBuffer(total_size);
-    util::Monitor::GetInstance()->RecordReserveLogBufferLatency(
-        reserve_log_buffer_timer.GetElapsed());
+    // util::Monitor::GetInstance()->RecordReserveLogBufferLatency(
+    //     reserve_log_buffer_timer.GetElapsed());
 
     if (succeed) {
-      util::HighResolutionTimer serialize_log_timer;
+      // util::HighResolutionTimer serialize_log_timer;
 
       auto guard = ControlGuard(segment);
       result->clear();
@@ -133,24 +135,24 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
             LsnRange{.start_lsn = start_lsn, .end_lsn = current_lsn});
       }
 
-      util::Monitor::GetInstance()->RecordSerializeLogLatency(
-          serialize_log_timer.GetElapsed());
-      util::Monitor::GetInstance()->RecordLogStoreRetryCntLatency(cnt);
-      util::Monitor::GetInstance()->RecordAppendLogLatency(
-          append_log_timer.GetElapsed());
+      // util::Monitor::GetInstance()->RecordSerializeLogLatency(
+      //     serialize_log_timer.GetElapsed());
+      // util::Monitor::GetInstance()->RecordLogStoreRetryCntLatency(cnt);
+      // util::Monitor::GetInstance()->RecordAppendLogLatency(
+      //     append_log_timer.GetElapsed());
       return;
     }
 
-    util::HighResolutionTimer seal_and_open_timer;
+    // util::HighResolutionTimer seal_and_open_timer;
     // check whether we should seal
     if (should_seal && SealAndOpen(segment)) {
       // start next round immediately.
-      util::Monitor::GetInstance()->RecordSealAndOpenLatency(
-          seal_and_open_timer.GetElapsed());
+      // util::Monitor::GetInstance()->RecordSealAndOpenLatency(
+      //     seal_and_open_timer.GetElapsed());
       continue;
     }
-    util::Monitor::GetInstance()->RecordSealAndOpenLatency(
-        seal_and_open_timer.GetElapsed());
+    // util::Monitor::GetInstance()->RecordSealAndOpenLatency(
+    //     seal_and_open_timer.GetElapsed());
 
     // innodb will sleep 20 microseconds, so do we.
     bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
@@ -167,15 +169,30 @@ void PosixLogStore::ThreadJob_() noexcept {
   while (!stopped_.load(std::memory_order_relaxed)) {
     auto *log_segment = GetLogSegment_(current_io_segment);
     if (log_segment->IsIo()) {
+      util::Timer timer;
       auto start_lsn = log_segment->start_lsn_;
-      auto data = log_segment->buffer_;
-      auto s = log_file_->Append(data);
-      if (!s.ok()) {
-        FATAL("io failed, status: %s", s.ToString().c_str());
+      auto data = log_segment->GetIoData();
+      if (data.empty()) {
+        ARCANEDB_WARN("Unhealthy data size. segment idx: {}",
+                      log_segment->GetIndex());
       }
-      s = log_file_->Sync();
+
+      util::Timer write_page_cache_timer;
+      auto s = log_file_->Append(rocksdb::Slice(data.data(), data.size()));
+      util::Monitor::GetInstance()->RecordWritePageCacheLatency(
+          write_page_cache_timer.GetElapsed());
+
       if (!s.ok()) {
-        FATAL("sync failed, status: %s", s.ToString().c_str());
+        FATAL("io failed, status: {}", s.ToString());
+      }
+
+      util::Timer fsync_timer;
+      s = log_file_->Sync();
+      util::Monitor::GetInstance()->RecordFsyncLatency(
+          fsync_timer.GetElapsed());
+
+      if (!s.ok()) {
+        FATAL("sync failed, status: {}", s.ToString());
       }
       log_segment->FreeSegment();
       // increment index
@@ -187,12 +204,14 @@ void PosixLogStore::ThreadJob_() noexcept {
         ARCANEDB_WARN("Logical error might happens. {} {}",
                       next_lsn - start_lsn, data.size());
       }
+      util::Monitor::GetInstance()->RecordIoLatencyLatency(timer.GetElapsed());
       continue;
     }
     // otherwise, we wait
     log_segment->waiter_.Wait(common::Config::kLogStoreFlushInterval);
     // recheck state
     if (!log_segment->IsIo()) {
+      util::Monitor::GetInstance()->RecordSealByIoThreadLatency(1);
       SealAndOpen(log_segment);
     }
   }
@@ -265,7 +284,9 @@ LsnType PosixLogReader::GetNextLogRecord(std::string *bytes) noexcept {
 Status
 PosixLogStore::GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept {
   auto reader = std::make_unique<PosixLogReader>();
-  auto s = env_->NewSequentialFile(MakeLogFileName_(name_), &reader->file_);
+  rocksdb::EnvOptions opts;
+  auto s =
+      env_->NewSequentialFile(MakeLogFileName_(name_), &reader->file_, opts);
   if (!s.ok()) {
     ARCANEDB_WARN("Failed to open file, status: {}", s.ToString());
     return Status::Err();

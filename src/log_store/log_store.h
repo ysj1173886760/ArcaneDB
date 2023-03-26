@@ -66,6 +66,12 @@ public:
   virtual LsnType GetPersistentLsn() noexcept = 0;
 
   /**
+   * @brief
+   * Force background start to flush wal
+   */
+  // virtual void TriggerFlush() noexcept = 0;
+
+  /**
    * @brief Get the LogReader
    * log reader is used to read existing log to perform recovery.
    * note that the behaviour of concurrent reading the log and appending the log

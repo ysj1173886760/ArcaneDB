@@ -27,7 +27,7 @@ foreach (arcanedb_test_source ${ARCANEDB_TEST_SOURCES})
     add_executable(${arcanedb_test_name} ${arcanedb_test_source})
 
     target_link_libraries(${arcanedb_test_name} 
-                                    gtest_main 
+                                    gtest_main
                                     ${CMAKE_PROJECT_NAME}_lib
                                     ${ARCANEDB_LIBS})
 

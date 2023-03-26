@@ -24,7 +24,12 @@ namespace util {
   ARCANEDB_X(ReserveLogBuffer)                                                 \
   ARCANEDB_X(SerializeLog)                                                     \
   ARCANEDB_X(LogStoreRetryCnt)                                                 \
-  ARCANEDB_X(SealAndOpen)
+  ARCANEDB_X(SealAndOpen)                                                      \
+  ARCANEDB_X(SealByIoThread)                                                   \
+  ARCANEDB_X(IoLatency)                                                        \
+  ARCANEDB_X(WaitCommitLatency)                                                \
+  ARCANEDB_X(WritePageCache)                                                   \
+  ARCANEDB_X(Fsync)
 
 class Monitor {
 public:

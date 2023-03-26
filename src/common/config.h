@@ -23,7 +23,7 @@ public:
 
   static constexpr size_t kLogSegmentDefaultNum = 32;
   static constexpr size_t kLogSegmentDefaultSize = 4 << 20;
-  static constexpr size_t kLogStoreFlushInterval = 1 * util::MillSec;
+  static constexpr size_t kLogStoreFlushInterval = 50 * util::MicroSec;
 
   static constexpr size_t kBwTreeDeltaChainLength = 16;
   static constexpr size_t kBwTreeCompactionFactor = 2;
@@ -43,7 +43,7 @@ public:
   // 4 mb link buf
   static constexpr size_t kLinkBufSnapshotManagerSize = 1 << 20;
 
-  static constexpr size_t kTxnWaitLogInterval = 2 * util::MillSec;
+  static constexpr size_t kTxnWaitLogInterval = 50 * util::MicroSec;
 
   // 32 shard
   static constexpr size_t kFlusherShardNum = 32;

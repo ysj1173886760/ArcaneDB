@@ -29,6 +29,8 @@ enable_testing()
 
 add_subdirectory(third_party)
 
+find_package(GTest)
+
 # brpc related
 set(BRPC_OUTPUT_PATH ${PROJECT_BINARY_DIR}/third_party/incubator-brpc/output)
 
@@ -101,6 +103,9 @@ set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
 # FIXME: better way to compile.
 include_directories(third_party/abseil-cpp)
 link_directories(${PROJECT_BINARY_DIR}/third_party/abseil-cpp/absl)
+
+include_directories(third_party/rocksdb/include)
+set (ARCANEDB_LIBS ${ARCANEDB_LIBS} rocksdb)
 
 set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
                   jemalloc)

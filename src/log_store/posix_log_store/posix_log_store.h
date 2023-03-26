@@ -14,12 +14,12 @@
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
+#include "rocksdb/env.h"
 #include "util/backoff.h"
 #include "util/simple_waiter.h"
 #include "util/thread_pool.h"
 #include "util/time.h"
 #include <atomic>
-#include <leveldb/env.h>
 
 // TODO(sheep): might still contains bugs
 
@@ -32,24 +32,24 @@ public:
 
   LsnType GetNextLogRecord(std::string *bytes) noexcept override;
 
-  ~PosixLogReader() noexcept override { delete file_; }
+  ~PosixLogReader() = default;
 
 private:
   friend class PosixLogStore;
   void PeekNext_() noexcept;
 
-  leveldb::Env *env_;
-  leveldb::SequentialFile *file_{nullptr};
+  rocksdb::Env *env_;
+  std::unique_ptr<rocksdb::SequentialFile> file_{nullptr};
   bool has_next_{false};
   // header buffer
   std::string header_buffer_{LogRecord::kHeaderSize};
-  leveldb::Slice header_slice_;
+  rocksdb::Slice header_slice_;
   // data parsed from header
   size_t current_lsn_{kInvalidLsn};
   uint16_t data_size_{0};
   // data buffer
   std::string data_buffer_;
-  leveldb::Slice data_slice_;
+  rocksdb::Slice data_slice_;
 };
 
 /**
@@ -68,7 +68,6 @@ public:
     if (background_thread_ != nullptr) {
       background_thread_->join();
     }
-    delete log_file_;
   }
 
   void AppendLogRecord(const LogRecordContainer &log_records,
@@ -133,8 +132,8 @@ private:
    */
   bool SealAndOpen(LogSegment *log_segment) noexcept;
 
-  leveldb::Env *env_{nullptr};
-  leveldb::WritableFile *log_file_{nullptr};
+  rocksdb::Env *env_{nullptr};
+  std::unique_ptr<rocksdb::WritableFile> log_file_{nullptr};
   std::unique_ptr<LogSegment[]> segments_{nullptr};
   size_t segment_num_{};
   std::atomic_size_t current_log_segment_{0};
