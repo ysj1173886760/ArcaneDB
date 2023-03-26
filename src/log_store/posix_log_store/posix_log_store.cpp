@@ -10,6 +10,7 @@
  */
 
 #include "log_store/posix_log_store/posix_log_store.h"
+#include "absl/cleanup/cleanup.h"
 #include "common/config.h"
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_record.h"
@@ -21,7 +22,9 @@
 #include "util/monitor.h"
 #include "util/time.h"
 #include <atomic>
+#include <chrono>
 #include <memory>
+#include <ratio>
 #include <string>
 
 namespace arcanedb {
@@ -93,6 +96,7 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
 
 void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
                                     LogResultContainer *result) noexcept {
+  util::HighResolutionTimer append_log_timer;
   // first calc the size we need to occupy
   size_t total_size = LogRecord::kHeaderSize * log_records.size();
   for (const auto &record : log_records) {
@@ -104,13 +108,16 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
   do {
     // first acquire the guard
     auto *segment = GetCurrentLogSegment_();
-    util::Timer timer;
+
+    util::HighResolutionTimer reserve_log_buffer_timer;
     auto [succeed, should_seal, raw_lsn] =
         segment->TryReserveLogBuffer(total_size);
     util::Monitor::GetInstance()->RecordReserveLogBufferLatency(
-        timer.GetElapsed());
-    timer.Reset();
+        reserve_log_buffer_timer.GetElapsed());
+
     if (succeed) {
+      util::HighResolutionTimer serialize_log_timer;
+
       auto guard = ControlGuard(segment);
       result->clear();
       result->reserve(log_records.size());
@@ -125,19 +132,26 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
         result->emplace_back(
             LsnRange{.start_lsn = start_lsn, .end_lsn = current_lsn});
       }
+
       util::Monitor::GetInstance()->RecordSerializeLogLatency(
-          timer.GetElapsed());
+          serialize_log_timer.GetElapsed());
       util::Monitor::GetInstance()->RecordLogStoreRetryCntLatency(cnt);
+      util::Monitor::GetInstance()->RecordAppendLogLatency(
+          append_log_timer.GetElapsed());
       return;
     }
-    timer.Reset();
+
+    util::HighResolutionTimer seal_and_open_timer;
     // check whether we should seal
     if (should_seal && SealAndOpen(segment)) {
       // start next round immediately.
       util::Monitor::GetInstance()->RecordSealAndOpenLatency(
-          timer.GetElapsed());
+          seal_and_open_timer.GetElapsed());
       continue;
     }
+    util::Monitor::GetInstance()->RecordSealAndOpenLatency(
+        seal_and_open_timer.GetElapsed());
+
     // innodb will sleep 20 microseconds, so do we.
     bo.Sleep(20 * util::MicroSec, 1 * util::MillSec);
     cnt += 1;

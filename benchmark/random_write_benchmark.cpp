@@ -102,11 +102,11 @@ int main(int argc, char* argv[]) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("max latency {}", latency_recorder.max_latency());
       ARCANEDB_INFO("qps {}", latency_recorder.qps());
-      // arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
-      // arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
-      // arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();
-      // arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
       bthread_usleep(1 * arcanedb::util::Second);
     }
     wg.Done();

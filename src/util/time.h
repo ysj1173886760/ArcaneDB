@@ -47,5 +47,31 @@ private:
   struct timeval start_time_;
 };
 
+class HighResolutionTimer {
+public:
+  HighResolutionTimer() noexcept
+      : start_(std::chrono::high_resolution_clock::now()) {}
+
+  /**
+   * @brief Get time elapsed.
+   * unit: nanosecond
+   * @return int64_t
+   */
+  int64_t GetElapsed() const noexcept {
+    auto now = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(now - start_)
+        .count();
+  }
+
+  /**
+   * @brief
+   * Reset the timer
+   */
+  void Reset() { start_ = std::chrono::high_resolution_clock::now(); }
+
+private:
+  decltype(std::chrono::high_resolution_clock::now()) start_;
+};
+
 } // namespace util
 } // namespace arcanedb

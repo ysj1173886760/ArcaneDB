@@ -59,10 +59,8 @@ void VersionedBwTreePage::MaybePerformCompaction_(
 
 void AppendLogAndSetLsn_(log_store::LogStore *log_store, WriteInfo *info,
                          const wal::BwTreeLogWriter &log_writer) noexcept {
-  util::Timer timer;
   log_store::LogStore::LogResultContainer result;
   log_store->AppendLogRecord(log_writer.GetLogRecords(), &result);
-  util::Monitor::GetInstance()->RecordAppendLogLatency(timer.GetElapsed());
   info->lsn = result[0].end_lsn;
 }
 
