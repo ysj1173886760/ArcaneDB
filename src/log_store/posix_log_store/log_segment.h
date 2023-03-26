@@ -114,9 +114,10 @@ public:
     } while (!control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
     if (is_last_writer && is_sealed) {
-      CasState_(LogSegmentState::kSeal, LogSegmentState::kIo);
-      // notify io thread
-      waiter_.NotifyAll();
+      if (CasState_(LogSegmentState::kSeal, LogSegmentState::kIo)) {
+        // notify io thread
+        waiter_.NotifyAll();
+      }
     }
   }
 
@@ -130,7 +131,7 @@ public:
     buffer_.clear();
     buffer_.resize(size_);
     // set state to kfree
-    CasState_(LogSegmentState::kIo, LogSegmentState::kFree);
+    CHECK(CasState_(LogSegmentState::kIo, LogSegmentState::kFree));
   }
 
   /**
@@ -141,7 +142,7 @@ public:
   void OpenLogSegment(LsnType start_lsn) noexcept {
     start_lsn_ = start_lsn;
     control_bits_.store(0, std::memory_order_release);
-    CasState_(LogSegmentState::kFree, LogSegmentState::kOpen);
+    CHECK(CasState_(LogSegmentState::kFree, LogSegmentState::kOpen));
     // writers must observe the state being kOpen before it can proceed to
     // appending log records.
   }
@@ -177,9 +178,10 @@ public:
     } while (!control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
     if (should_schedule_io_task) {
-      CasState_(LogSegmentState::kSeal, LogSegmentState::kIo);
-      // notify io thread
-      waiter_.NotifyAll();
+      if (CasState_(LogSegmentState::kSeal, LogSegmentState::kIo)) {
+        // notify io thread
+        waiter_.NotifyAll();
+      }
     }
     // resize to fit
     buffer_.resize(new_lsn);
@@ -285,21 +287,19 @@ private:
     return control_bits + length;
   }
 
-  void CasState_(LogSegmentState current_state,
+  bool CasState_(LogSegmentState current_state,
                  LogSegmentState expected_state) noexcept {
     uint64_t current_control_bits =
         control_bits_.load(std::memory_order_acquire);
     uint64_t new_control_bits;
     do {
       if (GetState_(current_control_bits) != current_state) {
-        ARCANEDB_ERROR("expect state {}, get {}",
-                       static_cast<uint8_t>(current_state),
-                       static_cast<uint8_t>(GetState_(current_control_bits)));
-        return;
+        return false;
       }
       new_control_bits = SetState_(current_control_bits, expected_state);
     } while (!control_bits_.compare_exchange_weak(
         current_control_bits, new_control_bits, std::memory_order_acq_rel));
+    return true;
   }
 
   static constexpr size_t kStateOffset = 62;
