@@ -24,7 +24,7 @@ Might be a graph storage engine.
 - [x] Recovery
 - [x] Page serialization/deserialization
 - [x] Flush dirty page
-- [] Support range scan
+- [x] Support range scan
 - [] 2-level Btr
 - [] Multi-level Btr
 
