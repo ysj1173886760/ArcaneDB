@@ -35,6 +35,35 @@ static const property::RawSchema kWeightedGraphRawSchema{
     .sort_key_count = 1};
 static const property::Schema kWeightedGraphSchema(kWeightedGraphRawSchema);
 
+WeightedGraphDB::VertexId WeightedGraphDB::EdgeIterator::OutVertexId() const
+    noexcept {
+  property::ValueResult res;
+  auto s =
+      views.at(current_idx)
+          .GetProp(kWeightedGraphVertexIdColumn, &res, &kWeightedGraphSchema);
+  CHECK(s.ok());
+  return std::get<int64_t>(res.value);
+}
+
+std::string_view WeightedGraphDB::EdgeIterator::OutVertexData() const noexcept {
+  property::ValueResult res;
+  auto s = views.at(current_idx)
+               .GetProp(kWeightedGraphValueColumn, &res, &kWeightedGraphSchema);
+  CHECK(s.ok());
+  return std::get<std::string_view>(res.value);
+}
+
+void WeightedGraphDB::Transaction::GetEdgeIterator(
+    VertexId src, EdgeIterator *iterator) noexcept {
+  btree::RangeScanRowView views;
+  Filter filter;
+  BtreeScanOpts scan_opts;
+  txn_context_->RangeFilter(EdgeEncoding(src), opts_, filter, scan_opts,
+                            &views);
+  iterator->current_idx = 0;
+  iterator->views = std::move(views);
+}
+
 Status WeightedGraphDB::Open(const std::string &db_name,
                              std::unique_ptr<WeightedGraphDB> *db,
                              const WeightedGraphOptions &opts) noexcept {

@@ -42,6 +42,19 @@ public:
 
   static Status Destroy(const std::string &db_name) noexcept;
 
+  struct EdgeIterator {
+    bool Valid() const noexcept { return current_idx < views.size(); }
+
+    void Next() noexcept { current_idx += 1; }
+
+    VertexId OutVertexId() const noexcept;
+
+    std::string_view OutVertexData() const noexcept;
+
+    size_t current_idx{};
+    btree::RangeScanRowView views;
+  };
+
   class Transaction {
   public:
     /**
@@ -98,6 +111,14 @@ public:
      * @return Status
      */
     Status GetEdge(VertexId src, VertexId dst, std::string *value) noexcept;
+
+    /**
+     * @brief Read all out edges within the same start vertex.
+     *
+     * @param src
+     * @param iterator
+     */
+    void GetEdgeIterator(VertexId src, EdgeIterator *iterator) noexcept;
 
     Status Commit() noexcept;
 

@@ -14,6 +14,8 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "btree/btree_type.h"
+#include "common/btree_scan_opts.h"
+#include "common/filter.h"
 #include "common/options.h"
 #include "common/status.h"
 #include "property/row/row.h"
@@ -65,6 +67,20 @@ public:
   virtual Status GetRow(const std::string &sub_table_key,
                         property::SortKeysRef sort_key, const Options &opts,
                         btree::RowView *view) noexcept = 0;
+
+  /**
+   * @brief
+   * Range scan
+   * @param sub_table_key
+   * @param opts
+   * @param filter
+   * @param scan_opts
+   * @param rows_view
+   */
+  virtual void RangeFilter(const std::string &sub_table_key,
+                           const Options &opts, const Filter &filter,
+                           const BtreeScanOpts &scan_opts,
+                           btree::RangeScanRowView *rows_view) noexcept = 0;
 
   /**
    * @brief

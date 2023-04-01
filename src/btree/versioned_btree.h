@@ -77,6 +77,14 @@ public:
   void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
              const Options &opts, WriteInfo *info) noexcept;
 
+  /**
+   * @brief
+   * Range scan
+   * @param opts
+   * @param filter
+   * @param scan_opts
+   * @param views
+   */
   void RangeFilter(const Options &opts, const Filter &filter,
                    const BtreeScanOpts &scan_opts,
                    RangeScanRowView *views) const noexcept {

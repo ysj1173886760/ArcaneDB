@@ -132,5 +132,28 @@ TEST_F(WeightedGraphDBTest, ConcurrentTest) {
   wg.Wait();
 }
 
+TEST_F(WeightedGraphDBTest, EdgeIteratorTest) {
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 10; j++) {
+      auto txn = db_->BeginRwTxn(opts_);
+      EXPECT_TRUE(txn->InsertEdge(i, j, std::to_string(i + j)).ok());
+      EXPECT_TRUE(txn->Commit().IsCommit());
+    }
+  }
+  for (int i = 0; i < 10; i++) {
+    auto txn = db_->BeginRoTxn(opts_);
+    WeightedGraphDB::EdgeIterator iterator;
+    txn->GetEdgeIterator(i, &iterator);
+    EXPECT_TRUE(iterator.Valid());
+    for (int j = 0; j < 10; j++) {
+      EXPECT_EQ(iterator.OutVertexData(), std::to_string(i + j));
+      EXPECT_EQ(iterator.OutVertexId(), j);
+      iterator.Next();
+    }
+    EXPECT_FALSE(iterator.Valid());
+    EXPECT_TRUE(txn->Commit().IsCommit());
+  }
+}
+
 } // namespace graph
 } // namespace arcanedb

@@ -86,6 +86,12 @@ public:
 
   TxnType GetTxnType() const noexcept override { return txn_type_; }
 
+  void RangeFilter(const std::string &sub_table_key, const Options &opts,
+                   const Filter &filter, const BtreeScanOpts &scan_opts,
+                   btree::RangeScanRowView *rows_view) noexcept override {
+    NOTIMPLEMENTED();
+  }
+
 private:
   btree::SubTable *GetSubTable_(const std::string &sub_table_key,
                                 const Options &opts) noexcept;

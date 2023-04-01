@@ -87,6 +87,17 @@ Status TxnContextOCC::GetRow(const std::string &sub_table_key,
   return s;
 }
 
+void TxnContextOCC::RangeFilter(const std::string &sub_table_key,
+                                const Options &opts, const Filter &filter,
+                                const BtreeScanOpts &scan_opts,
+                                btree::RangeScanRowView *rows_view) noexcept {
+  if (txn_type_ != TxnType::ReadOnlyTxn) {
+    UNREACHABLE();
+  }
+  auto sub_table = GetSubTable_(sub_table_key, opts);
+  sub_table->RangeFilter(opts, filter, scan_opts, rows_view);
+}
+
 Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
   if (txn_type_ == TxnType::ReadOnlyTxn) {
     return Status::Commit();

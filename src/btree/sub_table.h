@@ -102,6 +102,20 @@ public:
     cluster_index_.SetTs(sort_key, target_ts, opts, info);
   }
 
+  /**
+   * @brief
+   * Range scan
+   * @param opts
+   * @param filter
+   * @param scan_opts
+   * @param views
+   */
+  void RangeFilter(const Options &opts, const Filter &filter,
+                   const BtreeScanOpts &scan_opts,
+                   RangeScanRowView *views) const noexcept {
+    cluster_index_.RangeFilter(opts, filter, scan_opts, views);
+  }
+
   common::LockTable &GetLockTable() noexcept {
     return cluster_index_.GetLockTable();
   }
