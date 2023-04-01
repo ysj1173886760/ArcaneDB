@@ -254,6 +254,11 @@ public:
     return leaf_page_->RangeFilter(opts, filter, scan_opts, views);
   }
 
+  RowIterator GetRowIterator() const noexcept {
+    assert(leaf_page_);
+    return leaf_page_->GetRowIterator();
+  }
+
   /**
    * @brief
    * Test code below

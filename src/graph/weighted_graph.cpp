@@ -53,6 +53,24 @@ std::string_view WeightedGraphDB::EdgeIterator::EdgeValue() const noexcept {
   return std::get<std::string_view>(res.value);
 }
 
+WeightedGraphDB::VertexId
+WeightedGraphDB::UnsortedEdgeIterator::OutVertexId() const noexcept {
+  property::ValueResult res;
+  auto s = iterator.GetRow().GetProp(kWeightedGraphVertexIdColumn, &res,
+                                     &kWeightedGraphSchema);
+  CHECK(s.ok());
+  return std::get<int64_t>(res.value);
+}
+
+std::string_view WeightedGraphDB::UnsortedEdgeIterator::EdgeValue() const
+    noexcept {
+  property::ValueResult res;
+  auto s = iterator.GetRow().GetProp(kWeightedGraphValueColumn, &res,
+                                     &kWeightedGraphSchema);
+  CHECK(s.ok());
+  return std::get<std::string_view>(res.value);
+}
+
 void WeightedGraphDB::Transaction::GetEdgeIterator(
     VertexId src, EdgeIterator *iterator) noexcept {
   btree::RangeScanRowView views;
@@ -62,6 +80,12 @@ void WeightedGraphDB::Transaction::GetEdgeIterator(
                             &views);
   iterator->current_idx = 0;
   iterator->views = std::move(views);
+}
+
+WeightedGraphDB::UnsortedEdgeIterator
+WeightedGraphDB::Transaction::GetUnsortedEdgeIterator(VertexId src) noexcept {
+  auto row_iterator = txn_context_->GetRowIterator(EdgeEncoding(src), opts_);
+  return UnsortedEdgeIterator{.iterator = row_iterator};
 }
 
 Status WeightedGraphDB::Open(const std::string &db_name,

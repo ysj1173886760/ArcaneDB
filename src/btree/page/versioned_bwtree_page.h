@@ -27,6 +27,46 @@
 namespace arcanedb {
 namespace btree {
 
+class RowIterator {
+public:
+  RowIterator(std::shared_ptr<VersionedDeltaNode> delta_node) noexcept
+      : owner_(std::move(delta_node)) {
+    current_node_ = owner_.get();
+    bool deleted = current_node_->GetRow(current_idx_, &current_row_);
+    if (!deleted) {
+      return;
+    }
+    Next();
+  }
+
+  bool Valid() const noexcept { return current_node_ != nullptr; }
+
+  property::Row GetRow() const noexcept { return current_row_; }
+
+  void Next() noexcept {
+    while (current_node_ != nullptr) {
+      current_idx_ += 1;
+      if (current_idx_ == current_node_->GetSize()) {
+        current_idx_ = 0;
+        current_node_ = current_node_->GetPrevious().get();
+        if (current_node_ == nullptr) {
+          break;
+        }
+      }
+      bool deleted = current_node_->GetRow(current_idx_, &current_row_);
+      if (!deleted) {
+        break;
+      }
+    }
+  }
+
+private:
+  std::shared_ptr<VersionedDeltaNode> owner_;
+  VersionedDeltaNode *current_node_{};
+  property::Row current_row_;
+  int current_idx_{};
+};
+
 class VersionedBwTreePage {
 public:
   VersionedBwTreePage(const std::string_view &page_id) noexcept
@@ -119,6 +159,8 @@ public:
   void RangeFilter(const Options &opts, const Filter &filter,
                    const BtreeScanOpts &scan_opts,
                    RangeScanRowView *views) const noexcept;
+
+  RowIterator GetRowIterator() const noexcept { return RowIterator(GetPtr_()); }
 
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();

@@ -90,6 +90,9 @@ public:
                    const Filter &filter, const BtreeScanOpts &scan_opts,
                    btree::RangeScanRowView *rows_view) noexcept override;
 
+  btree::RowIterator GetRowIterator(const std::string &sub_table_key,
+                                    const Options &opts) noexcept override;
+
 private:
   btree::SubTable *GetSubTable_(const std::string_view &sub_table_key,
                                 const Options &opts) noexcept;

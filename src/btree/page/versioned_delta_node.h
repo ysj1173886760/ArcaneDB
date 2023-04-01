@@ -67,6 +67,12 @@ public:
     return previous_;
   }
 
+  bool GetRow(int idx, property::Row *row) const noexcept {
+    auto offset = GetOffset(rows_[idx].control_bit);
+    *row = property::Row(buffer_.data() + offset);
+    return IsDeleted(rows_[idx].control_bit);
+  }
+
   size_t GetSize() const noexcept { return rows_.size(); }
 
   size_t GetTotalLength() const noexcept { return total_length_; }

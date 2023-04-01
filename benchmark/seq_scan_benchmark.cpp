@@ -26,6 +26,7 @@ DEFINE_int64(point_per_thread, 100, "");
 DEFINE_int64(edge_per_point, 100, "");
 DEFINE_int64(iterations, 100000000, "");
 DEFINE_bool(force_compaction, false, "");
+DEFINE_bool(unsorted_scan, true, "");
 
 std::unique_ptr<arcanedb::graph::WeightedGraphDB> db;
 
@@ -68,22 +69,40 @@ void PrepareEdge() {
 extern std::aligned_storage<64> id_store[128];
 std::aligned_storage<64> id_store[128];
 
+void RangeScan(arcanedb::graph::WeightedGraphDB::Transaction *txn, int64_t vertex_id) {
+  std::string_view value;
+  // arcanedb::util::Timer timer;
+  arcanedb::graph::WeightedGraphDB::EdgeIterator iterator;
+  txn->GetEdgeIterator(vertex_id, &iterator);
+  while (iterator.Valid()) {
+    // value = iterator.EdgeValue();
+    // *std::launder(reinterpret_cast<int64_t*>(&id_store[idx])) = id;
+    iterator.Next();
+  }
+  // latency_recorder << timer.GetElapsed();
+}
+
+void UnsortedScan(arcanedb::graph::WeightedGraphDB::Transaction *txn, int64_t vertex_id) {
+  std::string_view value;
+  auto iterator = txn->GetUnsortedEdgeIterator(vertex_id);
+  while (iterator.Valid()) {
+    // value = iterator.EdgeValue();
+    iterator.Next();
+  }
+}
+
+template <bool UseUnsortedScan>
 void Work(int idx) {
   arcanedb::Options opts;
   opts.ignore_lock = true;
   auto context = db->BeginRoTxn(opts);
-  std::string_view value;
   for (int i = 0; i < FLAGS_iterations; i++) {
     for (int j = FLAGS_point_per_thread * idx; j < FLAGS_point_per_thread * (idx + 1); j++) {
-      // arcanedb::util::Timer timer;
-      arcanedb::graph::WeightedGraphDB::EdgeIterator iterator;
-      context->GetEdgeIterator(j, &iterator);
-      while (iterator.Valid()) {
-        // value = iterator.EdgeValue();
-        // *std::launder(reinterpret_cast<int64_t*>(&id_store[idx])) = id;
-        iterator.Next();
+      if constexpr (UseUnsortedScan) {
+        UnsortedScan(context.get(), j);
+      } else {
+        RangeScan(context.get(), j);
       }
-      // latency_recorder << timer.GetElapsed();
     }
     latency_recorder << 1;
   }
@@ -103,7 +122,11 @@ int main(int argc, char* argv[]) {
   std::atomic<bool> stopped(false);
   for (int i = 0; i < FLAGS_concurrency; i++) {
     arcanedb::util::LaunchAsync([&, idx = i]() {
-      Work(idx);
+      if (FLAGS_unsorted_scan) {
+        Work<true>(idx);
+      } else {
+        Work<false>(idx);
+      }
       wg.Done();
       stopped.store(true);
     });

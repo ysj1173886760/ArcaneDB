@@ -14,6 +14,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "btree/btree_type.h"
+#include "btree/page/versioned_btree_page.h"
 #include "common/btree_scan_opts.h"
 #include "common/filter.h"
 #include "common/options.h"
@@ -81,6 +82,14 @@ public:
                            const Options &opts, const Filter &filter,
                            const BtreeScanOpts &scan_opts,
                            btree::RangeScanRowView *rows_view) noexcept = 0;
+
+  /**
+   * @brief
+   * Range scan without order
+   * @return RowIterator
+   */
+  virtual btree::RowIterator GetRowIterator(const std::string &sub_table_key,
+                                            const Options &opts) noexcept = 0;
 
   /**
    * @brief

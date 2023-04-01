@@ -116,6 +116,15 @@ public:
     cluster_index_.RangeFilter(opts, filter, scan_opts, views);
   }
 
+  /**
+   * @brief
+   * Range scan without order
+   * @return RowIterator
+   */
+  RowIterator GetRowIterator() const noexcept {
+    return cluster_index_.GetRowIterator();
+  }
+
   common::LockTable &GetLockTable() noexcept {
     return cluster_index_.GetLockTable();
   }

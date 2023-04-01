@@ -92,6 +92,11 @@ public:
     NOTIMPLEMENTED();
   }
 
+  btree::RowIterator GetRowIterator(const std::string &sub_table_key,
+                                    const Options &opts) noexcept override {
+    NOTIMPLEMENTED();
+  }
+
 private:
   btree::SubTable *GetSubTable_(const std::string &sub_table_key,
                                 const Options &opts) noexcept;

@@ -55,6 +55,18 @@ public:
     btree::RangeScanRowView views;
   };
 
+  struct UnsortedEdgeIterator {
+    bool Valid() const noexcept { return iterator.Valid(); }
+
+    void Next() noexcept { iterator.Next(); }
+
+    VertexId OutVertexId() const noexcept;
+
+    std::string_view EdgeValue() const noexcept;
+
+    btree::RowIterator iterator;
+  };
+
   class Transaction {
   public:
     /**
@@ -119,6 +131,11 @@ public:
      * @param iterator
      */
     void GetEdgeIterator(VertexId src, EdgeIterator *iterator) noexcept;
+
+    /**
+     * @brief Get unsorted edge iterator
+     */
+    UnsortedEdgeIterator GetUnsortedEdgeIterator(VertexId src) noexcept;
 
     Status Commit() noexcept;
 

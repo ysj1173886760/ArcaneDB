@@ -91,6 +91,15 @@ public:
     root_page_->RangeFilter(opts, filter, scan_opts, views);
   }
 
+  /**
+   * @brief
+   * Range scan without order
+   * @return RowIterator
+   */
+  RowIterator GetRowIterator() const noexcept {
+    return root_page_->GetRowIterator();
+  }
+
   std::string_view GetRootPageKey() const noexcept {
     return root_page_->GetPageKey();
   }
