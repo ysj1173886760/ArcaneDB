@@ -71,7 +71,7 @@ void Work(int idx) {
   arcanedb::Options opts;
   opts.ignore_lock = true;
   auto context = db->BeginRoTxn(opts);
-  [[clang::optnone]]
+  volatile int64_t id;
   for (int i = 0; i < FLAGS_iterations; i++) {
     for (int j = 0; j < FLAGS_point_num; j++) {
       arcanedb::util::Timer timer;
