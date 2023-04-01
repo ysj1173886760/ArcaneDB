@@ -104,8 +104,8 @@ set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
 include_directories(third_party/abseil-cpp)
 link_directories(${PROJECT_BINARY_DIR}/third_party/abseil-cpp/absl)
 
-include_directories(third_party/rocksdb/include)
-set (ARCANEDB_LIBS ${ARCANEDB_LIBS} rocksdb)
+# include_directories(third_party/rocksdb/include)
+# set (ARCANEDB_LIBS ${ARCANEDB_LIBS} rocksdb)
 
 set(ARCANEDB_LIBS ${ARCANEDB_LIBS}
                   jemalloc)

@@ -33,7 +33,7 @@ namespace log_store {
 Status PosixLogStore::Open(const std::string &name, const Options &options,
                            std::shared_ptr<LogStore> *log_store) noexcept {
   auto store = std::make_shared<PosixLogStore>();
-  store->env_ = rocksdb::Env::Default();
+  store->env_ = leveldb::Env::Default();
   store->name_ = name;
   // create directory
   auto s = store->env_->CreateDir(name);
@@ -43,9 +43,7 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   }
 
   // create log file
-  rocksdb::EnvOptions opts;
-  s = store->env_->NewWritableFile(MakeLogFileName_(name), &store->log_file_,
-                                   opts);
+  s = store->env_->NewWritableFile(MakeLogFileName_(name), &store->log_file_);
   if (!s.ok()) {
     ARCANEDB_WARN("Failed to create writable file, error: {}", s.ToString());
     return Status::Err();
@@ -72,7 +70,7 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
 }
 
 Status PosixLogStore::Destory(const std::string &store_name) noexcept {
-  auto *env = rocksdb::Env::Default();
+  auto *env = leveldb::Env::Default();
   std::vector<std::string> filenames;
   auto s = env->GetChildren(store_name, &filenames);
   if (!s.ok()) {
@@ -178,7 +176,7 @@ void PosixLogStore::ThreadJob_() noexcept {
       }
 
       util::Timer write_page_cache_timer;
-      auto s = log_file_->Append(rocksdb::Slice(data.data(), data.size()));
+      auto s = log_file_->Append(leveldb::Slice(data.data(), data.size()));
       util::Monitor::GetInstance()->RecordWritePageCacheLatency(
           write_page_cache_timer.GetElapsed());
 
@@ -284,9 +282,7 @@ LsnType PosixLogReader::GetNextLogRecord(std::string *bytes) noexcept {
 Status
 PosixLogStore::GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept {
   auto reader = std::make_unique<PosixLogReader>();
-  rocksdb::EnvOptions opts;
-  auto s =
-      env_->NewSequentialFile(MakeLogFileName_(name_), &reader->file_, opts);
+  auto s = env_->NewSequentialFile(MakeLogFileName_(name_), &reader->file_);
   if (!s.ok()) {
     ARCANEDB_WARN("Failed to open file, status: {}", s.ToString());
     return Status::Err();

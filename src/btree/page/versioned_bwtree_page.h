@@ -16,6 +16,8 @@
 #include "btree/page/versioned_delta_node.h"
 #include "btree/write_info.h"
 #include "butil/containers/doubly_buffered_data.h"
+#include "common/btree_scan_opts.h"
+#include "common/filter.h"
 #include "common/lock_table.h"
 #include "common/options.h"
 #include "common/status.h"
@@ -113,6 +115,10 @@ public:
   size_t GetTotalCharge() noexcept {
     return total_charge_.load(std::memory_order_relaxed);
   }
+
+  void RangeFilter(const Options &opts, const Filter &filter,
+                   const BtreeScanOpts &scan_opts,
+                   RangeScanRowView *views) const noexcept;
 
   size_t TEST_GetDeltaLength() const noexcept {
     auto ptr = GetPtr_();

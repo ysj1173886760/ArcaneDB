@@ -16,6 +16,8 @@
 #include "btree/page/page_snapshot.h"
 #include "btree/page/versioned_bwtree_page.h"
 #include "btree/write_info.h"
+#include "common/btree_scan_opts.h"
+#include "common/filter.h"
 #include <mutex>
 
 namespace arcanedb {
@@ -243,6 +245,13 @@ public:
   size_t GetTotalCharge() noexcept {
     assert(leaf_page_);
     return leaf_page_->GetTotalCharge();
+  }
+
+  void RangeFilter(const Options &opts, const Filter &filter,
+                   const BtreeScanOpts &scan_opts,
+                   RangeScanRowView *views) const noexcept {
+    assert(leaf_page_);
+    return leaf_page_->RangeFilter(opts, filter, scan_opts, views);
   }
 
   /**

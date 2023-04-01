@@ -476,5 +476,23 @@ TEST_F(VersionedBwTreePageTest, SerializeTest) {
   }
 }
 
+TEST_F(VersionedBwTreePageTest, RangeFilterTest) {
+  auto value_list = GenerateValueList(100);
+  for (int i = value_list.size() - 1; i >= 0; i--) {
+    auto &value = value_list[i];
+    WriteInfo info;
+    auto s = WriteHelper(value, [&](const property::Row &row) {
+      return page_->SetRow(row, 1, opts_, &info);
+    });
+    EXPECT_TRUE(s.ok());
+  }
+  RangeScanRowView view;
+  page_->RangeFilter(opts_, {}, {}, &view);
+  EXPECT_EQ(view.size(), value_list.size());
+  for (int i = 0; i < value_list.size(); i++) {
+    TestRead(view.at(i), value_list[i]);
+  }
+}
+
 } // namespace btree
 } // namespace arcanedb

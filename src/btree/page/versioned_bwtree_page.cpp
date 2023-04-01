@@ -390,5 +390,28 @@ Status VersionedBwTreePage::Deserialize(std::string_view data) noexcept {
 bool VersionedBwTreePage::FinishFlush(const Status &s,
                                       log_store::LsnType lsn) noexcept {}
 
+void VersionedBwTreePage::RangeFilter(const Options &opts, const Filter &filter,
+                                      const BtreeScanOpts &scan_opts,
+                                      RangeScanRowView *views) const noexcept {
+  auto shared_ptr = GetPtr_();
+  auto current_ptr = shared_ptr.get();
+  while (current_ptr) {
+    current_ptr->Traverse(
+        [&](const property::Row &row, bool is_deleted, TxnTs write_ts) {
+          if (!is_deleted) {
+            views->PushBackRef(RowRef(row));
+          }
+        });
+    current_ptr = current_ptr->GetPrevious().get();
+  }
+  std::sort(views->begin(), views->end(),
+            [](const RowRef &lhs, const RowRef &rhs) {
+              return lhs.GetSortKeys() < rhs.GetSortKeys();
+            });
+  if (scan_opts.remove_duplicate) {
+    // TODO(sheep): impl me.
+  }
+}
+
 } // namespace btree
 } // namespace arcanedb

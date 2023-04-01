@@ -31,7 +31,10 @@ constexpr size_t kRowSortKeyOffset = 4;
  */
 class Row : public RowConcept<Row> {
 public:
-  Row(const char *ptr) noexcept : ptr_(ptr) {}
+  Row(const char *ptr) noexcept : ptr_(const_cast<char *>(ptr)) {}
+
+  Row(const Row &) = default;
+  Row &operator=(const Row &) = default;
 
   Row() = default;
 
@@ -77,7 +80,7 @@ private:
 
   static size_t GetTypeLength_(ValueType type) noexcept;
 
-  const char *ptr_{nullptr};
+  char *ptr_{nullptr};
 };
 
 } // namespace property

@@ -31,15 +31,11 @@ public:
   virtual ~RowOwner() noexcept {}
 };
 
-class RowWithTs : property::RowConcept<RowWithTs> {
+class RowRef : property::RowConcept<RowRef> {
 public:
-  RowWithTs(const property::Row row, TxnTs ts) noexcept : row_(row), ts_(ts) {}
-
-  RowWithTs(const property::Row row) noexcept : row_(row), ts_(0) {}
+  RowRef(const property::Row row) noexcept : row_(row) {}
 
   const property::Row &GetRow() const noexcept { return row_; }
-
-  TxnTs GetTs() const noexcept { return ts_; }
 
   operator const property::Row &() const { return row_; }
 
@@ -54,12 +50,29 @@ public:
     return row_.GetSortKeys();
   }
 
+  RowRef(const RowRef &rhs) = default;
+  RowRef &operator=(const RowRef &rhs) = default;
+
 private:
-  const property::Row row_;
-  TxnTs ts_;
+  property::Row row_;
+};
+
+class RowWithTs : public RowRef {
+public:
+  RowWithTs(const property::Row row, TxnTs ts) noexcept
+      : RowRef(row), ts_(ts) {}
+
+  RowWithTs(const property::Row row) noexcept : RowRef(row), ts_(0) {}
+
+  TxnTs GetTs() const noexcept { return ts_; }
+
+private:
+  TxnTs ts_{};
 };
 
 using RowView = util::Views<RowWithTs, RowOwner>;
+
+using RangeScanRowView = util::Views<RowRef, RowOwner>;
 
 enum class PageType : uint8_t {
   InternalPage,

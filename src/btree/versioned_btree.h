@@ -14,6 +14,8 @@
 #include "btree/page/versioned_btree_page.h"
 #include "btree/write_info.h"
 #include "cache/buffer_pool.h"
+#include "common/btree_scan_opts.h"
+#include "common/filter.h"
 
 namespace arcanedb {
 namespace btree {
@@ -74,6 +76,12 @@ public:
    */
   void SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
              const Options &opts, WriteInfo *info) noexcept;
+
+  void RangeFilter(const Options &opts, const Filter &filter,
+                   const BtreeScanOpts &scan_opts,
+                   RangeScanRowView *views) const noexcept {
+    root_page_->RangeFilter(opts, filter, scan_opts, views);
+  }
 
   std::string_view GetRootPageKey() const noexcept {
     return root_page_->GetPageKey();
