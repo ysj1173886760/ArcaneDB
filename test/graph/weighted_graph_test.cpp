@@ -146,7 +146,7 @@ TEST_F(WeightedGraphDBTest, EdgeIteratorTest) {
     txn->GetEdgeIterator(i, &iterator);
     EXPECT_TRUE(iterator.Valid());
     for (int j = 0; j < 10; j++) {
-      EXPECT_EQ(iterator.OutVertexData(), std::to_string(i + j));
+      EXPECT_EQ(iterator.EdgeValue(), std::to_string(i + j));
       EXPECT_EQ(iterator.OutVertexId(), j);
       iterator.Next();
     }

@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include <memory>
 #include <optional>
@@ -80,14 +81,14 @@ public:
     owner_container_.insert(std::move(owner));
   }
 
-  const std::unordered_set<std::shared_ptr<const Owner>> &GetContainer() const
+  const absl::flat_hash_set<std::shared_ptr<const Owner>> &GetContainer() const
       noexcept {
     return owner_container_;
   }
 
 private:
   ContainerType container_;
-  std::unordered_set<std::shared_ptr<const Owner>> owner_container_;
+  absl::flat_hash_set<std::shared_ptr<const Owner>> owner_container_;
 };
 
 } // namespace util

@@ -25,7 +25,8 @@ namespace arcanedb {
 namespace btree {
 
 std::shared_ptr<VersionedDeltaNode>
-VersionedBwTreePage::Compaction_(VersionedDeltaNode *current_ptr) noexcept {
+VersionedBwTreePage::Compaction_(VersionedDeltaNode *current_ptr,
+                                 bool force_compaction) noexcept {
   // write_mu_.AssertHeld();
   auto current = current_ptr->GetPrevious();
   VersionedDeltaNodeBuilder builder;
@@ -36,7 +37,8 @@ VersionedBwTreePage::Compaction_(VersionedDeltaNode *current_ptr) noexcept {
   while (current != nullptr &&
          (current->GetSize() == 1 ||
           builder.GetRowSize() * common::Config::kBwTreeCompactionFactor >
-              current->GetSize())) {
+              current->GetSize() ||
+          force_compaction)) {
     builder.AddDeltaNode(current.get());
     current = current->GetPrevious();
   }
@@ -52,7 +54,7 @@ void VersionedBwTreePage::MaybePerformCompaction_(
   if ((!opts.disable_compaction &&
        total_size > common::Config::kBwTreeDeltaChainLength) ||
       opts.force_compaction) {
-    auto new_ptr = Compaction_(current_ptr);
+    auto new_ptr = Compaction_(current_ptr, opts.force_compaction);
     UpdatePtr_(new_ptr);
   }
 }
@@ -395,6 +397,7 @@ void VersionedBwTreePage::RangeFilter(const Options &opts, const Filter &filter,
                                       RangeScanRowView *views) const noexcept {
   auto shared_ptr = GetPtr_();
   auto current_ptr = shared_ptr.get();
+  int cnt = 0;
   while (current_ptr) {
     current_ptr->Traverse(
         [&](const property::Row &row, bool is_deleted, TxnTs write_ts) {
@@ -403,11 +406,15 @@ void VersionedBwTreePage::RangeFilter(const Options &opts, const Filter &filter,
           }
         });
     current_ptr = current_ptr->GetPrevious().get();
+    cnt += 1;
   }
-  std::sort(views->begin(), views->end(),
-            [](const RowRef &lhs, const RowRef &rhs) {
-              return lhs.GetSortKeys() < rhs.GetSortKeys();
-            });
+
+  if (cnt > 1) {
+    std::sort(views->begin(), views->end(),
+              [](const RowRef &lhs, const RowRef &rhs) {
+                return lhs.GetSortKeys() < rhs.GetSortKeys();
+              });
+  }
   if (scan_opts.remove_duplicate) {
     // TODO(sheep): impl me.
   }

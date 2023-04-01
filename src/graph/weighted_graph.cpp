@@ -45,7 +45,7 @@ WeightedGraphDB::VertexId WeightedGraphDB::EdgeIterator::OutVertexId() const
   return std::get<int64_t>(res.value);
 }
 
-std::string_view WeightedGraphDB::EdgeIterator::OutVertexData() const noexcept {
+std::string_view WeightedGraphDB::EdgeIterator::EdgeValue() const noexcept {
   property::ValueResult res;
   auto s = views.at(current_idx)
                .GetProp(kWeightedGraphValueColumn, &res, &kWeightedGraphSchema);

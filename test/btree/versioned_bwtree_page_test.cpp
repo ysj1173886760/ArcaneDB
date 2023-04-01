@@ -494,5 +494,27 @@ TEST_F(VersionedBwTreePageTest, RangeFilterTest) {
   }
 }
 
+TEST_F(VersionedBwTreePageTest, ForceCompactionTest) {
+  auto value_list = GenerateValueList(100);
+  Options opts;
+  opts.force_compaction = true;
+  WriteInfo info;
+  for (const auto &value : value_list) {
+    auto s = WriteHelper(value, [&](const property::Row &row) {
+      return page_->SetRow(row, 1, opts, &info);
+    });
+    EXPECT_TRUE(s.ok());
+    EXPECT_EQ(page_->TEST_GetDeltaLength(), 1);
+  }
+  // test read
+  for (const auto &value : value_list) {
+    auto sk = property::SortKeys({value.point_id, value.point_type});
+    RowView view;
+    auto s = page_->GetRow(sk.as_ref(), 1, opts_, &view);
+    EXPECT_TRUE(s.ok());
+    TestRead(view.at(0), value);
+  }
+}
+
 } // namespace btree
 } // namespace arcanedb

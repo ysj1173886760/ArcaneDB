@@ -22,7 +22,7 @@
 #include "bvar/bvar.h"
 
 DEFINE_int64(concurrency, 4, "");
-DEFINE_int64(point_num, 100, "");
+DEFINE_int64(point_per_thread, 100, "");
 DEFINE_int64(edge_per_point, 100, "");
 DEFINE_int64(iterations, 100000000, "");
 DEFINE_bool(force_compaction, false, "");
@@ -44,6 +44,7 @@ void PrepareEdge() {
   arcanedb::Options opts_normal;
   arcanedb::Options opts_last;
   opts_last.force_compaction = FLAGS_force_compaction;
+  ARCANEDB_INFO("ForceCompaction: {}", FLAGS_force_compaction);
   auto value = "arcane";
   auto insert = [&](const arcanedb::Options &opts, int i, int j) {
     auto context = db->BeginRwTxn(opts);
@@ -56,7 +57,7 @@ void PrepareEdge() {
       ARCANEDB_INFO("Failed to commit");
     }
   };
-  for (int i = 0; i < FLAGS_point_num; i++) {
+  for (int i = 0; i < FLAGS_point_per_thread * FLAGS_concurrency; i++) {
     for (int j = 0; j < FLAGS_edge_per_point - 1; j++) {
       insert(opts_normal, i, j);
     }
@@ -71,26 +72,26 @@ void Work(int idx) {
   arcanedb::Options opts;
   opts.ignore_lock = true;
   auto context = db->BeginRoTxn(opts);
-  volatile int64_t id;
+  std::string_view value;
   for (int i = 0; i < FLAGS_iterations; i++) {
-    for (int j = 0; j < FLAGS_point_num; j++) {
-      arcanedb::util::Timer timer;
+    for (int j = FLAGS_point_per_thread * idx; j < FLAGS_point_per_thread * (idx + 1); j++) {
+      // arcanedb::util::Timer timer;
       arcanedb::graph::WeightedGraphDB::EdgeIterator iterator;
       context->GetEdgeIterator(j, &iterator);
       while (iterator.Valid()) {
-        id = iterator.OutVertexId();
+        // value = iterator.EdgeValue();
         // *std::launder(reinterpret_cast<int64_t*>(&id_store[idx])) = id;
         iterator.Next();
       }
-      latency_recorder << timer.GetElapsed();
+      // latency_recorder << timer.GetElapsed();
     }
+    latency_recorder << 1;
   }
   auto s = context->Commit();
 }
 
 int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
-  bthread_setconcurrency(4);
   ARCANEDB_INFO("worker cnt {} ", bthread_getconcurrency());
   auto s = arcanedb::graph::WeightedGraphDB::Open("seq_scan_benchmark", &db);
   if (!s.ok()) {
@@ -111,7 +112,7 @@ int main(int argc, char* argv[]) {
     while (!stopped.load()) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("max latency {}", latency_recorder.max_latency());
-      ARCANEDB_INFO("qps {}", latency_recorder.qps());
+      ARCANEDB_INFO("qps {}", latency_recorder.qps() * FLAGS_point_per_thread);
       bthread_usleep(1 * arcanedb::util::Second);
     }
     wg.Done();

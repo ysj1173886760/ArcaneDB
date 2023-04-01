@@ -49,7 +49,7 @@ public:
 
     VertexId OutVertexId() const noexcept;
 
-    std::string_view OutVertexData() const noexcept;
+    std::string_view EdgeValue() const noexcept;
 
     size_t current_idx{};
     btree::RangeScanRowView views;

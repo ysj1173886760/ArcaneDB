@@ -136,7 +136,7 @@ private:
       butil::DoublyBufferedData<std::shared_ptr<VersionedDeltaNode>>;
 
   std::shared_ptr<VersionedDeltaNode>
-  Compaction_(VersionedDeltaNode *current_ptr) noexcept;
+  Compaction_(VersionedDeltaNode *current_ptr, bool force_compaction) noexcept;
 
   void MaybePerformCompaction_(const Options &opts,
                                VersionedDeltaNode *current_ptr) noexcept;
