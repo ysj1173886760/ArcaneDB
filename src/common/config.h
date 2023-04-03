@@ -28,10 +28,10 @@ public:
   static constexpr size_t kBwTreeDeltaChainLength = 16;
   static constexpr size_t kBwTreeCompactionFactor = 2;
 
-  // 6 bit indicates 32 shard
-  static constexpr size_t kCacheShardNumBits = 6;
-  // 1G capacity
-  static constexpr size_t kCacheCapacity = 1 << 30;
+  // 8 bit indicates 256 shard
+  static constexpr size_t kCacheShardNumBits = 8;
+  // 16G capacity
+  static constexpr size_t kCacheCapacity = 16ul << 30;
 
   static constexpr int64_t kLockTimeoutUs = 150 * util::MillSec;
 
@@ -46,7 +46,7 @@ public:
   static constexpr size_t kTxnWaitLogInterval = 50 * util::MicroSec;
 
   // 32 shard
-  static constexpr size_t kFlusherShardNum = 32;
+  static constexpr size_t kFlusherShardNum = 256;
 };
 
 } // namespace common

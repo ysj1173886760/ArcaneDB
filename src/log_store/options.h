@@ -19,6 +19,7 @@ namespace log_store {
 struct Options {
   size_t segment_num{common::Config::kLogSegmentDefaultNum};
   size_t segment_size{common::Config::kLogSegmentDefaultSize};
+  bool should_sync_file{true};
 };
 
 } // namespace log_store

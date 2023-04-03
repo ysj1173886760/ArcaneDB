@@ -35,6 +35,7 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
   auto store = std::make_shared<PosixLogStore>();
   store->env_ = leveldb::Env::Default();
   store->name_ = name;
+  store->should_sync_file_ = options.should_sync_file;
   // create directory
   auto s = store->env_->CreateDir(name);
   if (!s.ok()) {
@@ -96,7 +97,7 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
 
 void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
                                     LogResultContainer *result) noexcept {
-  // util::HighResolutionTimer append_log_timer;
+  util::HighResolutionTimer append_log_timer;
   // first calc the size we need to occupy
   size_t total_size = LogRecord::kHeaderSize * log_records.size();
   for (const auto &record : log_records) {
@@ -136,8 +137,8 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
       // util::Monitor::GetInstance()->RecordSerializeLogLatency(
       //     serialize_log_timer.GetElapsed());
       // util::Monitor::GetInstance()->RecordLogStoreRetryCntLatency(cnt);
-      // util::Monitor::GetInstance()->RecordAppendLogLatency(
-      //     append_log_timer.GetElapsed());
+      util::Monitor::GetInstance()->RecordAppendLogLatency(
+          append_log_timer.GetElapsed());
       return;
     }
 
@@ -185,7 +186,9 @@ void PosixLogStore::ThreadJob_() noexcept {
       }
 
       util::Timer fsync_timer;
-      s = log_file_->Sync();
+      if (should_sync_file_) {
+        s = log_file_->Sync();
+      }
       util::Monitor::GetInstance()->RecordFsyncLatency(
           fsync_timer.GetElapsed());
 

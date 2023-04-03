@@ -30,6 +30,7 @@ DEFINE_bool(enable_flush, false, "");
 DEFINE_bool(decentralized_lock, false, "");
 DEFINE_bool(inlined_lock, false, "");
 DEFINE_bool(sync_commit, false, "");
+DEFINE_bool(sync_log, true, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -86,6 +87,7 @@ int main(int argc, char* argv[]) {
     }
     opts.enable_wal = FLAGS_enable_wal;
     opts.enable_flush = FLAGS_enable_flush;
+    opts.sync_log = FLAGS_sync_log;
     auto s = arcanedb::graph::WeightedGraphDB::Open(db_name, &db, opts);
     if (!s.ok()) {
       ARCANEDB_INFO("Failed to open db");
@@ -103,16 +105,16 @@ int main(int argc, char* argv[]) {
     while (!stopped.load()) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("qps {}", latency_recorder.qps());
-      // arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintSealAndOpenLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintSealByIoThreadLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintIoLatencyLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintSealByIoThreadLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintIoLatencyLatency();
       arcanedb::util::Monitor::GetInstance()->PrintWaitCommitLatencyLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintWritePageCacheLatency();
-      arcanedb::util::Monitor::GetInstance()->PrintFsyncLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintWritePageCacheLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintFsyncLatency();
 
       bthread_usleep(1 * arcanedb::util::Second);
     }

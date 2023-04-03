@@ -93,8 +93,9 @@ Status WeightedGraphDB::Open(const std::string &db_name,
                              const WeightedGraphOptions &opts) noexcept {
   auto res = std::make_unique<WeightedGraphDB>();
   if (opts.enable_wal) {
-    log_store::Options opts;
-    auto s = log_store::PosixLogStore::Open(db_name + "_log", opts,
+    log_store::Options log_opts;
+    log_opts.should_sync_file = opts.sync_log;
+    auto s = log_store::PosixLogStore::Open(db_name + "_log", log_opts,
                                             &res->log_store_);
     if (!s.ok()) {
       return s;

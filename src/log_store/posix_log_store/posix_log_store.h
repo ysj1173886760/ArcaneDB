@@ -142,6 +142,7 @@ private:
   std::unique_ptr<std::thread> background_thread_{nullptr};
   std::atomic_bool stopped_{false};
   std::atomic<LsnType> persistent_lsn_{0};
+  bool should_sync_file_{true};
 };
 
 } // namespace log_store

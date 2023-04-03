@@ -152,7 +152,8 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
   if (commit_opts.log_store != nullptr && commit_opts.sync_commit) {
     util::Timer timer;
     while (commit_opts.log_store->GetPersistentLsn() < lsn_) {
-      bthread_usleep(common::Config::kTxnWaitLogInterval);
+      // bthread_usleep(common::Config::kTxnWaitLogInterval);
+      bthread_yield();
     }
     util::Monitor::GetInstance()->RecordWaitCommitLatencyLatency(
         timer.GetElapsed());

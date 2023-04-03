@@ -22,6 +22,7 @@ namespace graph {
 struct WeightedGraphOptions {
   bool enable_wal{false};
   bool enable_flush{false};
+  bool sync_log{true};
   txn::LockManagerType lock_manager_type{txn::LockManagerType::kCentralized};
 };
 
