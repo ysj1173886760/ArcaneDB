@@ -31,6 +31,7 @@ DEFINE_bool(decentralized_lock, false, "");
 DEFINE_bool(inlined_lock, false, "");
 DEFINE_bool(sync_commit, false, "");
 DEFINE_bool(sync_log, true, "");
+DEFINE_bool(force_compaction, false, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -48,6 +49,7 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
   auto max = std::numeric_limits<int64_t>::max();
   auto value = "arcane";
   arcanedb::Options opts;
+  opts.force_compaction = FLAGS_force_compaction;
   opts.sync_commit = FLAGS_sync_commit;
   for (int i = 0; i < FLAGS_point_per_thread; i++) {
     auto vertex_id = GetRandom(0, max);
