@@ -23,6 +23,7 @@ struct WeightedGraphOptions {
   bool enable_wal{false};
   bool enable_flush{false};
   bool sync_log{true};
+  bool only_single_edge_txn{true};
   txn::LockManagerType lock_manager_type{txn::LockManagerType::kCentralized};
 };
 
@@ -162,12 +163,16 @@ public:
 
   std::unique_ptr<Transaction> BeginRoTxn(const Options &opts) noexcept;
 
-  std::unique_ptr<Transaction> BeginRwTxn(const Options &opts) noexcept;
+  std::unique_ptr<Transaction> BeginRwTxn(const Options &opts,
+                                          VertexId partition_hint = 0) noexcept;
 
 private:
   std::unique_ptr<txn::TxnManager> txn_manager_;
   std::unique_ptr<cache::BufferPool> buffer_pool_;
-  std::shared_ptr<log_store::LogStore> log_store_;
+  std::array<std::shared_ptr<log_store::LogStore>,
+             common::Config::kLogPartitionNum>
+      log_stores_;
+  bool only_single_edge_txn_;
 };
 
 } // namespace graph

@@ -116,6 +116,8 @@ private:
 
   void Abort_(log_store::LogStore *log_store) noexcept;
 
+  void WaitForCommit_(log_store::LogStore *log_store) noexcept;
+
   void UndoWriteIntents_(
       const std::vector<std::pair<std::string_view, property::SortKeysRef>>
           &undo_list,

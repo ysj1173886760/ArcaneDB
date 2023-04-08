@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "bthread/butex.h"
 #include "log_store/log_store.h"
 #include "log_store/posix_log_store/log_record.h"
 #include "log_store/posix_log_store/log_segment.h"
@@ -69,6 +70,7 @@ public:
       background_thread_->join();
     }
     delete log_file_;
+    bthread::butex_destroy(butex_persistent_lsn_);
   }
 
   void AppendLogRecord(const LogRecordContainer &log_records,
@@ -76,6 +78,15 @@ public:
 
   LsnType GetPersistentLsn() noexcept override {
     return persistent_lsn_.load(std::memory_order_relaxed);
+  }
+
+  void WaitForPersist(LsnType lsn) noexcept override {
+    int32_t current_lsn =
+        butex_persistent_lsn_->load(std::memory_order_relaxed);
+    while (current_lsn < lsn) {
+      bthread::butex_wait(butex_persistent_lsn_, current_lsn, nullptr);
+      current_lsn = butex_persistent_lsn_->load(std::memory_order_relaxed);
+    }
   }
 
   Status GetLogReader(std::unique_ptr<LogReader> *log_reader) noexcept override;
@@ -143,6 +154,7 @@ private:
   std::atomic_bool stopped_{false};
   std::atomic<LsnType> persistent_lsn_{0};
   bool should_sync_file_{true};
+  std::atomic<int32_t> *butex_persistent_lsn_{};
 };
 
 } // namespace log_store

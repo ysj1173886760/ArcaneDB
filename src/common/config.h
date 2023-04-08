@@ -47,6 +47,8 @@ public:
 
   // 32 shard
   static constexpr size_t kFlusherShardNum = 256;
+
+  static constexpr size_t kLogPartitionNum = 32;
 };
 
 } // namespace common

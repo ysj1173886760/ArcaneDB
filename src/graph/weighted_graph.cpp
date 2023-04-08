@@ -15,6 +15,7 @@
 #include "page_store/kv_page_store/kv_page_store.h"
 #include "txn/txn_manager_occ.h"
 #include <memory>
+#include <string>
 
 namespace arcanedb {
 namespace graph {
@@ -95,10 +96,21 @@ Status WeightedGraphDB::Open(const std::string &db_name,
   if (opts.enable_wal) {
     log_store::Options log_opts;
     log_opts.should_sync_file = opts.sync_log;
-    auto s = log_store::PosixLogStore::Open(db_name + "_log", log_opts,
-                                            &res->log_store_);
-    if (!s.ok()) {
-      return s;
+    int log_partition_num;
+    if (opts.only_single_edge_txn) {
+      log_partition_num = common::Config::kLogPartitionNum;
+      res->only_single_edge_txn_ = true;
+    } else {
+      log_partition_num = 1;
+      res->only_single_edge_txn_ = false;
+    }
+    for (int i = 0; i < log_partition_num; i++) {
+      auto s = log_store::PosixLogStore::Open(db_name + "_log_partition" +
+                                                  std::to_string(i),
+                                              log_opts, &res->log_stores_[i]);
+      if (!s.ok()) {
+        return s;
+      }
     }
   }
 
@@ -120,8 +132,11 @@ Status WeightedGraphDB::Open(const std::string &db_name,
 }
 
 Status WeightedGraphDB::Destroy(const std::string &db_name) noexcept {
-  log_store::PosixLogStore::Destory(db_name + "_log");
   page_store::KvPageStore::Destory(db_name + "_page");
+  for (int i = 0; i < common::Config::kLogPartitionNum; i++) {
+    log_store::PosixLogStore::Destory(db_name + "_log_partition" +
+                                      std::to_string(i));
+  }
   return Status::Ok();
 }
 
@@ -217,7 +232,7 @@ std::unique_ptr<WeightedGraphDB::Transaction>
 WeightedGraphDB::BeginRoTxn(const Options &opts) noexcept {
   auto txn = std::make_unique<WeightedGraphDB::Transaction>();
   txn->opts_ = opts;
-  txn->opts_.log_store = log_store_.get();
+  txn->opts_.log_store = log_stores_[0].get();
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->opts_.ignore_lock = true;
   txn->txn_context_ = txn_manager_->BeginRoTxn(opts);
@@ -225,12 +240,18 @@ WeightedGraphDB::BeginRoTxn(const Options &opts) noexcept {
 }
 
 std::unique_ptr<WeightedGraphDB::Transaction>
-WeightedGraphDB::BeginRwTxn(const Options &opts) noexcept {
+WeightedGraphDB::BeginRwTxn(const Options &opts,
+                            VertexId partition_hint) noexcept {
   auto txn = std::make_unique<WeightedGraphDB::Transaction>();
   txn->opts_ = opts;
-  txn->opts_.log_store = log_store_.get();
   txn->opts_.buffer_pool = buffer_pool_.get();
   txn->txn_context_ = txn_manager_->BeginRwTxn(opts);
+  if (only_single_edge_txn_) {
+    txn->opts_.log_store =
+        log_stores_[partition_hint % common::Config::kLogPartitionNum].get();
+  } else {
+    txn->opts_.log_store = log_stores_[0].get();
+  }
   return txn;
 }
 

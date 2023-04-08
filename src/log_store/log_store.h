@@ -66,6 +66,13 @@ public:
   virtual LsnType GetPersistentLsn() noexcept = 0;
 
   /**
+   * @brief wait for lsn to be persisted.
+   *
+   * @param lsn
+   */
+  virtual void WaitForPersist(LsnType lsn) noexcept = 0;
+
+  /**
    * @brief
    * Force background start to flush wal
    */

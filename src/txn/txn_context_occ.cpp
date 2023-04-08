@@ -16,6 +16,7 @@
 #include "txn/txn_manager_occ.h"
 #include "txn_type.h"
 #include "util/monitor.h"
+#include "util/port.h"
 #include "wal/occ_log_writer.h"
 #include <optional>
 
@@ -150,18 +151,31 @@ Status TxnContextOCC::CommitOrAbort(const Options &opts) noexcept {
 
   // wait for persistent
   if (commit_opts.log_store != nullptr && commit_opts.sync_commit) {
-    util::Timer timer;
-    while (commit_opts.log_store->GetPersistentLsn() < lsn_) {
-      // bthread_usleep(common::Config::kTxnWaitLogInterval);
-      bthread_yield();
-    }
-    util::Monitor::GetInstance()->RecordWaitCommitLatencyLatency(
-        timer.GetElapsed());
+    WaitForCommit_(commit_opts.log_store);
   }
 
   // commit ts
   txn_manager_->Commit(this);
   return Status::Commit();
+}
+
+void TxnContextOCC::WaitForCommit_(log_store::LogStore *log_store) noexcept {
+  util::Timer timer;
+
+  // for (uint32_t tries = 0; tries < 200; ++tries) {
+  //   if (log_store->GetPersistentLsn() >= lsn_) {
+  //     return;
+  //   }
+  //   util::AsmVolatilePause();
+  // }
+
+  // while (log_store->GetPersistentLsn() < lsn_) {
+  // bthread_usleep(common::Config::kTxnWaitLogInterval);
+  // bthread_yield();
+  // }
+  log_store->WaitForPersist(lsn_);
+  util::Monitor::GetInstance()->RecordWaitCommitLatencyLatency(
+      timer.GetElapsed());
 }
 
 void TxnContextOCC::UndoWriteIntents_(

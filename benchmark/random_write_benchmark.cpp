@@ -32,6 +32,7 @@ DEFINE_bool(inlined_lock, false, "");
 DEFINE_bool(sync_commit, false, "");
 DEFINE_bool(sync_log, true, "");
 DEFINE_bool(force_compaction, false, "");
+DEFINE_bool(only_single_edge_txn, false, "");
 
 static bvar::LatencyRecorder latency_recorder;
 
@@ -56,7 +57,7 @@ void Work(arcanedb::graph::WeightedGraphDB *db) {
     for (int j = 0; j < FLAGS_edge_per_point; j++) {
       auto target_id = GetRandom(0, max);
       arcanedb::util::Timer timer;
-      auto context = db->BeginRwTxn(opts);
+      auto context = db->BeginRwTxn(opts, vertex_id);
       auto s = context->InsertEdge(vertex_id, target_id, value);
       if (!s.ok()) {
         ARCANEDB_INFO("Failed to insert edge");
@@ -87,6 +88,7 @@ int main(int argc, char* argv[]) {
     } else {
       opts.lock_manager_type = arcanedb::txn::LockManagerType::kCentralized;
     }
+    opts.only_single_edge_txn = FLAGS_only_single_edge_txn;
     opts.enable_wal = FLAGS_enable_wal;
     opts.enable_flush = FLAGS_enable_flush;
     opts.sync_log = FLAGS_sync_log;
@@ -107,7 +109,7 @@ int main(int argc, char* argv[]) {
     while (!stopped.load()) {
       ARCANEDB_INFO("avg latency {}", latency_recorder.latency());
       ARCANEDB_INFO("qps {}", latency_recorder.qps());
-      arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
+      // arcanedb::util::Monitor::GetInstance()->PrintAppendLogLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintReserveLogBufferLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintSerializeLogLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintLogStoreRetryCntLatency();

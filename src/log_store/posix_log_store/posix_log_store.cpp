@@ -57,6 +57,12 @@ Status PosixLogStore::Open(const std::string &name, const Options &options,
     store->segments_[i].Init(options.segment_size, i);
   }
 
+  // initialize butex
+  store->butex_persistent_lsn_ = reinterpret_cast<std::atomic<int32_t> *>(
+      bthread::butex_create_checked<int32_t>());
+  *store->butex_persistent_lsn_ = 0;
+  store->persistent_lsn_ = 0;
+
   // set first log segment as open
   store->GetCurrentLogSegment_()->OpenLogSegment(0);
 
@@ -97,7 +103,7 @@ Status PosixLogStore::Destory(const std::string &store_name) noexcept {
 
 void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
                                     LogResultContainer *result) noexcept {
-  util::HighResolutionTimer append_log_timer;
+  // util::HighResolutionTimer append_log_timer;
   // first calc the size we need to occupy
   size_t total_size = LogRecord::kHeaderSize * log_records.size();
   for (const auto &record : log_records) {
@@ -137,8 +143,8 @@ void PosixLogStore::AppendLogRecord(const LogRecordContainer &log_records,
       // util::Monitor::GetInstance()->RecordSerializeLogLatency(
       //     serialize_log_timer.GetElapsed());
       // util::Monitor::GetInstance()->RecordLogStoreRetryCntLatency(cnt);
-      util::Monitor::GetInstance()->RecordAppendLogLatency(
-          append_log_timer.GetElapsed());
+      // util::Monitor::GetInstance()->RecordAppendLogLatency(
+      //     append_log_timer.GetElapsed());
       return;
     }
 
@@ -198,9 +204,15 @@ void PosixLogStore::ThreadJob_() noexcept {
       log_segment->FreeSegment();
       // increment index
       current_io_segment = (current_io_segment + 1) % segment_num_;
+
       // update persistent lsn
       auto next_lsn = GetLogSegment_(current_io_segment)->start_lsn_;
       persistent_lsn_.store(next_lsn, std::memory_order_relaxed);
+      // update butex
+      butex_persistent_lsn_->store(next_lsn);
+      // wait up all waiter
+      bthread::butex_wake_all(butex_persistent_lsn_);
+
       if (next_lsn - start_lsn != data.size()) {
         ARCANEDB_WARN("Logical error might happens. {} {}",
                       next_lsn - start_lsn, data.size());
