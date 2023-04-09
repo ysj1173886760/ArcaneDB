@@ -30,8 +30,21 @@ Might be a graph storage engine.
 
 # Dependency
 
+Init git submodule
+
+```
+git submodule update --init --recursive
+```
+
 Jemalloc is required.
 
 ```
 sudo apt install libjemalloc-dev
 ```
+
+brpc dependency
+
+```
+sudo apt-get install -y git g++ make libssl-dev libgflags-dev libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev
+```
+
