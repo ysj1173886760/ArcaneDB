@@ -190,16 +190,28 @@ private:
                        const Options &opts) const noexcept;
 
   std::shared_ptr<VersionedDeltaNode> GetPtr_() const noexcept {
-    DoublyBufferedData::ScopedPtr scoped_ptr;
-    CHECK(ptr_.Read(&scoped_ptr) == 0);
-    return *scoped_ptr;
+    // DoublyBufferedData::ScopedPtr scoped_ptr;
+    // CHECK(ptr_.Read(&scoped_ptr) == 0);
+    // return *scoped_ptr;
+    std::shared_ptr<VersionedDeltaNode> res;
+    lock_.Lock();
+    res = ptr_;
+    lock_.Unlock();
+    return res;
   }
 
-  void UpdatePtr_(std::shared_ptr<VersionedDeltaNode> new_node) const noexcept {
-    ptr_.Modify(UpdateFn_, new_node);
+  void UpdatePtr_(std::shared_ptr<VersionedDeltaNode> new_node) noexcept {
+    // ptr_.Modify(UpdateFn_, new_node);
+    lock_.Lock();
+    ptr_ = new_node;
+    lock_.Unlock();
   }
 
-  void DummyUpdate_() const noexcept { ptr_.Modify(DummyFn_); }
+  void DummyUpdate_() const noexcept {
+    // ptr_.Modify(DummyFn_);
+    lock_.Lock();
+    lock_.Unlock();
+  }
 
   static bool DummyFn_(std::shared_ptr<VersionedDeltaNode> &old_node) noexcept {
     return true;
@@ -214,7 +226,9 @@ private:
   // TODO(sheep) use group commit to optimize write performance
   // mutable ArcanedbLock write_mu_{"VersionedBwTreePageWriteMutex"};
   mutable ArcanedbLock write_mu_;
-  mutable DoublyBufferedData ptr_;
+  // mutable DoublyBufferedData ptr_;
+  mutable absl::base_internal::SpinLock lock_;
+  std::shared_ptr<VersionedDeltaNode> ptr_;
   common::LockTable lock_table_;
   const std::string page_id_;
   std::atomic<size_t> total_charge_{sizeof(VersionedBwTreePage)};
