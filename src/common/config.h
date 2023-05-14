@@ -30,8 +30,8 @@ public:
 
   // 8 bit indicates 256 shard
   static constexpr size_t kCacheShardNumBits = 8;
-  // 16G capacity
-  static constexpr size_t kCacheCapacity = 16ul << 30;
+  // 32G capacity
+  static constexpr size_t kCacheCapacity = 32ul << 30;
 
   static constexpr int64_t kLockTimeoutUs = 150 * util::MillSec;
 
@@ -48,7 +48,7 @@ public:
   // 32 shard
   static constexpr size_t kFlusherShardNum = 256;
 
-  static constexpr size_t kLogPartitionNum = 32;
+  static constexpr size_t kLogPartitionNum = 48;
 };
 
 } // namespace common

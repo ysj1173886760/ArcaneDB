@@ -135,7 +135,7 @@ void TestArcaneDB() noexcept {
       // arcanedb::util::Monitor::GetInstance()->PrintSealByIoThreadLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintIoLatencyLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintWaitCommitLatencyLatency();
-      // arcanedb::util::Monitor::GetInstance()->PrintWritePageCacheLatency();
+      arcanedb::util::Monitor::GetInstance()->PrintWritePageCacheLatency();
       // arcanedb::util::Monitor::GetInstance()->PrintFsyncLatency();
 
       usleep(1 * arcanedb::util::Second);

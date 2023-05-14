@@ -58,6 +58,31 @@ public:
       : buffer_(std::move(buffer)), version_buffer_(std::move(version_buffer)),
         rows_(std::move(rows)), versions_(std::move(versions)) {}
 
+  struct DeltaNodeIterator {
+
+    DeltaNodeIterator(VersionedDeltaNode *delta_node) noexcept
+        : idx(0), delta_node(std::move(delta_node)) {}
+
+    bool Valid() const noexcept { return idx < delta_node->rows_.size(); }
+
+    void Next() noexcept {
+      idx += 1;
+      while (idx < delta_node->rows_.size() &&
+             IsDeleted(delta_node->rows_[idx].control_bit)) {
+        idx += 1;
+      }
+    }
+
+    property::Row GetRow() const noexcept {
+      property::Row row;
+      delta_node->GetRow(idx, &row);
+      return row;
+    }
+
+    int idx;
+    VersionedDeltaNode *delta_node;
+  };
+
   void SetPrevious(std::shared_ptr<VersionedDeltaNode> previous) noexcept {
     total_length_ = (previous == nullptr ? 0 : previous->GetTotalLength()) + 1;
     previous_ = std::move(previous);

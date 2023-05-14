@@ -16,9 +16,11 @@
 #include "butil/object_pool.h"
 #include "bwtree_page.h"
 #include "common/config.h"
+#include "util/heap.h"
 #include "util/monitor.h"
 #include "wal/bwtree_log_writer.h"
 #include <cmath>
+#include <map>
 #include <optional>
 
 namespace arcanedb {
@@ -392,32 +394,77 @@ Status VersionedBwTreePage::Deserialize(std::string_view data) noexcept {
 bool VersionedBwTreePage::FinishFlush(const Status &s,
                                       log_store::LsnType lsn) noexcept {}
 
+struct DeltaNodeIteratorComparator {
+  bool operator()(const VersionedDeltaNode::DeltaNodeIterator &lhs,
+                  const VersionedDeltaNode::DeltaNodeIterator &rhs) noexcept {
+    return lhs.GetRow().GetSortKeys() < rhs.GetRow().GetSortKeys();
+  }
+};
+
 void VersionedBwTreePage::RangeFilter(const Options &opts, const Filter &filter,
                                       const BtreeScanOpts &scan_opts,
                                       RangeScanRowView *views) const noexcept {
   auto shared_ptr = GetPtr_();
   auto current_ptr = shared_ptr.get();
-  int cnt = 0;
+  int row_cnt = 0;
+  int delta_node_cnt = 0;
+  util::BinaryHeap<VersionedDeltaNode::DeltaNodeIterator, 16,
+                   DeltaNodeIteratorComparator>
+      heap(DeltaNodeIteratorComparator{});
   while (current_ptr) {
-    current_ptr->Traverse(
+    row_cnt += current_ptr->GetSize();
+    delta_node_cnt += 1;
+    auto it = VersionedDeltaNode::DeltaNodeIterator(current_ptr);
+    if (it.Valid()) {
+      heap.push(it);
+    }
+    current_ptr = current_ptr->GetPrevious().get();
+  }
+  views->reserve(row_cnt);
+
+  if (delta_node_cnt == 1) {
+    // fast path
+    shared_ptr->Traverse(
         [&](const property::Row &row, bool is_deleted, TxnTs write_ts) {
           if (!is_deleted) {
             views->PushBackRef(RowRef(row));
           }
         });
-    current_ptr = current_ptr->GetPrevious().get();
-    cnt += 1;
+    return;
   }
 
-  if (cnt > 1) {
-    std::sort(views->begin(), views->end(),
-              [](const RowRef &lhs, const RowRef &rhs) {
-                return lhs.GetSortKeys() < rhs.GetSortKeys();
-              });
+  // TODO(sheep):remove duplicate
+  while (!heap.empty()) {
+    auto it = heap.top();
+    views->PushBackRef(it.GetRow());
+    it.Next();
+    if (it.Valid()) {
+      heap.replace_top(it);
+    } else {
+      heap.pop();
+    }
   }
-  if (scan_opts.remove_duplicate) {
-    // TODO(sheep): impl me.
-  }
+  // int cnt = 0;
+  // while (current_ptr) {
+  //   current_ptr->Traverse(
+  //       [&](const property::Row &row, bool is_deleted, TxnTs write_ts) {
+  //         if (!is_deleted) {
+  //           views->PushBackRef(RowRef(row));
+  //         }
+  //       });
+  //   current_ptr = current_ptr->GetPrevious().get();
+  //   cnt += 1;
+  // }
+
+  // if (cnt > 1) {
+  //   std::sort(views->begin(), views->end(),
+  //             [](const RowRef &lhs, const RowRef &rhs) {
+  //               return lhs.GetSortKeys() < rhs.GetSortKeys();
+  //             });
+  // }
+  // if (scan_opts.remove_duplicate) {
+  //   // TODO(sheep): impl me.
+  // }
 }
 
 } // namespace btree
