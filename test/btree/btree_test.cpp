@@ -129,21 +129,17 @@ public:
 TEST_F(BtreeTest, BasicTest) {
   auto value_list = GenerateValueList(100);
   for (const auto &value : value_list) {
-    EXPECT_TRUE(WriteHelper(value,
-                            [&](const property::Row &row) {
-                              return btree_.SetRow(row, opts_);
-                            })
-                    .ok());
+    EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                  return btree_.SetRow(row, opts_);
+                }).ok());
   }
   for (const auto &value : value_list) {
     TestRead(value, false);
   }
   for (const auto &value : value_list) {
-    EXPECT_TRUE(WriteHelper(value,
-                            [&](const property::Row &row) {
-                              return btree_.DeleteRow(row.GetSortKeys(), opts_);
-                            })
-                    .ok());
+    EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                  return btree_.DeleteRow(row.GetSortKeys(), opts_);
+                }).ok());
   }
   for (const auto &value : value_list) {
     TestRead(value, true);
@@ -159,18 +155,13 @@ TEST_F(BtreeTest, ConcurrentTest) {
       ValueStruct value{
           .point_id = index, .point_type = 0, .value = std::to_string(index)};
       for (int j = 0; j < epoch_cnt; j++) {
-        EXPECT_TRUE(WriteHelper(value,
-                                [&](const property::Row &row) {
-                                  return btree_.SetRow(row, opts_);
-                                })
-                        .ok());
+        EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                      return btree_.SetRow(row, opts_);
+                    }).ok());
         TestRead(value, false);
-        EXPECT_TRUE(WriteHelper(value,
-                                [&](const property::Row &row) {
-                                  return btree_.DeleteRow(row.GetSortKeys(),
-                                                          opts_);
-                                })
-                        .ok());
+        EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                      return btree_.DeleteRow(row.GetSortKeys(), opts_);
+                    }).ok());
       }
       wg.Done();
     });

@@ -21,8 +21,8 @@
 namespace arcanedb {
 namespace property {
 
-Status SimpleRow::GetProp(ColumnId id, ValueResult *res, Schema *schema) const
-    noexcept {
+Status SimpleRow::GetProp(ColumnId id, ValueResult *res,
+                          Schema *schema) const noexcept {
   DCHECK(ptr_ != nullptr);
   auto index = schema->GetColumnIndex(id);
   auto offset = schema->GetColumnOffsetForSimpleRow(index);

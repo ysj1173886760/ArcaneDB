@@ -20,7 +20,9 @@
 namespace arcanedb {
 namespace util {
 
-template <typename T> struct OwnershipHelper { using type = std::nullopt_t; };
+template <typename T> struct OwnershipHelper {
+  using type = std::nullopt_t;
+};
 
 template <typename T, typename Owner = typename OwnershipHelper<T>::type>
 class Views {
@@ -81,8 +83,8 @@ public:
     owner_container_.insert(std::move(owner));
   }
 
-  const absl::flat_hash_set<std::shared_ptr<const Owner>> &GetContainer() const
-      noexcept {
+  const absl::flat_hash_set<std::shared_ptr<const Owner>> &
+  GetContainer() const noexcept {
     return owner_container_;
   }
 

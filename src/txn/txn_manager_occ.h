@@ -28,8 +28,8 @@ public:
       : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum),
         lock_manager_type_(type) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn(const Options &opts) const
-      noexcept override {
+  std::unique_ptr<TxnContext>
+  BeginRoTxn(const Options &opts) const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContextOCC>(opts, txn_id, read_ts,
@@ -45,8 +45,8 @@ public:
                                            this, lock_manager_type_);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn(const Options &opts) const
-      noexcept override {
+  std::unique_ptr<TxnContext>
+  BeginRwTxn(const Options &opts) const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto read_ts = tso_.RequestTs();
     // commit this read ts immediately.

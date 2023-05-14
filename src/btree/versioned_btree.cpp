@@ -78,8 +78,8 @@ void VersionedBtree::SetTs(property::SortKeysRef sort_key, TxnTs target_ts,
 }
 
 Status VersionedBtree::GetRow(property::SortKeysRef sort_key, TxnTs read_ts,
-                              const Options &opts, RowView *view) const
-    noexcept {
+                              const Options &opts,
+                              RowView *view) const noexcept {
   auto page_type = root_page_->GetPageType();
   Status s;
   switch (page_type) {

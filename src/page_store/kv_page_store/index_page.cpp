@@ -100,8 +100,8 @@ PageIdType IndexPage::UpdateReplacement() noexcept {
   return AppendIndexOnPageId_(page_id_, pages_.size() - 1);
 }
 
-std::vector<PageStore::PageIdAndType> IndexPage::ListAllPhysicalPages() const
-    noexcept {
+std::vector<PageStore::PageIdAndType>
+IndexPage::ListAllPhysicalPages() const noexcept {
   std::vector<PageStore::PageIdAndType> res;
   res.reserve(pages_.size());
   for (int i = 0; i < pages_.size(); i++) {

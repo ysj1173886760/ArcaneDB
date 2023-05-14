@@ -84,8 +84,8 @@ public:
         std::string_view(block_ + offset, writer_.Offset() - offset));
   }
 
-  const log_store::LogStore::LogRecordContainer &GetLogRecords() const
-      noexcept {
+  const log_store::LogStore::LogRecordContainer &
+  GetLogRecords() const noexcept {
     return container_;
   }
 

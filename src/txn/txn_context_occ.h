@@ -124,9 +124,8 @@ private:
       const Options &opts) noexcept;
 
   struct WriteSetHash {
-    size_t
-    operator()(const std::pair<std::string, property::SortKeysRef> &value) const
-        noexcept {
+    size_t operator()(const std::pair<std::string, property::SortKeysRef>
+                          &value) const noexcept {
       // using xor to simplicity.
       // Might need to use absl::combine
       return absl::Hash<std::string>()(value.first) ^
@@ -135,9 +134,8 @@ private:
   };
 
   struct ReadSetHash {
-    size_t
-    operator()(const std::pair<std::string, property::SortKeys> &value) const
-        noexcept {
+    size_t operator()(const std::pair<std::string, property::SortKeys> &value)
+        const noexcept {
       return absl::Hash<std::string>()(value.first) ^
              property::SortKeysHash()(value.second);
     }

@@ -97,8 +97,8 @@ public:
    * @param visitor
    */
   template <typename Visitor>
-  log_store::LsnType Traverse(Visitor visitor, bool should_lock = false) const
-      noexcept {
+  log_store::LsnType Traverse(Visitor visitor,
+                              bool should_lock = false) const noexcept {
     log_store::LsnType lsn;
     if (unlikely(should_lock)) {
       lock_.Lock();

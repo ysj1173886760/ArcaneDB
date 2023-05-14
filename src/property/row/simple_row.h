@@ -39,8 +39,8 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, ValueResult *value, Schema *schema) const
-      noexcept;
+  Status GetProp(ColumnId id, ValueResult *value,
+                 Schema *schema) const noexcept;
 
   /**
    * @brief

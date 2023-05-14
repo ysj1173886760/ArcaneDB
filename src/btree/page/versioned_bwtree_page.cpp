@@ -286,8 +286,8 @@ bool VersionedBwTreePage::TEST_TsDesending() const noexcept {
   return true;
 }
 
-bool VersionedBwTreePage::TEST_Equal(const VersionedBwTreePage &rhs) const
-    noexcept {
+bool VersionedBwTreePage::TEST_Equal(
+    const VersionedBwTreePage &rhs) const noexcept {
   return TEST_DumpPage() == rhs.TEST_DumpPage();
 }
 

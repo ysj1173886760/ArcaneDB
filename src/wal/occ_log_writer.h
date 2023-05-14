@@ -29,8 +29,8 @@ class OccLogWriter {
 public:
   OccLogWriter() noexcept : writer_(block_, kDefaultBlockSize) {}
 
-  const log_store::LogStore::LogRecordContainer &GetLogRecords() const
-      noexcept {
+  const log_store::LogStore::LogRecordContainer &
+  GetLogRecords() const noexcept {
     return container_;
   }
 

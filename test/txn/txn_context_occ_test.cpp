@@ -204,11 +204,9 @@ TEST_P(TxnContextOCCTest, BasicTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->SetRow(table_key_, row, opts_);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->SetRow(table_key_, row, opts_);
+                  }).ok());
     }
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
     ts = context->GetWriteTs();
@@ -223,12 +221,10 @@ TEST_P(TxnContextOCCTest, BasicTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->DeleteRow(
-                                    table_key_, row.GetSortKeys(), opts_);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->DeleteRow(table_key_, row.GetSortKeys(),
+                                              opts_);
+                  }).ok());
     }
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
     ts = context->GetWriteTs();
@@ -245,11 +241,9 @@ TEST_P(TxnContextOCCTest, AbortTest) {
   auto value = ValueStruct{.point_id = 0, .point_type = 0, .value = "hello"};
   {
     auto context = txn_manager_->BeginRwTxn(opts_);
-    EXPECT_TRUE(WriteHelper(value,
-                            [&](const property::Row &row) {
-                              return context->SetRow(table_key_, row, opts_);
-                            })
-                    .ok());
+    EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                  return context->SetRow(table_key_, row, opts_);
+                }).ok());
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
   }
   // scenario:
@@ -271,11 +265,9 @@ TEST_P(TxnContextOCCTest, AbortTest) {
   {
     auto new_value =
         ValueStruct{.point_id = 0, .point_type = 0, .value = "world"};
-    EXPECT_TRUE(WriteHelper(new_value,
-                            [&](const property::Row &row) {
-                              return txn2->SetRow(table_key_, row, opts_);
-                            })
-                    .ok());
+    EXPECT_TRUE(WriteHelper(new_value, [&](const property::Row &row) {
+                  return txn2->SetRow(table_key_, row, opts_);
+                }).ok());
     EXPECT_TRUE(txn2->CommitOrAbort(opts_).IsCommit());
   }
   { EXPECT_TRUE(txn1->CommitOrAbort(opts_).IsAbort()); }
@@ -286,11 +278,9 @@ TEST_P(TxnContextOCCTest, AbortIntentTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : values) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->SetRow(table_key_, row, opts_);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->SetRow(table_key_, row, opts_);
+                  }).ok());
     }
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
   }
@@ -311,11 +301,9 @@ TEST_P(TxnContextOCCTest, AbortIntentTest) {
         if (value == conflict_value) {
           continue;
         }
-        EXPECT_TRUE(WriteHelper(value,
-                                [&](const property::Row &row) {
-                                  return txn1->SetRow(table_key_, row, opts_);
-                                })
-                        .ok());
+        EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                      return txn1->SetRow(table_key_, row, opts_);
+                    }).ok());
       }
     }
     {
@@ -326,11 +314,9 @@ TEST_P(TxnContextOCCTest, AbortIntentTest) {
       auto new_value = ValueStruct{.point_id = conflict_value.point_id,
                                    .point_type = conflict_value.point_type,
                                    .value = "world"};
-      EXPECT_TRUE(WriteHelper(new_value,
-                              [&](const property::Row &row) {
-                                return txn2->SetRow(table_key_, row, opts_);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(new_value, [&](const property::Row &row) {
+                    return txn2->SetRow(table_key_, row, opts_);
+                  }).ok());
       EXPECT_TRUE(txn2->CommitOrAbort(opts_).IsCommit());
     }
     { EXPECT_TRUE(txn1->CommitOrAbort(opts_).IsAbort()); }
@@ -367,18 +353,14 @@ TEST_P(TxnContextOCCTest, ConcurrentTest) {
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
               .point_id = 1, .point_type = 0, .value = std::to_string(k)};
-          EXPECT_TRUE(WriteHelper(value1,
-                                  [&](const property::Row &row) {
-                                    return context->SetRow(
-                                        table_list[table_index], row, opts_);
-                                  })
-                          .ok());
-          EXPECT_TRUE(WriteHelper(value2,
-                                  [&](const property::Row &row) {
-                                    return context->SetRow(
-                                        table_list[table_index], row, opts_);
-                                  })
-                          .ok());
+          EXPECT_TRUE(WriteHelper(value1, [&](const property::Row &row) {
+                        return context->SetRow(table_list[table_index], row,
+                                               opts_);
+                      }).ok());
+          EXPECT_TRUE(WriteHelper(value2, [&](const property::Row &row) {
+                        return context->SetRow(table_list[table_index], row,
+                                               opts_);
+                      }).ok());
           context->CommitOrAbort(opts_);
         }
         wg.Done();
@@ -444,18 +426,14 @@ TEST_P(TxnContextOCCTest, ConcurrentTestWithLog) {
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
               .point_id = 1, .point_type = 0, .value = std::to_string(k)};
-          EXPECT_TRUE(WriteHelper(value1,
-                                  [&](const property::Row &row) {
-                                    return context->SetRow(
-                                        table_list[table_index], row, opts);
-                                  })
-                          .ok());
-          EXPECT_TRUE(WriteHelper(value2,
-                                  [&](const property::Row &row) {
-                                    return context->SetRow(
-                                        table_list[table_index], row, opts);
-                                  })
-                          .ok());
+          EXPECT_TRUE(WriteHelper(value1, [&](const property::Row &row) {
+                        return context->SetRow(table_list[table_index], row,
+                                               opts);
+                      }).ok());
+          EXPECT_TRUE(WriteHelper(value2, [&](const property::Row &row) {
+                        return context->SetRow(table_list[table_index], row,
+                                               opts);
+                      }).ok());
           context->CommitOrAbort(opts);
         }
         wg.Done();
@@ -497,11 +475,9 @@ TEST_P(TxnContextOCCTest, BasicRecoveryTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts);
     for (const auto &value : value_list) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->SetRow(table_key_, row, opts);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->SetRow(table_key_, row, opts);
+                  }).ok());
     }
     EXPECT_TRUE(context->CommitOrAbort(opts).IsCommit());
     ts = context->GetWriteTs();
@@ -535,12 +511,10 @@ TEST_P(TxnContextOCCTest, BasicRecoveryTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts);
     for (const auto &value : value_list) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->DeleteRow(
-                                    table_key_, row.GetSortKeys(), opts);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->DeleteRow(table_key_, row.GetSortKeys(),
+                                              opts);
+                  }).ok());
     }
     EXPECT_TRUE(context->CommitOrAbort(opts_).IsCommit());
     ts = context->GetWriteTs();

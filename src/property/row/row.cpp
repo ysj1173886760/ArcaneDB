@@ -9,8 +9,8 @@
 namespace arcanedb {
 namespace property {
 
-Status Row::GetProp(ColumnId id, ValueResult *value, const Schema *schema) const
-    noexcept {
+Status Row::GetProp(ColumnId id, ValueResult *value,
+                    const Schema *schema) const noexcept {
   auto index = schema->GetColumnIndex(id);
   if (index < schema->GetSortKeyCount()) {
     return GetPropSortKey_(index, value, schema);

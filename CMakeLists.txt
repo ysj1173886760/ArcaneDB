@@ -128,7 +128,7 @@ add_subdirectory(benchmark)
 
 # clang-format
 find_program(CLANG_FORMAT_BIN
-    NAMES clang-format)
+    NAMES clang-format-16)
 
 string(CONCAT ARCANEDB_FORMAT_DIRS
     "${PROJECT_SOURCE_DIR}/src,"

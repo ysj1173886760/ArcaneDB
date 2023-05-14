@@ -141,8 +141,12 @@ static const thread_id_t invalid_thread_id; // Default ctor creates invalid ID
 static inline thread_id_t thread_id() { return std::this_thread::get_id(); }
 
 template <std::size_t> struct thread_id_size {};
-template <> struct thread_id_size<4> { typedef std::uint32_t numeric_t; };
-template <> struct thread_id_size<8> { typedef std::uint64_t numeric_t; };
+template <> struct thread_id_size<4> {
+  typedef std::uint32_t numeric_t;
+};
+template <> struct thread_id_size<8> {
+  typedef std::uint64_t numeric_t;
+};
 
 template <> struct thread_id_converter<thread_id_t> {
   typedef thread_id_size<sizeof(thread_id_t)>::numeric_t
@@ -346,7 +350,9 @@ template <typename T> struct Vs2013Aligned<256, T> {
   typedef __declspec(align(256)) T type;
 };
 #else
-template <typename T> struct identity { typedef T type; };
+template <typename T> struct identity {
+  typedef T type;
+};
 #define MOODYCAMEL_ALIGNAS(alignment) alignas(alignment)
 #define MOODYCAMEL_ALIGNOF(obj) alignof(obj)
 #define MOODYCAMEL_ALIGNED_TYPE_LIKE(T, obj)                                   \
@@ -639,7 +645,7 @@ template <> struct nomove_if<false> {
 };
 
 template <typename It>
-static inline auto deref_noexcept(It &it) MOODYCAMEL_NOEXCEPT -> decltype(*it) {
+static inline auto deref_noexcept(It &it) MOODYCAMEL_NOEXCEPT->decltype(*it) {
   return *it;
 }
 

@@ -172,11 +172,9 @@ TEST_F(TxnContext2PLTest, BasicTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->SetRow(table_key_, row, opts_);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->SetRow(table_key_, row, opts_);
+                  }).ok());
     }
     ts = context->GetWriteTs();
     context->CommitOrAbort(opts_);
@@ -191,12 +189,10 @@ TEST_F(TxnContext2PLTest, BasicTest) {
   {
     auto context = txn_manager_->BeginRwTxn(opts_);
     for (const auto &value : value_list) {
-      EXPECT_TRUE(WriteHelper(value,
-                              [&](const property::Row &row) {
-                                return context->DeleteRow(
-                                    table_key_, row.GetSortKeys(), opts_);
-                              })
-                      .ok());
+      EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                    return context->DeleteRow(table_key_, row.GetSortKeys(),
+                                              opts_);
+                  }).ok());
     }
     ts = context->GetWriteTs();
     context->CommitOrAbort(opts_);
@@ -229,18 +225,14 @@ TEST_F(TxnContext2PLTest, ConcurrentTest) {
               .point_id = 0, .point_type = 0, .value = std::to_string(k)};
           ValueStruct value2{
               .point_id = 1, .point_type = 0, .value = std::to_string(k)};
-          EXPECT_TRUE(WriteHelper(value1,
-                                  [&](const property::Row &row) {
-                                    return context->SetRow(
-                                        table_list[table_index], row, opts_);
-                                  })
-                          .ok());
-          EXPECT_TRUE(WriteHelper(value2,
-                                  [&](const property::Row &row) {
-                                    return context->SetRow(
-                                        table_list[table_index], row, opts_);
-                                  })
-                          .ok());
+          EXPECT_TRUE(WriteHelper(value1, [&](const property::Row &row) {
+                        return context->SetRow(table_list[table_index], row,
+                                               opts_);
+                      }).ok());
+          EXPECT_TRUE(WriteHelper(value2, [&](const property::Row &row) {
+                        return context->SetRow(table_list[table_index], row,
+                                               opts_);
+                      }).ok());
           context->CommitOrAbort(opts_);
           // TestTsAsending(table_list[table_index]);
         }

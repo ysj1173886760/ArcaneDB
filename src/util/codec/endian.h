@@ -144,7 +144,9 @@ template <typename T> struct is_endian_reversible {
       std::is_integral<T>::value || std::is_pod<T>::value;
 };
 
-template <typename... Ts> struct make_void { using type = void; };
+template <typename... Ts> struct make_void {
+  using type = void;
+};
 
 template <typename... Ts> using void_t = typename make_void<Ts...>::type;
 

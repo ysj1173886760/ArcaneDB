@@ -68,8 +68,8 @@ Status Btree::GetRow(property::SortKeysRef sort_key, const Options &opts,
 }
 
 Status Btree::GetRowMultilevel_(property::SortKeysRef sort_key,
-                                const Options &opts, RowView *view) const
-    noexcept {
+                                const Options &opts,
+                                RowView *view) const noexcept {
   InternalRowView internal_view;
   auto s = root_page_->GetPageId(opts, sort_key, &internal_view);
   if (unlikely(!s.ok())) {

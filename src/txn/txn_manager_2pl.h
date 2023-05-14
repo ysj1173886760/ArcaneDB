@@ -34,8 +34,8 @@ public:
   TxnManager2PL() noexcept
       : snapshot_manager_{}, lock_table_(common::Config::kLockTableShardNum) {}
 
-  std::unique_ptr<TxnContext> BeginRoTxn(const Options &opts) const
-      noexcept override {
+  std::unique_ptr<TxnContext>
+  BeginRoTxn(const Options &opts) const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = snapshot_manager_.GetSnapshotTs();
     return std::make_unique<TxnContext2PL>(txn_id, txn_ts, TxnType::ReadOnlyTxn,
@@ -48,8 +48,8 @@ public:
                                            &snapshot_manager_, &lock_table_);
   }
 
-  std::unique_ptr<TxnContext> BeginRwTxn(const Options &opts) const
-      noexcept override {
+  std::unique_ptr<TxnContext>
+  BeginRwTxn(const Options &opts) const noexcept override {
     auto txn_id = util::GenerateUUID();
     auto txn_ts = tso_.RequestTs();
     return std::make_unique<TxnContext2PL>(txn_id, txn_ts,

@@ -48,8 +48,8 @@ public:
    * @param schema
    * @return Status
    */
-  Status GetProp(ColumnId id, ValueResult *value, const Schema *schema) const
-      noexcept;
+  Status GetProp(ColumnId id, ValueResult *value,
+                 const Schema *schema) const noexcept;
 
   SortKeysRef GetSortKeys() const noexcept;
 

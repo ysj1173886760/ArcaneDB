@@ -36,8 +36,8 @@ static const property::RawSchema kWeightedGraphRawSchema{
     .sort_key_count = 1};
 static const property::Schema kWeightedGraphSchema(kWeightedGraphRawSchema);
 
-WeightedGraphDB::VertexId WeightedGraphDB::EdgeIterator::OutVertexId() const
-    noexcept {
+WeightedGraphDB::VertexId
+WeightedGraphDB::EdgeIterator::OutVertexId() const noexcept {
   property::ValueResult res;
   auto s =
       views.at(current_idx)
@@ -63,8 +63,8 @@ WeightedGraphDB::UnsortedEdgeIterator::OutVertexId() const noexcept {
   return std::get<int64_t>(res.value);
 }
 
-std::string_view WeightedGraphDB::UnsortedEdgeIterator::EdgeValue() const
-    noexcept {
+std::string_view
+WeightedGraphDB::UnsortedEdgeIterator::EdgeValue() const noexcept {
   property::ValueResult res;
   auto s = iterator.GetRow().GetProp(kWeightedGraphValueColumn, &res,
                                      &kWeightedGraphSchema);

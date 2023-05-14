@@ -339,19 +339,14 @@ TEST_F(VersionedBwTreePageTest, SetTsTest) {
   TxnTs ts = 1;
   ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
   WriteInfo info;
-  EXPECT_TRUE(WriteHelper(value,
-                          [&](const property::Row &row) {
-                            auto s =
-                                page_->SetRow(row, MarkLocked(ts), opts, &info);
-                            return s;
-                          })
-                  .ok());
-  EXPECT_TRUE(WriteHelper(value,
-                          [&](const property::Row &row) {
-                            page_->SetTs(row.GetSortKeys(), ts, opts, &info);
-                            return Status::Ok();
-                          })
-                  .ok());
+  EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                auto s = page_->SetRow(row, MarkLocked(ts), opts, &info);
+                return s;
+              }).ok());
+  EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                page_->SetTs(row.GetSortKeys(), ts, opts, &info);
+                return Status::Ok();
+              }).ok());
   auto sk = property::SortKeys({value.point_id, value.point_type});
   RowView view;
   EXPECT_TRUE(page_->GetRow(sk.as_ref(), ts, opts, &view).ok());
@@ -404,34 +399,23 @@ TEST_F(VersionedBwTreePageTest, SetWhileCheckingLockTest) {
   TxnTs ts = 1;
   ValueStruct value{.point_id = 0, .point_type = 0, .value = "hello"};
   WriteInfo info;
-  EXPECT_TRUE(WriteHelper(value,
-                          [&](const property::Row &row) {
-                            auto s =
-                                page_->SetRow(row, MarkLocked(ts), opts, &info);
-                            return s;
-                          })
-                  .ok());
+  EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                auto s = page_->SetRow(row, MarkLocked(ts), opts, &info);
+                return s;
+              }).ok());
   opts.check_intent_locked = true;
-  EXPECT_TRUE(WriteHelper(value,
-                          [&](const property::Row &row) {
-                            auto s =
-                                page_->SetRow(row, MarkLocked(ts), opts, &info);
-                            return s;
-                          })
-                  .IsTxnConflict());
-  EXPECT_TRUE(WriteHelper(value,
-                          [&](const property::Row &row) {
-                            page_->SetTs(row.GetSortKeys(), ts, opts, &info);
-                            return Status::Ok();
-                          })
-                  .ok());
-  EXPECT_TRUE(WriteHelper(value,
-                          [&](const property::Row &row) {
-                            auto s = page_->SetRow(row, MarkLocked(ts + 1),
-                                                   opts, &info);
-                            return s;
-                          })
-                  .ok());
+  EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                auto s = page_->SetRow(row, MarkLocked(ts), opts, &info);
+                return s;
+              }).IsTxnConflict());
+  EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                page_->SetTs(row.GetSortKeys(), ts, opts, &info);
+                return Status::Ok();
+              }).ok());
+  EXPECT_TRUE(WriteHelper(value, [&](const property::Row &row) {
+                auto s = page_->SetRow(row, MarkLocked(ts + 1), opts, &info);
+                return s;
+              }).ok());
   auto sk = property::SortKeys({value.point_id, value.point_type});
   RowView view;
   opts.ignore_lock = true;

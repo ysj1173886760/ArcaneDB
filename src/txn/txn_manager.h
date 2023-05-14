@@ -21,11 +21,11 @@ class TxnContext;
 
 class TxnManager {
 public:
-  virtual std::unique_ptr<TxnContext> BeginRoTxn(const Options &opts) const
-      noexcept = 0;
+  virtual std::unique_ptr<TxnContext>
+  BeginRoTxn(const Options &opts) const noexcept = 0;
 
-  virtual std::unique_ptr<TxnContext> BeginRwTxn(const Options &opts) const
-      noexcept = 0;
+  virtual std::unique_ptr<TxnContext>
+  BeginRwTxn(const Options &opts) const noexcept = 0;
 
   virtual ~TxnManager() noexcept {}
 };
